@@ -23,5 +23,11 @@ android:
               categories:
                 - "com.oculus.intent.category.VR"
                 - "android.intent.category.LAUNCHER"
+    uses_permission:
+      - name: "com.oculus.permission.USE_SCENE"
+    uses_feature:
+      - name: "com.oculus.experimental.enabled"
+      - name: "com.oculus.feature.PASSTHROUGH"
+        required: true
     sdk:
       target_sdk_version: 32

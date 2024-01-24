@@ -8,10 +8,16 @@ description = "Example for building an Android OpenXR app with Bevy"
 name = "wizARds"
 crate-type = ["rlib", "cdylib"]
 
+[[bin]]
+name = "wizARds"
+path = "src/main.rs"
+
 [dependencies]
-bevy_oxr = { git = "https://github.com/awtterpip/bevy_oxr", default-features = false }
 bevy = "0.12"
-openxr = { git = "https://github.com/Ralith/openxrs" }
+
+[target.'cfg(target_os = "android")'.dependencies]
+# bevy_oxr = { git = "https://github.com/awtterpip/bevy_oxr", default-features = false }
+bevy_oxr = { git = "https://github.com/Foxinatel/bevy_oxr", default-features = false }
 
 [profile.release]
 opt-level = 3
