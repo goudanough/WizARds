@@ -25,9 +25,12 @@ android:
                 - "android.intent.category.LAUNCHER"
     uses_permission:
       - name: "com.oculus.permission.USE_SCENE"
+      - name: "com.oculus.permission.HAND_TRACKING"
     uses_feature:
       - name: "com.oculus.experimental.enabled"
       - name: "com.oculus.feature.PASSTHROUGH"
+        required: true
+      - name: "oculus.software.handtracking"
         required: true
     sdk:
       target_sdk_version: 32

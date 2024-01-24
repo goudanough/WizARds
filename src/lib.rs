@@ -4,13 +4,15 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
 #[cfg(target_os = "android")]
-use bevy_oxr::DefaultXrPlugins;
-#[cfg(target_os = "android")]
 use bevy_oxr::graphics::extensions::XrExtensions;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
+#[cfg(target_os = "android")]
+use bevy_oxr::DefaultXrPlugins;
 // #[cfg(target_os = "android")]
 // use bevy_oxr::xr_input::prototype_locomotion::{proto_locomotion, PrototypeLocomotionConfig};
 #[cfg(target_os = "android")]
@@ -28,7 +30,7 @@ pub fn main() {
     #[cfg(target_os = "android")]
     {
         let mut reqeusted_extensions = XrExtensions::default();
-        reqeusted_extensions.enable_fb_passthrough();
+        reqeusted_extensions.enable_fb_passthrough().enable_hand_tracking();
 
         app.add_plugins(DefaultXrPlugins {
             reqeusted_extensions,
@@ -38,8 +40,10 @@ pub fn main() {
             },
         })
         .add_plugins(OpenXrDebugRenderer)
+        .add_plugins(HandInputDebugRenderer)
+        .add_plugins(OpenXrHandInput);
         // .add_systems(Update, proto_locomotion)
-        .add_systems(Startup, spawn_controllers_example);
+        // .add_systems(Startup, spawn_controllers_example);
         // .insert_resource(PrototypeLocomotionConfig::default());
     }
 

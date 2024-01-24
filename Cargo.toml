@@ -17,7 +17,7 @@ bevy = "0.12"
 
 [target.'cfg(target_os = "android")'.dependencies]
 # bevy_oxr = { git = "https://github.com/awtterpip/bevy_oxr", default-features = false }
-bevy_oxr = { git = "https://github.com/Foxinatel/bevy_oxr", default-features = false }
+bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", default-features = false }
 
 [profile.release]
 opt-level = 3
