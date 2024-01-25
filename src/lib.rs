@@ -1,5 +1,8 @@
 #![allow(non_snake_case)]
 
+mod xr;
+
+use crate::xr::scene::QuestScene;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
@@ -25,6 +28,7 @@ pub fn main() {
         reqeusted_extensions
             .enable_fb_passthrough()
             .enable_hand_tracking();
+        reqeusted_extensions.raw_mut().fb_scene_capture = true;
 
         app.add_plugins(DefaultXrPlugins {
             reqeusted_extensions,
@@ -35,7 +39,8 @@ pub fn main() {
         })
         .add_plugins(OpenXrDebugRenderer)
         .add_plugins(HandInputDebugRenderer)
-        .add_plugins(OpenXrHandInput);
+        .add_plugins(OpenXrHandInput)
+        .add_plugins(QuestScene);
     }
 
     #[cfg(not(target_os = "android"))]
