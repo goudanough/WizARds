@@ -20,6 +20,8 @@ use bevy_oxr::xr_input::trackers::{
     OpenXRController, OpenXRLeftController, OpenXRRightController, OpenXRTracker,
 };
 
+use crate::speech::SpeechPlugin;
+
 mod speech;
 
 #[bevy_main]
@@ -27,7 +29,8 @@ pub fn main() {
     let mut app = App::new();
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin);
+        .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(SpeechPlugin);
 
     #[cfg(target_os = "android")]
     {
