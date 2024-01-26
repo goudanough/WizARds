@@ -1,7 +1,7 @@
 # wizARds
 
 ## Setup
-Get libopenxr_loader.so from the Oculus OpenXR Mobile SDK and add it to `/runtime_libs/arm64-v8a/`
+Get libopenxr_loader.so from the Oculus OpenXR Mobile SDK and add it to a new folder `runtime_libs/arm64-v8a/`
 https://developer.oculus.com/downloads/package/oculus-openxr-mobile-sdk/ \
 The shell script `get_oxr_loader.sh` has been provided for automating this for Linux/Mac users
 
