@@ -14,6 +14,8 @@ path = "src/main.rs"
 
 [dependencies]
 bevy = "0.12"
+cpal = "0.15.2"
+crossbeam = "0.8.4"
 vosk = "0.2.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
