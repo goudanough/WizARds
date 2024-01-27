@@ -1,10 +1,11 @@
-use bevy::{prelude::*, reflect::Array};
+use bevy::prelude::*;
 use vosk::*;
-use cpal::{traits::{DeviceTrait, HostTrait, StreamTrait}, Stream, StreamConfig};
+use cpal::{traits::{DeviceTrait, HostTrait, StreamTrait}, StreamConfig};
 use std::sync::Arc;
 use crossbeam::queue::ArrayQueue;
 
 const SAMPLE_RATE: f32 = 16000.;
+const BUFFER_SIZE: usize = 10000;
 
 pub struct SpeechPlugin;
 
@@ -22,16 +23,18 @@ struct VoiceClip{
 
 impl Plugin for SpeechPlugin {
     fn build(&self, app: &mut App) {
+        let (voice, in_stream) = setup_voice();
         app
         .insert_resource(SpeechRecogniser(fetch_recogniser()))
-        .insert_resource(setup_voice())
+        .insert_resource(voice)
+        .insert_non_send_resource(in_stream)
         .insert_resource(VoiceClip{data:Vec::new()})
         .add_systems(Update, handle_voice);
     }
 }
 
-fn setup_voice() -> VoiceBuffer {
-    let queue: ArrayQueue<f32> = ArrayQueue::new(1000);
+fn setup_voice() -> (VoiceBuffer, cpal::Stream) {
+    let queue: ArrayQueue<f32> = ArrayQueue::new(BUFFER_SIZE);
     let queue = Arc::new(queue);
     let queue2 =  queue.clone();
 
@@ -46,12 +49,14 @@ fn setup_voice() -> VoiceBuffer {
     let in_stream = input_device.build_input_stream(&config, callback, err, None).unwrap();
     in_stream.play().unwrap();
 
-    VoiceBuffer {queue: queue}
+    (VoiceBuffer {queue: queue}, in_stream)
 }
 
 fn queue_input_data(data: &[f32], queue: &Arc<ArrayQueue<f32>>) {
     for &sample in data.iter() {
         queue.force_push(sample);
+
+        
     }
 }
 
@@ -97,6 +102,7 @@ fn handle_voice(keyboard_input: Res<Input<KeyCode>>, voice: Res<VoiceBuffer>, mu
         if keyboard_input.just_released(KeyCode::V) {
             println!("Finished collecting voice.");
             // Pass data to recogniser
+            println!("Collected {} samples!", clip.data.len());
             clip.data.clear();
         }
 }
