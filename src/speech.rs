@@ -1,6 +1,6 @@
 use bevy::{prelude::*, reflect::Array};
 use vosk::*;
-use cpal::{traits::{DeviceTrait, HostTrait, StreamTrait}, Stream};
+use cpal::{traits::{DeviceTrait, HostTrait, StreamTrait}, Stream, StreamConfig};
 use std::sync::Arc;
 use crossbeam::queue::ArrayQueue;
 
@@ -12,9 +12,12 @@ pub struct SpeechPlugin;
 struct SpeechRecogniser(Recognizer);
 
 #[derive(Resource)]
-struct VoiceHandle {
-    buffer: Vec<i16>,
+struct VoiceBuffer {
     queue: Arc<ArrayQueue<f32>>,
+}
+#[derive(Resource)]
+struct VoiceClip{
+    data: Vec<f32>
 }
 
 impl Plugin for SpeechPlugin {
@@ -22,11 +25,12 @@ impl Plugin for SpeechPlugin {
         app
         .insert_resource(SpeechRecogniser(fetch_recogniser()))
         .insert_resource(setup_voice())
+        .insert_resource(VoiceClip{data:Vec::new()})
         .add_systems(Update, handle_voice);
     }
 }
 
-fn setup_voice() -> VoiceHandle {
+fn setup_voice() -> VoiceBuffer {
     let queue: ArrayQueue<f32> = ArrayQueue::new(1000);
     let queue = Arc::new(queue);
     let queue2 =  queue.clone();
@@ -36,8 +40,13 @@ fn setup_voice() -> VoiceHandle {
     };
     let err = move |err: cpal::StreamError| {eprintln!("An error occurred on stream: {}",err)};
 
-    
+    let host = cpal::default_host();
+    let input_device = host.default_input_device().expect("failed to find input device");
+    let config: StreamConfig = input_device.default_input_config().unwrap().into();
+    let in_stream = input_device.build_input_stream(&config, callback, err, None).unwrap();
+    in_stream.play().unwrap();
 
+    VoiceBuffer {queue: queue}
 }
 
 fn queue_input_data(data: &[f32], queue: &Arc<ArrayQueue<f32>>) {
@@ -64,19 +73,31 @@ fn fetch_recogniser() -> Recognizer {
     }
 }
 
-fn handle_voice(keyboard_input: Res<Input<KeyCode>>, clip: Res<VoiceHandle>, _recogniser: Res<SpeechRecogniser>){
+fn handle_voice(keyboard_input: Res<Input<KeyCode>>, voice: Res<VoiceBuffer>, mut recogniser: ResMut<SpeechRecogniser>, mut clip: ResMut<VoiceClip>){
         if keyboard_input.just_pressed(KeyCode::V) {
             println!("Start collecting voice.");
-            let host = cpal::default_host();
-            let input_device = host.default_input_device().expect("failed to find input device");
-            
+            let n_samples = voice.queue.len();
+            // Flush the queue of samples taken before the voice button was pressed.
+            for _ in 0..n_samples {
+                voice.queue.pop();
+            }
 
         }
         if keyboard_input.pressed(KeyCode::V) {
             println!("Still collecting voice.");
+
+            // Get the number of samples in the queue, then add that many to the voice clip.
+            // Don't keep taking until empty, as the queue will continue to fill up as samples are extracted.
+            // TODO Above logic might be wrong / not be a problem, maybe change this - don't want to block on this.
+            let n_samples = voice.queue.len();
+            for _ in 0..n_samples {
+                clip.data.push(voice.queue.pop().unwrap());
+            }
         }
         if keyboard_input.just_released(KeyCode::V) {
-            println!("Finished collecting voice.")
+            println!("Finished collecting voice.");
+            // Pass data to recogniser
+            clip.data.clear();
         }
 }
 
