@@ -1,8 +1,9 @@
 #![allow(non_snake_case)]
-
+mod boss;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
+use bevy_xpbd_3d::prelude::*;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::extensions::XrExtensions;
 #[cfg(target_os = "android")]
@@ -23,7 +24,7 @@ use bevy_oxr::xr_input::trackers::{
 #[bevy_main]
 pub fn main() {
     let mut app = App::new();
-    app.add_systems(Startup, setup)
+    app.add_systems(Startup, global_setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin);
 
@@ -49,8 +50,12 @@ pub fn main() {
 
     #[cfg(not(target_os = "android"))]
     {
-        app.add_plugins(DefaultPlugins)
-            .add_systems(Startup, spawn_camera);
+        app.add_plugins((
+            DefaultPlugins,
+            PhysicsPlugins::default(),
+            boss::BossPlugin,
+        ))
+        .add_systems(Startup, spawn_camera);
     }
 
     app.run()
@@ -62,57 +67,38 @@ struct PancakeCamera;
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(5.0, 6.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+        transform: Transform::from_xyz(0.0, 1.0, 0.0).looking_at(Vec3::new(0.0, 1.0, 1.0), Vec3::Y),
+        ..default()
         },
-        PancakeCamera,
+    PancakeCamera,
     ));
 }
-
-/// set up a simple 3D scene
-fn setup(
+fn global_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut ambient_light: ResMut<AmbientLight>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut clear_color: ResMut<ClearColor>,
-) {
-    clear_color.0 = Color::Rgba {
-        red: 0.0,
-        green: 0.0,
-        blue: 0.0,
-        alpha: 0.0,
-    };
-
-    // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..default()
-    });
-    // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
-    // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.0, 0.0).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 1.0),
-        ..default()
-    });
-    // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
-            shadows_enabled: true,
+)
+    {commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane::from_size(128.0))),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        RigidBody::Static,
+        Collider::cuboid(128.0, 0.005, 128.0),
+    ));
+    // commands.spawn(DirectionalLightBundle {
+    //     directional_light: DirectionalLight {
+    //         color: Color::WHITE,
+    //         illuminance: 100000.0,
+    //         ..Default::default()
+    //     },
+    //     transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4)),
+    //     ..Default::default()
+    // });
+    ambient_light.color = Color::WHITE;
+    ambient_light.brightness = 1.0;
 }
 
 #[cfg(target_os = "android")]
