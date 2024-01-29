@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 mod boss;
+mod player;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
@@ -53,6 +54,7 @@ pub fn main() {
         app.add_plugins((
             DefaultPlugins,
             PhysicsPlugins::default(),
+            player::PlayerPlugin,
             boss::BossPlugin,
         ))
         .add_systems(Startup, spawn_camera);

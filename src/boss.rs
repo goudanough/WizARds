@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 
+use crate::player::Player;
+
 const BOSS_MAX_HEALTH: f32 = 100.0;
 
 pub struct BossPlugin;
 
 impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, setup);
+        app.add_systems(Startup, setup).add_systems(Update, update_boss);
     }
 }
 
@@ -51,4 +53,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         ..default()
     });
+}
+
+// boss look at player
+fn update_boss(
+    mut query: Query<&mut Transform, (With<Boss>, Without<Player>)>,
+    player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
+) {
+    if let Ok(player_transform) = player_query.get_single() {
+        let mut boss_transform = query.single_mut();
+
+        let mut player_pos_flat = player_transform.translation;
+        player_pos_flat.y = boss_transform.translation.y;
+
+        let direction = player_pos_flat - boss_transform.translation;
+        if direction != Vec3::ZERO {
+            let look_rotation = Quat::from_rotation_y(direction.x.atan2(direction.z));
+
+            let left_rotation = Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2);
+
+            boss_transform.rotation = look_rotation * left_rotation;
+        }
+    }
 }
