@@ -26,6 +26,7 @@ android:
     uses_permission:
       - name: "com.oculus.permission.USE_SCENE"
       - name: "com.oculus.permission.HAND_TRACKING"
+      - name: "com.oculus.permission.USE_ANCHOR_API"
     uses_feature:
       - name: "com.oculus.experimental.enabled"
       - name: "com.oculus.feature.PASSTHROUGH"

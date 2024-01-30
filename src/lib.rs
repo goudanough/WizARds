@@ -28,7 +28,15 @@ pub fn main() {
         reqeusted_extensions
             .enable_fb_passthrough()
             .enable_hand_tracking();
+
+        reqeusted_extensions.raw_mut().fb_scene = true;
         reqeusted_extensions.raw_mut().fb_scene_capture = true;
+        reqeusted_extensions.raw_mut().fb_spatial_entity = true;
+        reqeusted_extensions.raw_mut().fb_spatial_entity_query = true;
+        reqeusted_extensions.raw_mut().fb_spatial_entity_storage = true;
+        reqeusted_extensions.raw_mut().fb_spatial_entity_container = true;
+        reqeusted_extensions.raw_mut().meta_spatial_entity_mesh = true;
+        reqeusted_extensions.raw_mut().fb_triangle_mesh = true;
 
         app.add_plugins(DefaultXrPlugins {
             reqeusted_extensions,
