@@ -1,6 +1,10 @@
+mod boss_state;
 use bevy::prelude::*;
+use bevy_xpbd_3d::prelude::*;
 
 use crate::player::Player;
+
+use self::boss_state::{boss_action, BossState};
 
 const BOSS_MAX_HEALTH: f32 = 100.0;
 
@@ -8,7 +12,14 @@ pub struct BossPlugin;
 
 impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup).add_systems(Update, update_boss);
+        app.add_state::<BossState>().add_systems(Startup, setup).add_systems(
+            Update,
+            (
+                update_boss,
+                boss_action,
+                boss_state::boss_move.run_if(in_state(BossState::MoveTowardsPlayer)),
+            ),
+        );
     }
 }
 
@@ -29,6 +40,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             ..default()
         },
+        RigidBody::Dynamic,
+        Collider::cuboid(1.0, 1.0, 1.0),
         Boss,
         Health(BOSS_MAX_HEALTH),
     ));
