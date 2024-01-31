@@ -3,22 +3,32 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
-#[cfg(target_os = "android")]
+use bevy_ggrs::GgrsConfig;
 use bevy_oxr::graphics::extensions::XrExtensions;
-#[cfg(target_os = "android")]
 use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
-#[cfg(target_os = "android")]
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
-#[cfg(target_os = "android")]
 use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
-#[cfg(target_os = "android")]
-use bevy_oxr::DefaultXrPlugins;
-// #[cfg(target_os = "android")]
-// use bevy_oxr::xr_input::prototype_locomotion::{proto_locomotion, PrototypeLocomotionConfig};
-#[cfg(target_os = "android")]
 use bevy_oxr::xr_input::trackers::{
     OpenXRController, OpenXRLeftController, OpenXRRightController, OpenXRTracker,
 };
+use bevy_oxr::DefaultXrPlugins;
+use bytemuck::{Pod, Zeroable};
+use rollback::RollbackPlugin;
+
+mod rollback;
+
+const FPS: usize = 72;
+const NUM_PLAYERS: usize = 2;
+
+pub type RollbackConfig = GgrsConfig<PlayerInput>;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable, Default)]
+pub struct PlayerInput {
+    head_pos: Vec3,
+    _padding: u32,
+    head_rot: Quat,
+}
 
 #[bevy_main]
 pub fn main() {
@@ -26,32 +36,27 @@ pub fn main() {
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin);
+    let mut reqeusted_extensions = XrExtensions::default();
+    reqeusted_extensions
+        .enable_fb_passthrough()
+        .enable_hand_tracking();
 
-    #[cfg(target_os = "android")]
-    {
-        let mut reqeusted_extensions = XrExtensions::default();
-        reqeusted_extensions.enable_fb_passthrough().enable_hand_tracking();
-
-        app.add_plugins(DefaultXrPlugins {
-            reqeusted_extensions,
-            prefered_blend_mode: XrPreferdBlendMode::AlphaBlend,
-            app_info: XrAppInfo {
-                name: "wizARds".to_string(),
-            },
-        })
-        .add_plugins(OpenXrDebugRenderer)
-        .add_plugins(HandInputDebugRenderer)
-        .add_plugins(OpenXrHandInput);
-        // .add_systems(Update, proto_locomotion)
-        // .add_systems(Startup, spawn_controllers_example);
-        // .insert_resource(PrototypeLocomotionConfig::default());
-    }
-
-    #[cfg(not(target_os = "android"))]
-    {
-        app.add_plugins(DefaultPlugins)
-            .add_systems(Startup, spawn_camera);
-    }
+    app.add_plugins(DefaultXrPlugins {
+        reqeusted_extensions,
+        prefered_blend_mode: XrPreferdBlendMode::AlphaBlend,
+        app_info: XrAppInfo {
+            name: "wizARds".to_string(),
+        },
+    })
+    .add_plugins(OpenXrDebugRenderer)
+    .add_plugins(HandInputDebugRenderer)
+    .add_plugins(OpenXrHandInput)
+    .add_plugins(RollbackPlugin)
+    // .add_systems(Update, proto_locomotion)
+    .add_systems(Startup, spawn_controllers_example);
+    // .insert_resource(PrototypeLocomotionConfig::default());
+    // app.add_plugins(DefaultPlugins)
+    //     .add_systems(Startup, spawn_camera);
 
     app.run()
 }
@@ -115,7 +120,6 @@ fn setup(
     });
 }
 
-#[cfg(target_os = "android")]
 fn spawn_controllers_example(mut commands: Commands) {
     //left hand
     commands.spawn((
