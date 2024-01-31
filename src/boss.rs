@@ -1,10 +1,14 @@
+mod boss_attack;
 mod boss_state;
 use bevy::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 
 use crate::player::Player;
 
-use self::boss_state::{boss_action, BossState};
+use self::{
+    boss_attack::{dog_update, init_dog},
+    boss_state::{boss_action, BossState},
+};
 
 const BOSS_MAX_HEALTH: f32 = 100.0;
 
@@ -12,11 +16,13 @@ pub struct BossPlugin;
 
 impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<BossState>().add_systems(Startup, setup).add_systems(
+        app.add_state::<BossState>().add_systems(Startup, (setup, init_dog)).add_systems(
             Update,
             (
                 update_boss,
                 boss_action,
+                dog_update,
+                boss_attack::spawn_and_launch_dog.run_if(in_state(BossState::Attack)),
                 boss_state::boss_move.run_if(in_state(BossState::MoveTowardsPlayer)),
             ),
         );

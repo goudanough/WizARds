@@ -7,6 +7,7 @@ use bevy::{
     time::Time,
     transform::components::Transform,
 };
+
 use crate::player::Player;
 
 use super::Boss;
@@ -16,7 +17,9 @@ pub enum BossState {
     #[default]
     Idle,
     MoveTowardsPlayer,
+    Attack,
 }
+
 pub fn boss_action(
     mut query: Query<&mut Transform, (With<Boss>, Without<Player>)>,
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
@@ -29,14 +32,16 @@ pub fn boss_action(
         .translation
         .distance(boss_transform.translation);
 
-    // change the boss state depend on distance
+    // change boss state depend on distance
     if distance > 20.0 {
         state.set(BossState::Idle);
     } else if distance > 10.0 {
         state.set(BossState::MoveTowardsPlayer);
-    } 
-
+    } else if distance >= 0.0 {
+        state.set(BossState::Attack);
+    }
 }
+
 pub fn boss_move(
     mut query: Query<&mut Transform, (With<Boss>, Without<Player>)>,
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
