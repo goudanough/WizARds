@@ -26,6 +26,9 @@ android:
     uses_permission:
       - name: "com.oculus.permission.USE_SCENE"
       - name: "com.oculus.permission.HAND_TRACKING"
+      - name: "android.permission.RECORD_AUDIO"
+      - name: "android.permission.WRITE_EXTERNAL_STORAGE"
+      - name: "android.permission.READ_EXTERNAL_STORAGE"
     uses_feature:
       - name: "com.oculus.experimental.enabled"
       - name: "com.oculus.feature.PASSTHROUGH"

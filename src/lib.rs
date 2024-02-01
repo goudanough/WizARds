@@ -13,6 +13,11 @@ use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
 use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
 #[cfg(target_os = "android")]
 use bevy_oxr::DefaultXrPlugins;
+#[cfg(target_os = "android")]
+use bevy_oxr::input::XrInput;
+use bevy_oxr::xr_input::{actions::XrActionSets,
+                        oculus_touch::OculusController};
+use bevy_oxr::resources::{XrFrameState, XrInstance, XrSession};
 // #[cfg(target_os = "android")]
 // use bevy_oxr::xr_input::prototype_locomotion::{proto_locomotion, PrototypeLocomotionConfig};
 #[cfg(target_os = "android")]
@@ -24,6 +29,7 @@ use crate::speech::SpeechPlugin;
 
 mod speech;
 
+
 #[bevy_main]
 pub fn main() {
     let mut app = App::new();
@@ -33,9 +39,12 @@ pub fn main() {
         .add_plugins(SpeechPlugin);
 
     #[cfg(target_os = "android")]
-    {
+    {   
+
+        //println!("{}", Path::new("/storage/emulated/0/Android/data/org.goudanough.wizARds/files/vosk-model").exists());
+       
         let mut reqeusted_extensions = XrExtensions::default();
-        reqeusted_extensions.enable_fb_passthrough().enable_hand_tracking();
+        reqeusted_extensions.enable_fb_passthrough();//.enable_hand_tracking();
 
         app.add_plugins(DefaultXrPlugins {
             reqeusted_extensions,
@@ -45,10 +54,12 @@ pub fn main() {
             },
         })
         .add_plugins(OpenXrDebugRenderer)
+        .insert_resource(RecordingStatus {just_started:false, recording:false, just_ended:false})
         .add_plugins(HandInputDebugRenderer)
-        .add_plugins(OpenXrHandInput);
+        .add_plugins(OpenXrHandInput)
+        .add_systems(Update, button_pressed)
         // .add_systems(Update, proto_locomotion)
-        // .add_systems(Startup, spawn_controllers_example);
+        .add_systems(Startup, spawn_controllers_example);
         // .insert_resource(PrototypeLocomotionConfig::default());
     }
 
@@ -137,3 +148,39 @@ fn spawn_controllers_example(mut commands: Commands) {
         SpatialBundle::default(),
     ));
 }
+
+
+#[derive(Resource)]
+pub struct RecordingStatus{
+    just_started: bool,
+    recording: bool,
+    just_ended: bool
+}
+
+
+#[cfg(target_os = "android")]
+fn button_pressed(
+    oculus_controller: Res<OculusController>,
+    frame_state: Res<XrFrameState>,
+    xr_input: Res<XrInput>,
+    instance: Res<XrInstance>,
+    session: Res<XrSession>,
+    action_sets: Res<XrActionSets>,
+    mut butpress: ResMut<RecordingStatus>
+) {
+    //lock frame
+    let frame_state = *frame_state.lock().unwrap();
+    //get controller
+    let controller = oculus_controller.get_ref(&session, &frame_state, &xr_input, &action_sets);
+    //get controller triggers
+    let left_main_button = controller.a_button();
+    if left_main_button {
+        if !butpress.just_started && !butpress.recording {
+            butpress.just_started = true;
+        }
+        
+    } else {
+        butpress.just_ended = true;
+    }
+}
+
