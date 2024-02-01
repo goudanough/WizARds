@@ -8,26 +8,29 @@ use bevy_oxr::graphics::extensions::XrExtensions;
 use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
 use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
-use bevy_oxr::xr_input::trackers::{
-    OpenXRController, OpenXRLeftController, OpenXRRightController, OpenXRTracker,
-};
 use bevy_oxr::DefaultXrPlugins;
 use bytemuck::{Pod, Zeroable};
-use rollback::RollbackPlugin;
+use network::NetworkPlugin;
 
-mod rollback;
+mod network;
 
 const FPS: usize = 72;
 const NUM_PLAYERS: usize = 2;
 
-pub type RollbackConfig = GgrsConfig<PlayerInput>;
+pub type WizGgrsConfig = GgrsConfig<PlayerInput>;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable, Default)]
 pub struct PlayerInput {
     head_pos: Vec3,
-    _padding: u32,
+    _padding1: u32,
+    left_hand_pos: Vec3,
+    _padding2: u32,
+    right_hand_pos: Vec3,
+    _padding3: u32,
     head_rot: Quat,
+    left_hand_rot: Quat,
+    right_hand_rot: Quat,
 }
 
 #[bevy_main]
@@ -48,15 +51,13 @@ pub fn main() {
             name: "wizARds".to_string(),
         },
     })
+    .add_plugins(OpenXrHandInput)
     .add_plugins(OpenXrDebugRenderer)
     .add_plugins(HandInputDebugRenderer)
-    .add_plugins(OpenXrHandInput)
-    .add_plugins(RollbackPlugin)
-    // .add_systems(Update, proto_locomotion)
-    .add_systems(Startup, spawn_controllers_example);
-    // .insert_resource(PrototypeLocomotionConfig::default());
+    .add_plugins(NetworkPlugin)
     // app.add_plugins(DefaultPlugins)
-    //     .add_systems(Startup, spawn_camera);
+    //     .add_systems(Startup, spawn_camera)
+    ;
 
     app.run()
 }
@@ -118,21 +119,4 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-}
-
-fn spawn_controllers_example(mut commands: Commands) {
-    //left hand
-    commands.spawn((
-        OpenXRLeftController,
-        OpenXRController,
-        OpenXRTracker,
-        SpatialBundle::default(),
-    ));
-    //right hand
-    commands.spawn((
-        OpenXRRightController,
-        OpenXRController,
-        OpenXRTracker,
-        SpatialBundle::default(),
-    ));
 }
