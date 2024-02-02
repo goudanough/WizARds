@@ -4,7 +4,10 @@ mod xr;
 
 use crate::xr::scene::QuestScene;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
+use bevy::render::settings::{RenderCreation, WgpuFeatures, WgpuSettings};
+use bevy::render::RenderPlugin;
 use bevy::transform::components::Transform;
 use bevy_oxr::graphics::extensions::XrExtensions;
 use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
@@ -53,11 +56,23 @@ pub fn main() {
 
     #[cfg(not(target_os = "android"))]
     {
-        app.add_plugins(DefaultPlugins)
-            .add_systems(Startup, spawn_camera);
+        app.add_plugins(DefaultPlugins.set(RenderPlugin {
+            render_creation: RenderCreation::Automatic(WgpuSettings {
+                // WARN this is a native only feature. It will not work with webgl or webgpu
+                features: WgpuFeatures::POLYGON_MODE_LINE,
+                ..default()
+            }),
+        }))
+        .add_systems(Startup, spawn_camera);
     }
 
-    app.run()
+    app.add_plugins(WireframePlugin)
+        .insert_resource(WireframeConfig {
+            global: false,
+            default_color: Color::TURQUOISE,
+        });
+
+    app.run();
 }
 
 #[derive(Component)]
@@ -87,12 +102,6 @@ fn setup(
         alpha: 0.0,
     };
 
-    // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),

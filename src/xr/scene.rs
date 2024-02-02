@@ -11,7 +11,10 @@ use bevy::{
 use bevy_oxr::{
     resources::{XrInstance, XrSession},
     xr::{
-        sys::{self, SpaceComponentFilterInfoFB, SpaceQueryInfoFB},
+        sys::{
+            self, SpaceComponentFilterInfoFB, SpaceComponentStatusFB,
+            SpaceComponentStatusSetInfoFB, SpaceQueryInfoFB, SpaceQueryResultsFB,
+        },
         AsyncRequestIdFB, Duration, Event, SpaceComponentTypeFB, SpaceQueryActionFB, StructureType,
     },
     XrEvents,
@@ -71,9 +74,6 @@ fn capture_scene(
 }
 
 fn wait_scan_complete(
-    mut commands: Commands,
-    instance: Res<XrInstance>,
-    session: Res<XrSession>,
     events: NonSend<XrEvents>,
     mut state: ResMut<NextState<SceneState>>,
 ) {
@@ -82,49 +82,6 @@ fn wait_scan_complete(
         if let Event::SceneCaptureCompleteFB(_) = event {
             state.0 = Some(SceneState::ScanComplete)
         };
-        // match event {
-        //     Event::SceneCaptureCompleteFB(_) => state.0 = Some(SceneState::Done),
-        //     Event::SpaceSetStatusCompleteFB(setStatusComplete) => {
-        //         commands.insert_resource(Space(setStatusComplete.space()));
-        //     }
-        //     Event::SpaceQueryResultsAvailableFB(resultsAvailable) => {
-        //         let vtable = instance.exts().fb_spatial_entity_query.unwrap();
-        //         let mut query_results = SpaceQueryResultsFB {
-        //             ty: SpaceQueryResultsFB::TYPE,
-        //             next: null_mut(),
-        //             result_capacity_input: 0,
-        //             result_count_output: 0,
-        //             results: null_mut(),
-        //         };
-        //         oxr!((vtable.retrieve_space_query_results)(
-        //             session.as_raw(),
-        //             resultsAvailable.request_id(),
-        //             &mut query_results
-        //         ));
-        //         let size = query_results.result_count_output;
-
-        //         oxr!((vtable.retrieve_space_query_results)(
-        //             session.as_raw(),
-        //             resultsAvailable.request_id(),
-        //             &mut query_results
-        //         ));
-        //         query_results.result_capacity_input = size;
-        //         let mut results = Vec::with_capacity(size as usize);
-        //         query_results.results = results.as_mut_ptr();
-
-        //         oxr!((vtable.retrieve_space_query_results)(
-        //             session.as_raw(),
-        //             resultsAvailable.request_id(),
-        //             &mut query_results
-        //         ));
-        //         unsafe { results.set_len(size as usize) };
-
-        //         for result in results {
-        //             commands.insert_resource(Space(result.space));
-        //         }
-        //     }
-        //     _ => {}
-        // }
     }
 }
 
@@ -133,11 +90,13 @@ fn query_scene(
     session: Res<XrSession>,
     mut state: ResMut<NextState<SceneState>>,
 ) {
-    let filter = SpaceComponentFilterInfoFB {
+    // TODO: Fix the filter
+    // currently adding it gives an error "insight_QueryAnchorSpaces invalid filter flags provided: 24"
+    let filter = Box::leak(Box::new(SpaceComponentFilterInfoFB {
         ty: SpaceComponentFilterInfoFB::TYPE,
         next: null(),
         component_type: SpaceComponentTypeFB::TRIANGLE_MESH_M,
-    };
+    }));
 
     let query = Box::leak(Box::new(SpaceQueryInfoFB {
         ty: SpaceQueryInfoFB::TYPE,
@@ -160,28 +119,127 @@ fn query_scene(
     ));
 }
 
-fn wait_query_complete(events: NonSend<XrEvents>, mut state: ResMut<NextState<SceneState>>) {
+#[derive(Resource)]
+struct MeshSpace(sys::Space);
+
+fn wait_query_complete(
+    mut commands: Commands,
+    instance: Res<XrInstance>,
+    session: Res<XrSession>,
+    events: NonSend<XrEvents>,
+    mut state: ResMut<NextState<SceneState>>,
+) {
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&(*event).inner) }.unwrap();
-        if let Event::SpaceQueryCompleteFB(query) = event {
-            oxr!(query.result());
-            state.0 = Some(SceneState::ScanComplete);
-        };
+        match event {
+            Event::SpaceQueryCompleteFB(query) => {
+                oxr!(query.result());
+                // state.0 = Some(SceneState::ScanComplete);
+                info!("Room Query Succeeded");
+            }
+            Event::SpaceQueryResultsAvailableFB(resultsAvailable) => {
+                let vtable = instance.exts().fb_spatial_entity_query.unwrap();
+                let mut query_results = SpaceQueryResultsFB {
+                    ty: SpaceQueryResultsFB::TYPE,
+                    next: null_mut(),
+                    result_capacity_input: 0,
+                    result_count_output: 0,
+                    results: null_mut(),
+                };
+                oxr!((vtable.retrieve_space_query_results)(
+                    session.as_raw(),
+                    resultsAvailable.request_id(),
+                    &mut query_results
+                ));
+                let size = query_results.result_count_output;
+
+                oxr!((vtable.retrieve_space_query_results)(
+                    session.as_raw(),
+                    resultsAvailable.request_id(),
+                    &mut query_results
+                ));
+                query_results.result_capacity_input = size;
+                let mut results = Vec::with_capacity(size as usize);
+                query_results.results = results.as_mut_ptr();
+
+                oxr!((vtable.retrieve_space_query_results)(
+                    session.as_raw(),
+                    resultsAvailable.request_id(),
+                    &mut query_results
+                ));
+                unsafe { results.set_len(size as usize) };
+
+                for result in &results {
+                    let space = result.space;
+
+                    let vtable = instance.exts().fb_spatial_entity.unwrap();
+                    let mut cnt = 0;
+                    oxr!((vtable.enumerate_space_supported_components)(
+                        space,
+                        0,
+                        &mut cnt,
+                        null_mut()
+                    ));
+                    let size = cnt as usize;
+                    let mut exts: Vec<SpaceComponentTypeFB> = Vec::with_capacity(size);
+                    oxr!((vtable.enumerate_space_supported_components)(
+                        space,
+                        size as _,
+                        &mut cnt,
+                        exts.as_mut_ptr()
+                    ));
+                    unsafe { exts.set_len(size) };
+
+                    info!("{:?} supports components: {:?}", space, exts);
+
+                    // exts contains an array of supported components
+                    // the important one is to make sure it has TRIANGLE_MESH_M
+
+                    if !exts.contains(&SpaceComponentTypeFB::TRIANGLE_MESH_M) {
+                        continue;
+                    }
+
+                    let mut status = SpaceComponentStatusFB {
+                        ty: SpaceComponentStatusFB::TYPE,
+                        next: null_mut(),
+                        enabled: false.into(),
+                        change_pending: false.into(),
+                    };
+                    oxr!((vtable.get_space_component_status)(
+                        space,
+                        SpaceComponentTypeFB::TRIANGLE_MESH_M,
+                        &mut status
+                    ));
+
+                    info!(
+                        "TRIANGLE_MESH_M enabled for {:?}: {}",
+                        space, status.enabled
+                    );
+
+                    if !bool::from(status.enabled) {
+                        continue;
+                    }
+
+                    commands.insert_resource(MeshSpace(space));
+                    state.0 = Some(SceneState::Done)
+                }
+            }
+            _ => {}
+        }
     }
 }
 
 fn init_world_mesh(
     mut commands: Commands,
     instance: Res<XrInstance>,
+    space: Res<MeshSpace>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     if let Some(vtable) = instance.exts().meta_spatial_entity_mesh {
         let mut bevy_mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
-        panic!("init_world_mesh");
-
-        let space = sys::Space::NULL;
+        let space = space.0;
 
         let info = sys::SpaceTriangleMeshGetInfoMETA {
             ty: StructureType::SPACE_TRIANGLE_MESH_GET_INFO_META,
@@ -216,14 +274,19 @@ fn init_world_mesh(
             indices.set_len(i_size)
         }
 
-        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+        let new_vertices: Vec<Vec3> = vertices
+            .into_iter()
+            .map(|Vec3 { x, y, z }| Vec3 { x: y, y: z, z: x })
+            .collect();
+
+        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, new_vertices);
         let indices = mesh::Indices::U32(indices);
         bevy_mesh.set_indices(Some(indices));
 
         commands
             .spawn(PbrBundle {
                 mesh: meshes.add(bevy_mesh),
-                material: materials.add(Color::rgb(0., 0.867, 1.).into()),
+                material: materials.add(Color::WHITE.into()),
                 ..default()
             })
             .insert(Wireframe);
