@@ -1,23 +1,32 @@
-use std::{
-    mem::MaybeUninit,
-    ptr::{null, null_mut},
-};
-
+use crate::oxr;
 use bevy::{
     pbr::wireframe::Wireframe,
     prelude::*,
     render::{mesh, render_resource::PrimitiveTopology},
 };
 use bevy_oxr::{
-    resources::{XrInstance, XrSession},
+    input::XrInput,
+    resources::{XrFrameState, XrInstance, XrSession},
     xr::{
+        self,
         sys::{
-            self, SpaceComponentFilterInfoFB, SpaceComponentStatusFB,
-            SpaceComponentStatusSetInfoFB, SpaceQueryInfoFB, SpaceQueryResultsFB,
+            self, SpaceComponentFilterInfoFB, SpaceComponentStatusFB, SpaceLocation,
+            SpaceQueryInfoFB, SpaceQueryResultsFB,
         },
-        AsyncRequestIdFB, Duration, Event, SpaceComponentTypeFB, SpaceQueryActionFB, StructureType,
+        AsyncRequestIdFB, Duration, Event, Posef, SpaceComponentTypeFB, SpaceLocationFlags,
+        SpaceQueryActionFB, StructureType, Time, Vector3f, ViewConfigurationType,
+    },
+    xr_input::{
+        xr_camera::{XRProjection, XrCameraType},
+        QuatConv, Vec3Conv,
     },
     XrEvents,
+};
+use std::{
+    mem::MaybeUninit,
+    os::unix::raw::off_t,
+    ptr::{null, null_mut},
+    sync::Arc,
 };
 
 #[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
@@ -29,8 +38,6 @@ enum SceneState {
     QueryingScene,
     Done,
 }
-
-use crate::oxr;
 
 pub struct QuestScene;
 
@@ -73,10 +80,7 @@ fn capture_scene(
     ));
 }
 
-fn wait_scan_complete(
-    events: NonSend<XrEvents>,
-    mut state: ResMut<NextState<SceneState>>,
-) {
+fn wait_scan_complete(events: NonSend<XrEvents>, mut state: ResMut<NextState<SceneState>>) {
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&(*event).inner) }.unwrap();
         if let Event::SceneCaptureCompleteFB(_) = event {
@@ -120,7 +124,7 @@ fn query_scene(
 }
 
 #[derive(Resource)]
-struct MeshSpace(sys::Space);
+struct MeshSpace(xr::Space);
 
 fn wait_query_complete(
     mut commands: Commands,
@@ -133,9 +137,16 @@ fn wait_query_complete(
         let event = unsafe { Event::from_raw(&(*event).inner) }.unwrap();
         match event {
             Event::SpaceQueryCompleteFB(query) => {
-                oxr!(query.result());
-                // state.0 = Some(SceneState::ScanComplete);
-                info!("Room Query Succeeded");
+                let result = query.result();
+                if result == bevy_oxr::xr::sys::Result::SUCCESS {
+                    info!("Space Query Completed Successfully");
+                } else {
+                    warn!(
+                        r#"Space Query Completed {:?} Failed With Error "{}""#,
+                        query.request_id(),
+                        result
+                    )
+                }
             }
             Event::SpaceQueryResultsAvailableFB(resultsAvailable) => {
                 let vtable = instance.exts().fb_spatial_entity_query.unwrap();
@@ -220,7 +231,9 @@ fn wait_query_complete(
                         continue;
                     }
 
-                    commands.insert_resource(MeshSpace(space));
+                    commands.insert_resource(MeshSpace(unsafe {
+                        xr::Space::reference_from_raw(session.0.clone(), space)
+                    }));
                     state.0 = Some(SceneState::Done)
                 }
             }
@@ -232,14 +245,41 @@ fn wait_query_complete(
 fn init_world_mesh(
     mut commands: Commands,
     instance: Res<XrInstance>,
+    session: Res<XrSession>,
+    xr_frame_state: Res<XrFrameState>,
     space: Res<MeshSpace>,
+    mut input: ResMut<XrInput>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut query: Query<(&mut Transform, &XrCameraType, &mut XRProjection)>,
 ) {
     if let Some(vtable) = instance.exts().meta_spatial_entity_mesh {
         let mut bevy_mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
-        let space = space.0;
+        let space = &space.0;
+        let space_raw = space.as_raw();
+
+        let (flags, views) = session
+            .0
+            .locate_views(
+                ViewConfigurationType::PRIMARY_STEREO,
+                instance.now().unwrap(),
+                &space,
+            )
+            .unwrap();
+
+        for (mut transform, camera_type, mut xr_projection) in query.iter_mut() {
+            let view_idx = match camera_type {
+                XrCameraType::Xr(eye) => *eye as usize,
+                XrCameraType::Flatscreen => continue,
+            };
+            let view = views.get(view_idx).unwrap();
+            xr_projection.fov = view.fov;
+            transform.rotation = view.pose.orientation.to_quat();
+            transform.translation = view.pose.position.to_vec3();
+        }
+
+        // panic!("{:?}", views.iter().map(|v| v.pose).collect::<Vec<_>>());
 
         let info = sys::SpaceTriangleMeshGetInfoMETA {
             ty: StructureType::SPACE_TRIANGLE_MESH_GET_INFO_META,
@@ -255,28 +295,54 @@ fn init_world_mesh(
             index_count_output: 0,
             indices: null_mut(),
         };
-        oxr!((vtable.get_space_triangle_mesh)(space, &info, &mut mesh));
+        oxr!((vtable.get_space_triangle_mesh)(
+            space_raw, &info, &mut mesh
+        ));
 
         let v_size = mesh.vertex_count_output as usize;
         let i_size = mesh.index_count_output as usize;
-        let mut vertices: Vec<Vec3> = Vec::with_capacity(v_size);
+        let mut vertices: Vec<Vector3f> = Vec::with_capacity(v_size);
         let mut indices: Vec<u32> = Vec::with_capacity(i_size);
 
         mesh.vertex_capacity_input = v_size as _;
         mesh.index_capacity_input = i_size as _;
-        mesh.vertices = vertices.as_mut_ptr() as *mut _;
+        mesh.vertices = vertices.as_mut_ptr();
         mesh.indices = indices.as_mut_ptr();
 
-        oxr!((vtable.get_space_triangle_mesh)(space, &info, &mut mesh));
+        oxr!((vtable.get_space_triangle_mesh)(
+            space_raw, &info, &mut mesh
+        ));
 
         unsafe {
             vertices.set_len(v_size);
             indices.set_len(i_size)
         }
 
+        let mut location = SpaceLocation {
+            ty: SpaceLocation::TYPE,
+            next: null_mut(),
+            location_flags: SpaceLocationFlags::EMPTY,
+            pose: Posef::IDENTITY,
+        };
+
+        oxr!((instance.fp().locate_space)(
+            input.stage.as_raw(),
+            space_raw,
+            xr_frame_state.lock().unwrap().predicted_display_time,
+            &mut location,
+        ));
+
+        let translation = location.pose.position;
+        let rotation = location.pose.orientation;
+
+        // They define their orientation differently and it hurts me
         let new_vertices: Vec<Vec3> = vertices
             .into_iter()
-            .map(|Vec3 { x, y, z }| Vec3 { x: y, y: z, z: x })
+            .map(|Vector3f { x, y, z }| Vec3 {
+                x: y,
+                y: z,
+                z: x,
+            })
             .collect();
 
         bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, new_vertices);
@@ -287,6 +353,19 @@ fn init_world_mesh(
             .spawn(PbrBundle {
                 mesh: meshes.add(bevy_mesh),
                 material: materials.add(Color::WHITE.into()),
+                transform: Transform {
+                    translation: Vec3 {
+                        x: -translation.y,
+                        y: -translation.z,
+                        z: -translation.x,
+                    },
+                    rotation: Quat::from_array([rotation.y, rotation.x, rotation.z, rotation.w]),
+                    scale: Vec3 {
+                        x: 1.,
+                        y: 1.,
+                        z: 1.,
+                    },
+                },
                 ..default()
             })
             .insert(Wireframe);

@@ -40,6 +40,7 @@ pub fn main() {
         reqeusted_extensions.raw_mut().fb_spatial_entity_container = true;
         reqeusted_extensions.raw_mut().meta_spatial_entity_mesh = true;
         reqeusted_extensions.raw_mut().fb_triangle_mesh = true;
+        reqeusted_extensions.raw_mut().khr_convert_timespec_time = true;
 
         app.add_plugins(DefaultXrPlugins {
             reqeusted_extensions,
