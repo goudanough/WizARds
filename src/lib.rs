@@ -23,11 +23,11 @@ pub type WizGgrsConfig = GgrsConfig<PlayerInput>;
 #[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable, Default)]
 pub struct PlayerInput {
     head_pos: Vec3,
-    _padding1: u32,
+    spell: u32, // TODO change to be an enum type equivalent to a u32
     left_hand_pos: Vec3,
-    _padding2: u32,
+    _padding0: u32,
     right_hand_pos: Vec3,
-    _padding3: u32,
+    _padding1: u32,
     head_rot: Quat,
     left_hand_rot: Quat,
     right_hand_rot: Quat,

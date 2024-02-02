@@ -94,6 +94,7 @@ fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
+            spell: 0, // TODO set spell using spell system
             ..Default::default()
         },
     );
