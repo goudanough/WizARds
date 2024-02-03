@@ -2,14 +2,25 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*, render::mesh};
 use bevy_xpbd_3d::prelude::*;
 
 #[derive(Debug)]
-enum MovementType {
+enum ProjectileMovement {
     Linear,
     Static,
+}
+#[derive(Debug)]
+enum ProjectileEffect {
+    Damage(u16)
+}
+
+#[derive(Debug)]
+enum ProjectileVisual {
+    None
 }
 
 #[derive(Component, Debug)]
 struct Projectile {
-    movement_type: MovementType,
+    movement: ProjectileMovement,
+    effect: ProjectileEffect,
+    visual: ProjectileVisual
 }
 
 #[derive(Component)]
@@ -28,7 +39,7 @@ impl Plugin for ProjectilePlugin {
 fn spawn_projectiles(keys: Res<Input<KeyCode>>, mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
     if keys.just_pressed(KeyCode::P) {
         commands.spawn((
-            Projectile{ movement_type : MovementType::Linear},
+            Projectile{movement : ProjectileMovement::Linear, effect: ProjectileEffect::Damage(10), visual: ProjectileVisual::None},
             Collider::ball(0.1),
             PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::UVSphere {radius : 0.1, ..default()})),
@@ -44,9 +55,9 @@ fn spawn_projectiles(keys: Res<Input<KeyCode>>, mut commands: Commands, mut mesh
 
 fn update_projectiles(time: Res<Time>, mut projectiles: Query<(&mut Transform, &Velocity, &Projectile)>) {
     for mut p in &mut projectiles {
-        match p.2.movement_type {
-            MovementType::Linear => p.0.translation += p.1.0 * time.delta_seconds(),
-            MovementType::Static => (),
+        match p.2.movement {
+            ProjectileMovement::Linear => p.0.translation += p.1.0 * time.delta_seconds(),
+            ProjectileMovement::Static => (),
         }
     }
 }
@@ -68,3 +79,4 @@ fn handle_projectile_collision(commands: &mut Commands, projectile: &Projectile,
     println!("Collision with projectile {:#?}", projectile);
     commands.entity(*p_entity).despawn();
 }
+ 
