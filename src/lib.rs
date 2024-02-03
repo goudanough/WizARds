@@ -3,6 +3,7 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
+use bevy_xpbd_3d::prelude::*;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::extensions::XrExtensions;
 #[cfg(target_os = "android")]
@@ -19,13 +20,18 @@ use bevy_oxr::DefaultXrPlugins;
 use bevy_oxr::xr_input::trackers::{
     OpenXRController, OpenXRLeftController, OpenXRRightController, OpenXRTracker,
 };
+use projectile::ProjectilePlugin;
+
+mod projectile;
 
 #[bevy_main]
 pub fn main() {
     let mut app = App::new();
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin);
+        .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(PhysicsPlugins::default())
+        .add_plugins(ProjectilePlugin);
 
     #[cfg(target_os = "android")]
     {
@@ -84,11 +90,13 @@ fn setup(
     };
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..default()
-    });
+    let plane_mesh = Mesh::from(shape::Plane::from_size(5.0));
+    commands.spawn((Collider::trimesh_from_mesh(&plane_mesh).unwrap(), 
+        PbrBundle {
+            mesh: meshes.add(plane_mesh),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+            ..default()
+        }));
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),

@@ -14,6 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 bevy = "0.12"
+bevy_xpbd_3d = "0.3.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
 # bevy_oxr = { git = "https://github.com/awtterpip/bevy_oxr", default-features = false }
