@@ -301,12 +301,12 @@ fn init_world_mesh(
 
         let v_size = mesh.vertex_count_output as usize;
         let i_size = mesh.index_count_output as usize;
-        let mut vertices: Vec<Vector3f> = Vec::with_capacity(v_size);
+        let mut vertices: Vec<Vec3> = Vec::with_capacity(v_size);
         let mut indices: Vec<u32> = Vec::with_capacity(i_size);
 
         mesh.vertex_capacity_input = v_size as _;
         mesh.index_capacity_input = i_size as _;
-        mesh.vertices = vertices.as_mut_ptr();
+        mesh.vertices = vertices.as_mut_ptr() as *mut _;
         mesh.indices = indices.as_mut_ptr();
 
         oxr!((vtable.get_space_triangle_mesh)(
@@ -335,17 +335,7 @@ fn init_world_mesh(
         let translation = location.pose.position;
         let rotation = location.pose.orientation;
 
-        // They define their orientation differently and it hurts me
-        let new_vertices: Vec<Vec3> = vertices
-            .into_iter()
-            .map(|Vector3f { x, y, z }| Vec3 {
-                x: y,
-                y: z,
-                z: x,
-            })
-            .collect();
-
-        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, new_vertices);
+        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
         let indices = mesh::Indices::U32(indices);
         bevy_mesh.set_indices(Some(indices));
 
@@ -355,11 +345,11 @@ fn init_world_mesh(
                 material: materials.add(Color::WHITE.into()),
                 transform: Transform {
                     translation: Vec3 {
-                        x: -translation.y,
+                        x: -translation.x,
                         y: -translation.z,
-                        z: -translation.x,
+                        z: translation.y,
                     },
-                    rotation: Quat::from_array([rotation.y, rotation.x, rotation.z, rotation.w]),
+                    rotation: Quat::from_array([rotation.x, rotation.z, rotation.y, -rotation.w]),
                     scale: Vec3 {
                         x: 1.,
                         y: 1.,
