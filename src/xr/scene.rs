@@ -342,7 +342,15 @@ fn init_world_mesh(
         commands
             .spawn(PbrBundle {
                 mesh: meshes.add(bevy_mesh),
-                material: materials.add(Color::WHITE.into()),
+                material: materials.add(
+                    Color::Rgba {
+                        red: 0.25,
+                        green: 0.88,
+                        blue: 0.82,
+                        alpha: 0.0,
+                    }
+                    .into(),
+                ),
                 transform: Transform {
                     translation: Vec3 {
                         x: -translation.x,
@@ -350,11 +358,7 @@ fn init_world_mesh(
                         z: translation.y,
                     },
                     rotation: Quat::from_array([rotation.x, rotation.z, rotation.y, -rotation.w]),
-                    scale: Vec3 {
-                        x: 1.,
-                        y: 1.,
-                        z: 1.,
-                    },
+                    scale: Vec3::ONE,
                 },
                 ..default()
             })
