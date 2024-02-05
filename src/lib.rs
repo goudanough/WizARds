@@ -7,7 +7,13 @@ use bevy_ggrs::GgrsConfig;
 use bevy_oxr::graphics::extensions::XrExtensions;
 use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
-use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
+use bevy_oxr::xr_input::hands::common::{
+    HandInputDebugRenderer, HandResource, HandsResource, IndexResource, LittleResource,
+    MiddleResource, OpenXrHandInput, RingResource, ThumbResource,
+};
+use bevy_oxr::xr_input::hands::HandBone;
+use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
+use bevy_oxr::xr_input::xr_camera::XrCameraType;
 use bevy_oxr::DefaultXrPlugins;
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
@@ -37,26 +43,34 @@ pub fn main() {
     let mut app = App::new();
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin);
-    let mut reqeusted_extensions = XrExtensions::default();
-    reqeusted_extensions
-        .enable_fb_passthrough()
-        .enable_hand_tracking();
+        .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(NetworkPlugin);
 
-    app.add_plugins(DefaultXrPlugins {
-        reqeusted_extensions,
-        prefered_blend_mode: XrPreferdBlendMode::AlphaBlend,
-        app_info: XrAppInfo {
-            name: "wizARds".to_string(),
-        },
-    })
-    .add_plugins(OpenXrHandInput)
-    .add_plugins(OpenXrDebugRenderer)
-    .add_plugins(HandInputDebugRenderer)
-    .add_plugins(NetworkPlugin)
-    // app.add_plugins(DefaultPlugins)
-    //     .add_systems(Startup, spawn_camera)
-    ;
+    #[cfg(target_os = "android")]
+    {
+        let mut reqeusted_extensions = XrExtensions::default();
+        reqeusted_extensions
+            .enable_fb_passthrough()
+            .enable_hand_tracking();
+
+        app.add_plugins(DefaultXrPlugins {
+            reqeusted_extensions,
+            prefered_blend_mode: XrPreferdBlendMode::AlphaBlend,
+            app_info: XrAppInfo {
+                name: "wizARds".to_string(),
+            },
+        })
+        .add_plugins(OpenXrHandInput)
+        .add_plugins(OpenXrDebugRenderer)
+        .add_plugins(HandInputDebugRenderer)
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        app.add_plugins(DefaultPlugins)
+            .add_systems(Startup, spawn_camera)
+            .add_systems(Startup, spoof_xr_components);
+    }
 
     app.run()
 }
@@ -118,4 +132,96 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
+}
+
+fn spoof_xr_components(mut commands: Commands) {
+    commands.spawn((Transform::default(), OpenXRLeftEye));
+    commands.spawn((Transform::default(), OpenXRRightEye));
+
+    let mut define = |ty: HandBone| {
+        commands
+            .spawn((Transform::default(), OpenXRTracker, ty))
+            .id()
+    };
+
+    let hands = HandsResource {
+        left: HandResource {
+            palm: define(HandBone::Palm),
+            wrist: define(HandBone::Wrist),
+            thumb: ThumbResource {
+                metacarpal: define(HandBone::ThumbMetacarpal),
+                proximal: define(HandBone::ThumbProximal),
+                distal: define(HandBone::ThumbDistal),
+                tip: define(HandBone::ThumbTip),
+            },
+            index: IndexResource {
+                metacarpal: define(HandBone::IndexMetacarpal),
+                proximal: define(HandBone::IndexProximal),
+                intermediate: define(HandBone::IndexProximal),
+                distal: define(HandBone::IndexDistal),
+                tip: define(HandBone::IndexTip),
+            },
+            middle: MiddleResource {
+                metacarpal: define(HandBone::MiddleMetacarpal),
+                proximal: define(HandBone::MiddleProximal),
+                intermediate: define(HandBone::MiddleProximal),
+                distal: define(HandBone::MiddleDistal),
+                tip: define(HandBone::MiddleTip),
+            },
+            ring: RingResource {
+                metacarpal: define(HandBone::RingMetacarpal),
+                proximal: define(HandBone::RingProximal),
+                intermediate: define(HandBone::RingProximal),
+                distal: define(HandBone::RingDistal),
+                tip: define(HandBone::RingTip),
+            },
+            little: LittleResource {
+                metacarpal: define(HandBone::LittleMetacarpal),
+                proximal: define(HandBone::LittleProximal),
+                intermediate: define(HandBone::LittleProximal),
+                distal: define(HandBone::LittleDistal),
+                tip: define(HandBone::LittleTip),
+            },
+        },
+        right: HandResource {
+            palm: define(HandBone::Palm),
+            wrist: define(HandBone::Wrist),
+            thumb: ThumbResource {
+                metacarpal: define(HandBone::ThumbMetacarpal),
+                proximal: define(HandBone::ThumbProximal),
+                distal: define(HandBone::ThumbDistal),
+                tip: define(HandBone::ThumbTip),
+            },
+            index: IndexResource {
+                metacarpal: define(HandBone::IndexMetacarpal),
+                proximal: define(HandBone::IndexProximal),
+                intermediate: define(HandBone::IndexProximal),
+                distal: define(HandBone::IndexDistal),
+                tip: define(HandBone::IndexTip),
+            },
+            middle: MiddleResource {
+                metacarpal: define(HandBone::MiddleMetacarpal),
+                proximal: define(HandBone::MiddleProximal),
+                intermediate: define(HandBone::MiddleProximal),
+                distal: define(HandBone::MiddleDistal),
+                tip: define(HandBone::MiddleTip),
+            },
+            ring: RingResource {
+                metacarpal: define(HandBone::RingMetacarpal),
+                proximal: define(HandBone::RingProximal),
+                intermediate: define(HandBone::RingProximal),
+                distal: define(HandBone::RingDistal),
+                tip: define(HandBone::RingTip),
+            },
+            little: LittleResource {
+                metacarpal: define(HandBone::LittleMetacarpal),
+                proximal: define(HandBone::LittleProximal),
+                intermediate: define(HandBone::LittleProximal),
+                distal: define(HandBone::LittleDistal),
+                tip: define(HandBone::LittleTip),
+            },
+        }
+    };
+
+    commands.insert_resource(hands);
 }
