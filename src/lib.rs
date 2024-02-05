@@ -15,7 +15,6 @@ use network::NetworkPlugin;
 mod network;
 
 const FPS: usize = 72;
-const NUM_PLAYERS: usize = 2;
 
 pub type WizGgrsConfig = GgrsConfig<PlayerInput>;
 

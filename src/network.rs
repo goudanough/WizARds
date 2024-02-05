@@ -6,7 +6,7 @@ use bevy_oxr::xr_input::{
 };
 use std::net::SocketAddr;
 
-use crate::{PlayerInput, WizGgrsConfig, FPS, NUM_PLAYERS};
+use crate::{PlayerInput, WizGgrsConfig, FPS};
 
 #[derive(Component)]
 pub struct PlayerObj {
@@ -20,6 +20,7 @@ pub struct PlayerLeftPalm;
 #[derive(Component)]
 pub struct PlayerRightPalm;
 
+#[derive(Resource)]
 struct ConnectionArgs {
     local_port: u16,
     players: Vec<String>,
@@ -33,8 +34,10 @@ impl Plugin for NetworkPlugin {
             local_port: 8000,
             players: vec!["localhost".to_owned(), "192.168.137.195:8001".to_owned()],
         };
+        assert!(args.players.len() > 0);
         // create a GGRS session
-        let mut sess_build = SessionBuilder::<WizGgrsConfig>::new().with_num_players(NUM_PLAYERS);
+        let mut sess_build =
+            SessionBuilder::<WizGgrsConfig>::new().with_num_players(args.players.len());
         // .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
         // .with_max_prediction_window(12).expect("prediction window can't be 0") // (optional) set max prediction window
         // .with_input_delay(2); // (optional) set input delay for the local player
@@ -58,6 +61,8 @@ impl Plugin for NetworkPlugin {
         let sess = sess_build.start_p2p_session(socket).unwrap();
 
         app.add_plugins(GgrsPlugin::<WizGgrsConfig>::default())
+            // add network info as a bevy resource
+            .insert_resource(args)
             // define frequency of rollback game logic update
             .set_rollback_schedule_fps(FPS)
             .add_systems(ReadInputs, read_local_inputs)
@@ -105,9 +110,10 @@ fn debug_spawn_networked_player_objs(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    args: Res<ConnectionArgs>,
 ) {
     // Add one cube on each player's head
-    for i in 0..NUM_PLAYERS {
+    for i in 0..args.players.len() {
         commands
             .spawn((
                 PbrBundle {
