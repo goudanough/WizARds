@@ -10,8 +10,8 @@ use bevy_oxr::{
     xr::{
         self,
         sys::{
-            self, SpaceComponentFilterInfoFB, SpaceComponentStatusFB, SpaceLocation,
-            SpaceQueryInfoFB, SpaceQueryResultsFB,
+            self, SpaceComponentFilterInfoFB, SpaceComponentStatusFB,
+            SpaceComponentStatusSetInfoFB, SpaceLocation, SpaceQueryInfoFB, SpaceQueryResultsFB,
         },
         AsyncRequestIdFB, Duration, Event, Posef, SpaceComponentTypeFB, SpaceLocationFlags,
         SpaceQueryActionFB, StructureType, Time, Vector3f, ViewConfigurationType,
@@ -124,7 +124,7 @@ fn query_scene(
 }
 
 #[derive(Resource)]
-struct MeshSpace(xr::Space);
+struct MeshSpace(sys::Space);
 
 fn wait_query_complete(
     mut commands: Commands,
@@ -180,6 +180,7 @@ fn wait_query_complete(
                 ));
                 unsafe { results.set_len(size as usize) };
 
+                let mut mesh_handle = xr::sys::Space::NULL;
                 for result in &results {
                     let space = result.space;
 
@@ -227,14 +228,29 @@ fn wait_query_complete(
                         space, status.enabled
                     );
 
-                    if !bool::from(status.enabled) {
-                        continue;
-                    }
+                    if bool::from(status.enabled) {
+                        let mut status = SpaceComponentStatusSetInfoFB {
+                            ty: SpaceComponentStatusSetInfoFB::TYPE,
+                            next: null(),
+                            component_type: SpaceComponentTypeFB::LOCATABLE,
+                            enabled: true.into(),
+                            timeout: Duration::NONE,
+                        };
+                        let mut request_id: AsyncRequestIdFB = AsyncRequestIdFB::from_raw(0);
+                        // TODO: Actually handle this async request
+                        oxr!((vtable.set_space_component_status)(
+                            space,
+                            &mut status,
+                            &mut request_id
+                        ));
 
-                    commands.insert_resource(MeshSpace(unsafe {
-                        xr::Space::reference_from_raw(session.0.clone(), space)
-                    }));
-                    state.0 = Some(SceneState::Done)
+                        mesh_handle = space;
+                        info!("Setting {space:?} as XrHandle for scene mesh");
+
+                        commands.insert_resource(MeshSpace(space));
+                        state.0 = Some(SceneState::Done);
+                        break;
+                    }
                 }
             }
             _ => {}
@@ -256,30 +272,7 @@ fn init_world_mesh(
     if let Some(vtable) = instance.exts().meta_spatial_entity_mesh {
         let mut bevy_mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
-        let space = &space.0;
-        let space_raw = space.as_raw();
-
-        let (flags, views) = session
-            .0
-            .locate_views(
-                ViewConfigurationType::PRIMARY_STEREO,
-                instance.now().unwrap(),
-                &space,
-            )
-            .unwrap();
-
-        for (mut transform, camera_type, mut xr_projection) in query.iter_mut() {
-            let view_idx = match camera_type {
-                XrCameraType::Xr(eye) => *eye as usize,
-                XrCameraType::Flatscreen => continue,
-            };
-            let view = views.get(view_idx).unwrap();
-            xr_projection.fov = view.fov;
-            transform.rotation = view.pose.orientation.to_quat();
-            transform.translation = view.pose.position.to_vec3();
-        }
-
-        // panic!("{:?}", views.iter().map(|v| v.pose).collect::<Vec<_>>());
+        let MeshSpace(space) = *space;
 
         let info = sys::SpaceTriangleMeshGetInfoMETA {
             ty: StructureType::SPACE_TRIANGLE_MESH_GET_INFO_META,
@@ -295,9 +288,7 @@ fn init_world_mesh(
             index_count_output: 0,
             indices: null_mut(),
         };
-        oxr!((vtable.get_space_triangle_mesh)(
-            space_raw, &info, &mut mesh
-        ));
+        oxr!((vtable.get_space_triangle_mesh)(space, &info, &mut mesh));
 
         let v_size = mesh.vertex_count_output as usize;
         let i_size = mesh.index_count_output as usize;
@@ -309,9 +300,7 @@ fn init_world_mesh(
         mesh.vertices = vertices.as_mut_ptr() as *mut _;
         mesh.indices = indices.as_mut_ptr();
 
-        oxr!((vtable.get_space_triangle_mesh)(
-            space_raw, &info, &mut mesh
-        ));
+        oxr!((vtable.get_space_triangle_mesh)(space, &info, &mut mesh));
 
         unsafe {
             vertices.set_len(v_size);
@@ -326,8 +315,8 @@ fn init_world_mesh(
         };
 
         oxr!((instance.fp().locate_space)(
+            space,
             input.stage.as_raw(),
-            space_raw,
             xr_frame_state.lock().unwrap().predicted_display_time,
             &mut location,
         ));
@@ -353,13 +342,27 @@ fn init_world_mesh(
                 ),
                 transform: Transform {
                     translation: Vec3 {
-                        x: -translation.x,
-                        y: -translation.z,
-                        z: translation.y,
+                        x: translation.x,
+                        y: translation.y,
+                        z: translation.z,
                     },
-                    rotation: Quat::from_array([rotation.x, rotation.z, rotation.y, -rotation.w]),
-                    scale: Vec3::ONE,
+                    rotation: Quat::from_array([
+                        -rotation.x,
+                        -rotation.z,
+                        -rotation.y,
+                        -rotation.w,
+                    ]),
+                    ..default()
                 },
+                // Transform {
+                //     translation: Vec3 {
+                //         x: -translation.x,
+                //         y: -translation.z,
+                //         z: translation.y,
+                //     },
+                //     rotation: Quat::from_array([rotation.x, rotation.z, rotation.y, -rotation.w]),
+                //     scale: Vec3::ONE,
+                // },
                 ..default()
             })
             .insert(Wireframe);
