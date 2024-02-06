@@ -2,7 +2,7 @@ use crate::oxr;
 use bevy::{
     pbr::wireframe::Wireframe,
     prelude::*,
-    render::{mesh, render_resource::PrimitiveTopology},
+    render::{mesh, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
 };
 use bevy_oxr::{
     input::XrInput,
@@ -43,7 +43,7 @@ pub struct QuestScene;
 
 impl Plugin for QuestScene {
     fn build(&self, app: &mut App) {
-        app.add_state::<SceneState>()
+        app.init_state::<SceneState>()
             .add_systems(Startup, capture_scene)
             .add_systems(
                 Update,
@@ -270,7 +270,10 @@ fn init_world_mesh(
     mut query: Query<(&mut Transform, &XrCameraType, &mut XRProjection)>,
 ) {
     if let Some(vtable) = instance.exts().meta_spatial_entity_mesh {
-        let mut bevy_mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        let mut bevy_mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::RENDER_WORLD,
+        );
 
         let MeshSpace(space) = *space;
 
@@ -331,15 +334,12 @@ fn init_world_mesh(
         commands
             .spawn(PbrBundle {
                 mesh: meshes.add(bevy_mesh),
-                material: materials.add(
-                    Color::Rgba {
-                        red: 0.25,
-                        green: 0.88,
-                        blue: 0.82,
-                        alpha: 0.0,
-                    }
-                    .into(),
-                ),
+                material: materials.add(Color::Rgba {
+                    red: 0.25,
+                    green: 0.88,
+                    blue: 0.82,
+                    alpha: 0.0,
+                }),
                 transform: Transform {
                     translation: Vec3 {
                         x: translation.x,
