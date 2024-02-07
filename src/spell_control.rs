@@ -3,9 +3,10 @@ use bevy_oxr::xr_input::trackers::{
     OpenXRController, OpenXRLeftController, OpenXRRightController, OpenXRTracker,OpenXRLeftEye, OpenXRRightEye};
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput, HandResource, HandsResource};
-
+use bevy_xpbd_3d::prelude::*;
 use crate::speech::RecordingStatus;
 pub struct SpellControlPlugin;
+use crate::projectile::*;
 
 
 impl Plugin for SpellControlPlugin {
@@ -96,7 +97,15 @@ fn update_sphere(
             for (entity, _) in spell_query.iter() {
                 commands.entity(entity).despawn();
             }
-            todo!("Add Spell firing mechanic");
+
+            let mesh = meshes.add(Mesh::from(shape::UVSphere{radius: 0.03, ..default()}));
+            let material = materials.add(spell.into());
+            let collider = Collider::ball(0.03);
+            let transform = Transform::from_xyz(dist.x, dist.y, dist.z);
+            let direction = -right_hand.rotation.mul_vec3(right_hand.translation);
+            let speed = 1.;
+            create_spell.status = SpellStatus::None;
+            spawn_projectile(commands, mesh, material, transform, collider, direction, speed, default());
         }
     }   
 }

@@ -26,7 +26,7 @@ enum ProjectileVisual {
 }
 
 #[derive(Component, Debug, Default)]
-struct Projectile {
+pub struct Projectile {
     movement: ProjectileMovement,
     effect: ProjectileEffect,
     visual: ProjectileVisual
@@ -86,7 +86,7 @@ fn handle_projectile_collision(commands: &mut Commands, projectile: &Projectile,
     commands.entity(*p_entity).despawn();
 }
  
-fn spawn_projectile(mut commands: Commands,
+pub fn spawn_projectile(mut commands: Commands,
                     mesh: Handle<Mesh>, 
                     material: Handle<StandardMaterial>,
                     transform: Transform,
