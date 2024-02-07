@@ -51,6 +51,7 @@ impl Plugin for NetworkPlugin {
                 Update,
                 host_wait.run_if(in_state(NetworkingState::HostWaiting)),
             )
+            .add_systems(OnExit(NetworkingState::HostWaiting), host_inform_clients)
             .add_systems(
                 Update,
                 client_wait.run_if(in_state(NetworkingState::ClientWaiting)),
@@ -66,23 +67,40 @@ impl Plugin for NetworkPlugin {
 }
 
 fn init(mut state: ResMut<NextState<NetworkingState>>) {
+    // Here we'll need to create some prompt on startup
+    // This will allow users to select whether they're going to be acting
+    // as the host or a client that will be joining the game
     state.0 = Some(NetworkingState::HostWaiting);
 }
 
 fn host_wait(mut state: ResMut<NextState<NetworkingState>>) {
+    // Here we'll need to create some multicast address and listen for
+    // clients that want to join the game.
+    // Ideally we establish TCP connections to each client.
     state.0 = Some(NetworkingState::InitGgrs);
+}
+
+fn host_inform_clients() {
+    // Here we'll need to send some information back to every client over our
+    // established TCP connection. This involves:
+    // - The IP + port of every client
+    // - The anchor point that all clients are coordinate themselves around
 }
 
 fn client_wait(mut state: ResMut<NextState<NetworkingState>>) {
+    // Here we'll need to send packets to some multicast address
+    // and wait for the host to attempt to establish TCP connection
     state.0 = Some(NetworkingState::InitGgrs);
 }
 
-fn init_ggrs(mut commands: Commands) {
-    println!("START init_ggrs");
+fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState>>) {
+    // Once everyone has information about the clients that are going to be playing
+    // We can go ahead and configure and start our Ggrs session
+
     // TODO currently networking is hard coded, need to be able to select ips and port after game starts
     let args = ConnectionArgs {
         local_port: 8000,
-        players: vec!["localhost".to_owned(), "192.168.137.195:8001".to_owned()],
+        players: vec!["localhost".to_owned(), "172.20.10.7:8000".to_owned()],
     };
     assert!(args.players.len() > 0);
 
@@ -116,7 +134,7 @@ fn init_ggrs(mut commands: Commands) {
 
     // add your GGRS session
     commands.insert_resource(Session::P2P(sess));
-    println!("END init_ggrs");
+    state.0 = Some(NetworkingState::Done);
 }
 
 fn read_local_inputs(
