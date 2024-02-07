@@ -8,6 +8,16 @@ use std::net::SocketAddr;
 
 use crate::{PlayerInput, WizGgrsConfig, FPS};
 
+#[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
+enum NetworkingState {
+    #[default]
+    Uninitialized,
+    HostWaiting,
+    ClientWaiting,
+    InitGgrs,
+    Done,
+}
+
 #[derive(Component)]
 pub struct PlayerObj {
     pub handle: usize,
@@ -29,51 +39,84 @@ pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
-        // TODO currently networking is hard coded, need to be able to select ips and port after game starts
-        let args = ConnectionArgs {
-            local_port: 8000,
-            players: vec!["localhost".to_owned(), "192.168.137.195:8001".to_owned()],
-        };
-        assert!(args.players.len() > 0);
-        // create a GGRS session
-        let mut sess_build =
-            SessionBuilder::<WizGgrsConfig>::new().with_num_players(args.players.len());
-        // .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
-        // .with_max_prediction_window(12).expect("prediction window can't be 0") // (optional) set max prediction window
-        // .with_input_delay(2); // (optional) set input delay for the local player
-
-        // add players
-        for (i, player_addr) in args.players.iter().enumerate() {
-            // local player
-            if player_addr == "localhost" {
-                sess_build = sess_build.add_player(PlayerType::Local, i).unwrap();
-            } else {
-                // remote players
-                let remote_addr: SocketAddr = player_addr.parse().unwrap();
-                sess_build = sess_build
-                    .add_player(PlayerType::Remote(remote_addr), i)
-                    .unwrap();
-            }
-        }
-
-        // start the GGRS session
-        let socket = UdpNonBlockingSocket::bind_to_port(args.local_port).unwrap();
-        let sess = sess_build.start_p2p_session(socket).unwrap();
-
         app.add_plugins(GgrsPlugin::<WizGgrsConfig>::default())
-            // add network info as a bevy resource
-            .insert_resource(args)
             // define frequency of rollback game logic update
             .set_rollback_schedule_fps(FPS)
-            .add_systems(ReadInputs, read_local_inputs)
             .rollback_component_with_clone::<Transform>()
             // TODO add components that need rollback
-            // add your GGRS session
-            .insert_resource(Session::P2P(sess))
             // TODO remove these systems and have players be instantiated in a different plugin
-            .add_systems(Startup, debug_spawn_networked_player_objs)
+            .add_state::<NetworkingState>()
+            .add_systems(Startup, init)
+            .add_systems(
+                Update,
+                host_wait.run_if(in_state(NetworkingState::HostWaiting)),
+            )
+            .add_systems(
+                Update,
+                client_wait.run_if(in_state(NetworkingState::ClientWaiting)),
+            )
+            .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)
+            .add_systems(
+                OnEnter(NetworkingState::Done),
+                debug_spawn_networked_player_objs,
+            )
+            .add_systems(ReadInputs, read_local_inputs)
             .add_systems(GgrsSchedule, debug_move_networked_player_objs);
     }
+}
+
+fn init(mut state: ResMut<NextState<NetworkingState>>) {
+    state.0 = Some(NetworkingState::HostWaiting);
+}
+
+fn host_wait(mut state: ResMut<NextState<NetworkingState>>) {
+    state.0 = Some(NetworkingState::InitGgrs);
+}
+
+fn client_wait(mut state: ResMut<NextState<NetworkingState>>) {
+    state.0 = Some(NetworkingState::InitGgrs);
+}
+
+fn init_ggrs(mut commands: Commands) {
+    println!("START init_ggrs");
+    // TODO currently networking is hard coded, need to be able to select ips and port after game starts
+    let args = ConnectionArgs {
+        local_port: 8000,
+        players: vec!["localhost".to_owned(), "192.168.137.195:8001".to_owned()],
+    };
+    assert!(args.players.len() > 0);
+
+    // create a GGRS session
+    let mut sess_build =
+        SessionBuilder::<WizGgrsConfig>::new().with_num_players(args.players.len());
+    // .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
+    // .with_max_prediction_window(12).expect("prediction window can't be 0") // (optional) set max prediction window
+    // .with_input_delay(2); // (optional) set input delay for the local player
+
+    // add players
+    for (i, player_addr) in args.players.iter().enumerate() {
+        // local player
+        if player_addr == "localhost" {
+            sess_build = sess_build.add_player(PlayerType::Local, i).unwrap();
+        } else {
+            // remote players
+            let remote_addr: SocketAddr = player_addr.parse().unwrap();
+            sess_build = sess_build
+                .add_player(PlayerType::Remote(remote_addr), i)
+                .unwrap();
+        }
+    }
+
+    // start the GGRS session
+    let socket = UdpNonBlockingSocket::bind_to_port(args.local_port).unwrap();
+    let sess = sess_build.start_p2p_session(socket).unwrap();
+
+    // add network info as a bevy resource
+    commands.insert_resource(args);
+
+    // add your GGRS session
+    commands.insert_resource(Session::P2P(sess));
+    println!("END init_ggrs");
 }
 
 fn read_local_inputs(

@@ -16,7 +16,7 @@ path = "src/main.rs"
 bevy = "0.12"
 bevy_ggrs = "0.14.0"
 bytemuck = { version = "1.14.1", features=["derive"]}
-bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", default-features = false }
+bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "386a53d", default-features = false }
 
 [patch.crates-io]
 ggrs = { git = "https://github.com/goudanough/ggrs" }
