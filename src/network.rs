@@ -67,7 +67,7 @@ impl Plugin for NetworkPlugin {
             .set_rollback_schedule_fps(FPS)
             .add_systems(ReadInputs, read_local_inputs)
             .rollback_component_with_clone::<Transform>()
-            // TODO add further components that need rollback
+            // TODO add components that need rollback
             // add your GGRS session
             .insert_resource(Session::P2P(sess))
             // TODO remove these systems and have players be instantiated in a different plugin
