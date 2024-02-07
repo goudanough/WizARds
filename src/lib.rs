@@ -98,19 +98,21 @@ fn setup(
             ..default()
         }));
     // cube
-    commands.spawn(PbrBundle {
+    commands.spawn((PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
         material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
-    });
+        },
+        Collider::cuboid(0.1, 0.1, 0.1)));
     // cube
-    commands.spawn(PbrBundle {
+    commands.spawn((PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
         material: materials.add(Color::rgb(0.8, 0.0, 0.0).into()),
         transform: Transform::from_xyz(0.0, 0.5, 1.0),
         ..default()
-    });
+    },
+    Collider::cuboid(0.1, 0.1, 0.1)));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {

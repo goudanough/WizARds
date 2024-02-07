@@ -1,8 +1,11 @@
-use bevy::{input::keyboard::KeyboardInput, prelude::*, render::mesh};
+use std::default;
+
+use bevy::{input::keyboard::KeyboardInput, prelude::*, render::mesh, transform};
 use bevy_xpbd_3d::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum ProjectileMovement {
+    #[default]
     Linear,
     Static,
 }
@@ -10,13 +13,19 @@ enum ProjectileMovement {
 enum ProjectileEffect {
     Damage(u16)
 }
+ impl Default for ProjectileEffect {
+    fn default() -> Self {
+        ProjectileEffect::Damage((10))
+    }
+ }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum ProjectileVisual {
+    #[default]
     None
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Default)]
 struct Projectile {
     movement: ProjectileMovement,
     effect: ProjectileEffect,
@@ -38,17 +47,14 @@ impl Plugin for ProjectilePlugin {
 
 fn spawn_projectiles(keys: Res<Input<KeyCode>>, mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
     if keys.just_pressed(KeyCode::P) {
-        commands.spawn((
-            Projectile{movement : ProjectileMovement::Linear, effect: ProjectileEffect::Damage(10), visual: ProjectileVisual::None},
-            Collider::ball(0.1),
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere {radius : 0.1, ..default()})),
-                material: materials.add(Color::rgb(0., 1., 0.).into()),
-                transform: Transform::from_xyz(0., 1., 0.5),
-                ..default()
-            },
-            Velocity(Vec3::new(0., -0.2, 0.))
-        ));
+        let mesh = meshes.add(Mesh::from(shape::UVSphere{radius: 0.05, ..default()}));
+        let material = materials.add(Color::rgb(1.0, 0., 0.).into());
+        let collider = Collider::ball(0.05);
+        let transform = Transform::from_xyz(0., 1., 0.);
+        let direction = Vec3::new(0., -1., 0.);
+        let speed = 5.;
+
+        spawn_projectile(commands, mesh, material, transform, collider, direction, speed, Default::default());
     }
 
 }
@@ -80,3 +86,22 @@ fn handle_projectile_collision(commands: &mut Commands, projectile: &Projectile,
     commands.entity(*p_entity).despawn();
 }
  
+fn spawn_projectile(mut commands: Commands,
+                    mesh: Handle<Mesh>, 
+                    material: Handle<StandardMaterial>,
+                    transform: Transform,
+                    collider: Collider,
+                    direction: Vec3,
+                    speed: f32,
+                    projectile: Projectile) {
+    commands.spawn((
+        projectile,
+        collider,
+        PbrBundle {
+            mesh: mesh,
+            material: material,
+            transform: transform,
+            ..default()
+        },
+        Velocity(direction.normalize() * speed)));
+}
