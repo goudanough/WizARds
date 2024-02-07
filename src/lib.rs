@@ -11,18 +11,38 @@ use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
 #[cfg(target_os = "android")]
-use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
+use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput, HandResource, HandsResource};
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::hands::hand_tracking::HandTrackingData;
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::hands::HandBone;
+
 #[cfg(target_os = "android")]
 use bevy_oxr::DefaultXrPlugins;
+#[cfg(target_os = "android")]
+use bevy_oxr::input::XrInput;
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::{actions::XrActionSets,
+                        oculus_touch::OculusController,
+                        Hand};
+#[cfg(target_os = "android")]
+use bevy_oxr::resources::{XrFrameState, XrInstance, XrSession};
 // #[cfg(target_os = "android")]
 // use bevy_oxr::xr_input::prototype_locomotion::{proto_locomotion, PrototypeLocomotionConfig};
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::trackers::{
-    OpenXRController, OpenXRLeftController, OpenXRRightController, OpenXRTracker,
+    OpenXRController, OpenXRLeftController, OpenXRRightController, OpenXRTracker,OpenXRLeftEye, OpenXRRightEye
 };
 use projectile::ProjectilePlugin;
 
 mod projectile;
+
+use crate::speech::SpeechPlugin;
+use crate::spell_control::SpellControlPlugin;
+
+mod speech;
+mod spell_control;
+
 
 #[bevy_main]
 pub fn main() {
@@ -31,10 +51,15 @@ pub fn main() {
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(PhysicsPlugins::default())
-        .add_plugins(ProjectilePlugin);
+        .add_plugins(ProjectilePlugin)
+        .add_plugins(SpeechPlugin)
+        .add_plugins(SpellControlPlugin);
 
     #[cfg(target_os = "android")]
-    {
+    {   
+
+        //println!("{}", Path::new("/storage/emulated/0/Android/data/org.goudanough.wizARds/files/vosk-model").exists());
+       
         let mut reqeusted_extensions = XrExtensions::default();
         reqeusted_extensions.enable_fb_passthrough().enable_hand_tracking();
 
@@ -47,9 +72,9 @@ pub fn main() {
         })
         .add_plugins(OpenXrDebugRenderer)
         .add_plugins(HandInputDebugRenderer)
-        .add_plugins(OpenXrHandInput);
+        .add_plugins(OpenXrHandInput)
         // .add_systems(Update, proto_locomotion)
-        // .add_systems(Startup, spawn_controllers_example);
+        .add_systems(Startup, (spawn_controllers_example, spawn_vr_camera));
         // .insert_resource(PrototypeLocomotionConfig::default());
     }
 
@@ -60,6 +85,18 @@ pub fn main() {
     }
 
     app.run()
+}
+
+#[derive(Component)]
+struct VRCamera;
+fn spawn_vr_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(5.0, 6.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        VRCamera,
+    ));
 }
 
 #[derive(Component)]
@@ -133,6 +170,7 @@ fn spawn_controllers_example(mut commands: Commands) {
         OpenXRController,
         OpenXRTracker,
         SpatialBundle::default(),
+        Hand::Left,
     ));
     //right hand
     commands.spawn((
@@ -140,5 +178,15 @@ fn spawn_controllers_example(mut commands: Commands) {
         OpenXRController,
         OpenXRTracker,
         SpatialBundle::default(),
+        Hand::Right,
     ));
 }
+
+
+
+
+
+
+  
+
+
