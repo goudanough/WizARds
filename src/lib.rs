@@ -22,6 +22,7 @@ mod network;
 
 const FPS: usize = 72;
 
+
 pub type WizGgrsConfig = GgrsConfig<PlayerInput>;
 
 #[repr(C)]
