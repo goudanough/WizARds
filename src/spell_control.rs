@@ -82,7 +82,7 @@ fn update_sphere(
                 }
             commands.spawn((PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::UVSphere{radius:0.03, ..default()})),
-                material: materials.add(spell.into()),
+                material: materials.add(spell),
                 transform: Transform::from_xyz(dist.x, dist.y, dist.z),
                 ..default()
             }, SpellObject));
@@ -99,7 +99,7 @@ fn update_sphere(
             }
 
             let mesh = meshes.add(Mesh::from(shape::UVSphere{radius: 0.03, ..default()}));
-            let material = materials.add(spell.into());
+            let material = materials.add(spell);
             let collider = Collider::ball(0.03);
             let transform = Transform::from_xyz(dist.x, dist.y, dist.z);
             let direction = -right_hand.rotation.mul_vec3(right_hand.translation);
