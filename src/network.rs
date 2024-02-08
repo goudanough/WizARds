@@ -5,18 +5,8 @@ use bevy_oxr::xr_input::{
     trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
 use std::net::SocketAddr;
-
-use crate::{PlayerInput, WizGgrsConfig, FPS};
-
-#[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
-enum NetworkingState {
-    #[default]
-    Uninitialized,
-    HostWaiting,
-    ClientWaiting,
-    InitGgrs,
-    Done,
-}
+use bevy_xpbd_3d::prelude::*;
+use crate::{PlayerInput, WizGgrsConfig, FPS, NUM_PLAYERS};
 
 #[derive(Component)]
 pub struct PlayerObj {
@@ -26,11 +16,18 @@ pub struct PlayerObj {
 #[derive(Component)]
 pub struct PlayerHead;
 #[derive(Component)]
+
+pub struct PlayerHeadHitbox;
+#[derive(Component)]
 pub struct PlayerLeftPalm;
 #[derive(Component)]
+pub struct PlayerLeftPalmHitbox;
+#[derive(Component)]
 pub struct PlayerRightPalm;
+#[derive(Component)]
+pub struct PlayerRightPalmHitbox;
 
-#[derive(Resource)]
+
 struct ConnectionArgs {
     local_port: u16,
     players: Vec<String>,
@@ -39,102 +36,47 @@ pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(GgrsPlugin::<WizGgrsConfig>::default())
+        // TODO currently networking is hard coded, need to be able to select ips and port after game starts
+        let args = ConnectionArgs {
+            local_port: 8000,
+            players: vec!["localhost".to_owned(), "192.168.137.195:8001".to_owned()],
+        };
+        // create a GGRS session
+        let mut sess_build = SessionBuilder::<WizGgrsConfig>::new().with_num_players(NUM_PLAYERS);
+        // .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
+        // .with_max_prediction_window(12).expect("prediction window can't be 0") // (optional) set max prediction window
+        // .with_input_delay(2); // (optional) set input delay for the local player
+
+        // add players
+        for (i, player_addr) in args.players.iter().enumerate() {
+            // local player
+            if player_addr == "localhost" {
+                sess_build = sess_build.add_player(PlayerType::Local, i).unwrap();
+            } else {
+                // remote players
+                let remote_addr: SocketAddr = player_addr.parse().unwrap();
+                sess_build = sess_build
+                    .add_player(PlayerType::Remote(remote_addr), i)
+                    .unwrap();
+            }
+        }
+
+        // start the GGRS session
+        let socket = UdpNonBlockingSocket::bind_to_port(args.local_port).unwrap();
+        let sess = sess_build.start_p2p_session(socket).unwrap();
+
+        app.add_plugins((GgrsPlugin::<WizGgrsConfig>::default(),DefaultPlugins,PhysicsPlugins::default()))
             // define frequency of rollback game logic update
             .set_rollback_schedule_fps(FPS)
-            .rollback_component_with_clone::<Transform>()
-            // TODO add components that need rollback
-            // TODO remove these systems and have players be instantiated in a different plugin
-            .add_state::<NetworkingState>()
-            .add_systems(Startup, init)
-            .add_systems(
-                Update,
-                host_wait.run_if(in_state(NetworkingState::HostWaiting)),
-            )
-            .add_systems(OnExit(NetworkingState::HostWaiting), host_inform_clients)
-            .add_systems(
-                Update,
-                client_wait.run_if(in_state(NetworkingState::ClientWaiting)),
-            )
-            .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)
-            .add_systems(
-                OnEnter(NetworkingState::Done),
-                debug_spawn_networked_player_objs,
-            )
             .add_systems(ReadInputs, read_local_inputs)
+            .rollback_component_with_clone::<Transform>()
+            // TODO add further components that need rollback
+            // add your GGRS session
+            .insert_resource(Session::P2P(sess))
+            // TODO remove these systems and have players be instantiated in a different plugin
+            .add_systems(Startup, debug_spawn_networked_player_objs)
             .add_systems(GgrsSchedule, debug_move_networked_player_objs);
     }
-}
-
-fn init(mut state: ResMut<NextState<NetworkingState>>) {
-    // Here we'll need to create some prompt on startup
-    // This will allow users to select whether they're going to be acting
-    // as the host or a client that will be joining the game
-    state.0 = Some(NetworkingState::HostWaiting);
-}
-
-fn host_wait(mut state: ResMut<NextState<NetworkingState>>) {
-    // Here we'll need to create some multicast address and listen for
-    // clients that want to join the game.
-    // Ideally we establish TCP connections to each client.
-    state.0 = Some(NetworkingState::InitGgrs);
-}
-
-fn host_inform_clients() {
-    // Here we'll need to send some information back to every client over our
-    // established TCP connection. This involves:
-    // - The IP + port of every client
-    // - The anchor point that all clients are coordinate themselves around
-}
-
-fn client_wait(mut state: ResMut<NextState<NetworkingState>>) {
-    // Here we'll need to send packets to some multicast address
-    // and wait for the host to attempt to establish TCP connection
-    state.0 = Some(NetworkingState::InitGgrs);
-}
-
-fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState>>) {
-    // Once everyone has information about the clients that are going to be playing
-    // We can go ahead and configure and start our Ggrs session
-
-    // TODO currently networking is hard coded, need to be able to select ips and port after game starts
-    let args = ConnectionArgs {
-        local_port: 8000,
-        players: vec!["localhost".to_owned(), "172.20.10.7:8000".to_owned()],
-    };
-    assert!(args.players.len() > 0);
-
-    // create a GGRS session
-    let mut sess_build =
-        SessionBuilder::<WizGgrsConfig>::new().with_num_players(args.players.len());
-    // .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
-    // .with_max_prediction_window(12).expect("prediction window can't be 0") // (optional) set max prediction window
-    // .with_input_delay(2); // (optional) set input delay for the local player
-
-    // add players
-    for (i, player_addr) in args.players.iter().enumerate() {
-        // local player
-        if player_addr == "localhost" {
-            sess_build = sess_build.add_player(PlayerType::Local, i).unwrap();
-        } else {
-            // remote players
-            let remote_addr: SocketAddr = player_addr.parse().unwrap();
-            sess_build = sess_build
-                .add_player(PlayerType::Remote(remote_addr), i)
-                .unwrap();
-        }
-    }
-
-    // start the GGRS session
-    let socket = UdpNonBlockingSocket::bind_to_port(args.local_port).unwrap();
-    let sess = sess_build.start_p2p_session(socket).unwrap();
-
-    // add network info as a bevy resource
-    commands.insert_resource(args);
-
-    // add your GGRS session
-    commands.insert_resource(Session::P2P(sess));
-    state.0 = Some(NetworkingState::Done);
 }
 
 fn read_local_inputs(
@@ -165,16 +107,23 @@ fn read_local_inputs(
         },
     );
     commands.insert_resource(LocalInputs::<WizGgrsConfig>(local_inputs));
+
+    // // cube
+    // commands.spawn(PbrBundle {
+    //     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+    //     material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    //     transform: Transform::from_scale(left_hand.translation),
+    //     ..default()
+    // });
 }
 
 fn debug_spawn_networked_player_objs(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    args: Res<ConnectionArgs>,
 ) {
     // Add one cube on each player's head
-    for i in 0..args.players.len() {
+    for i in 0..NUM_PLAYERS {
         commands
             .spawn((
                 PbrBundle {
@@ -208,16 +157,50 @@ fn debug_spawn_networked_player_objs(
                 PlayerRightPalm,
             ))
             .add_rollback();
+        commands.spawn((
+            Collider::ball(0.5),
+            PlayerObj { handle: i },
+            PlayerHeadHitbox,
+            PbrBundle {
+                material: materials.add(Color::GREEN.into()),
+                ..Default::default()
+            },
+        ));
+        commands.spawn((
+           Collider::ball(0.5),
+           PlayerObj { handle: i },
+           PlayerLeftPalmHitbox,
+           PbrBundle {
+            material: materials.add(Color::GREEN.into()),
+            ..Default::default()
+        },
+        ))
+        .add_rollback();
+        commands.spawn((
+           Collider::ball(0.5),
+           PlayerObj { handle: i },
+           PlayerRightPalmHitbox,
+           PbrBundle {
+            material: materials.add(Color::GREEN.into()),
+            ..Default::default()
+        },
+        ))
+        .add_rollback();
+
     }
 }
 
 fn debug_move_networked_player_objs(
+    mut commands: Commands,
     mut player_heads: Query<
         (&mut Transform, &PlayerObj),
         (
             With<PlayerHead>,
             Without<PlayerLeftPalm>,
             Without<PlayerRightPalm>,
+            Without<PlayerHeadHitbox>,
+            Without<PlayerLeftPalmHitbox>,
+            Without<PlayerRightPalmHitbox>,
             With<Rollback>,
         ),
     >,
@@ -227,6 +210,9 @@ fn debug_move_networked_player_objs(
             Without<PlayerHead>,
             With<PlayerLeftPalm>,
             Without<PlayerRightPalm>,
+            Without<PlayerHeadHitbox>,
+            Without<PlayerLeftPalmHitbox>,
+            Without<PlayerRightPalmHitbox>,
             With<Rollback>,
         ),
     >,
@@ -236,6 +222,45 @@ fn debug_move_networked_player_objs(
             Without<PlayerHead>,
             Without<PlayerLeftPalm>,
             With<PlayerRightPalm>,
+            Without<PlayerHeadHitbox>,
+            Without<PlayerLeftPalmHitbox>,
+            Without<PlayerRightPalmHitbox>,
+            With<Rollback>,
+        ),
+    >,
+    mut player_heads_hitboxes: Query<
+        (&mut Transform, &PlayerObj),
+        (
+            Without<PlayerHead>,
+            Without<PlayerLeftPalm>,
+            Without<PlayerRightPalm>,
+            With<PlayerHeadHitbox>,
+            Without<PlayerLeftPalmHitbox>,
+            Without<PlayerRightPalmHitbox>,
+            With<Rollback>,
+        ),
+    >,
+    mut player_left_palms_hitboxes: Query<
+        (&mut Transform, &PlayerObj),
+        (
+            Without<PlayerHead>,
+            Without<PlayerLeftPalm>,
+            Without<PlayerRightPalm>,
+            Without<PlayerHeadHitbox>,
+            With<PlayerLeftPalmHitbox>,
+            Without<PlayerRightPalmHitbox>,
+            With<Rollback>,
+        ),
+    >,
+    mut player_right_palms_hitboxes: Query<
+        (&mut Transform, &PlayerObj),
+        (
+            Without<PlayerHead>,
+            Without<PlayerLeftPalm>,
+            Without<PlayerRightPalm>,
+            Without<PlayerHeadHitbox>,
+            Without<PlayerLeftPalmHitbox>,
+            With<PlayerRightPalmHitbox>,
             With<Rollback>,
         ),
     >,
@@ -245,15 +270,37 @@ fn debug_move_networked_player_objs(
         let input = inputs[p.handle].0;
         t.translation = input.head_pos;
         t.rotation = input.head_rot;
+        
+    }
+
+    for (mut t, p) in player_heads_hitboxes.iter_mut() {
+        let input = inputs[p.handle].0;
+        t.translation = input.head_pos;
+        t.rotation = input.head_rot;
+        
     }
     for (mut t, p) in player_left_palms.iter_mut() {
         let input = inputs[p.handle].0;
         t.translation = input.left_hand_pos;
         t.rotation = input.left_hand_rot;
+        
+    }
+    for (mut t, p) in player_left_palms_hitboxes.iter_mut() {
+        let input = inputs[p.handle].0;
+        t.translation = input.left_hand_pos;
+        t.rotation = input.left_hand_rot;
+    
     }
     for (mut t, p) in player_right_palms.iter_mut() {
         let input = inputs[p.handle].0;
         t.translation = input.right_hand_pos;
         t.rotation = input.right_hand_rot;
+        
+    }
+    for (mut t, p) in player_right_palms_hitboxes.iter_mut() {
+        let input = inputs[p.handle].0;
+        t.translation = input.right_hand_pos;
+        t.rotation = input.right_hand_rot;
+        
     }
 }
