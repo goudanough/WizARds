@@ -13,7 +13,6 @@ use bevy_oxr::xr_input::hands::common::{
 };
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
-use bevy_oxr::xr_input::xr_camera::XrCameraType;
 use bevy_oxr::DefaultXrPlugins;
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
@@ -62,7 +61,7 @@ pub fn main() {
         })
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)
-        .add_plugins(HandInputDebugRenderer)
+        .add_plugins(HandInputDebugRenderer);
     }
 
     #[cfg(not(target_os = "android"))]
@@ -104,21 +103,21 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.0, 0.0).into()),
+        material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
         transform: Transform::from_xyz(0.0, 0.5, 1.0),
         ..default()
     });

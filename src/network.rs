@@ -8,9 +8,8 @@ use std::net::SocketAddr;
 
 use crate::{PlayerInput, WizGgrsConfig, FPS};
 
-#[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
+#[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
-    #[default]
     Uninitialized,
     HostWaiting,
     ClientWaiting,
@@ -45,7 +44,7 @@ impl Plugin for NetworkPlugin {
             .rollback_component_with_clone::<Transform>()
             // TODO add components that need rollback
             // TODO remove these systems and have players be instantiated in a different plugin
-            .add_state::<NetworkingState>()
+            .insert_state(NetworkingState::Uninitialized)
             .add_systems(Startup, init)
             .add_systems(
                 Update,
@@ -179,7 +178,7 @@ fn debug_spawn_networked_player_objs(
             .spawn((
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-                    material: materials.add(Color::WHITE.into()),
+                    material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
@@ -190,7 +189,7 @@ fn debug_spawn_networked_player_objs(
             .spawn((
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::WHITE.into()),
+                    material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
@@ -201,7 +200,7 @@ fn debug_spawn_networked_player_objs(
             .spawn((
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::WHITE.into()),
+                    material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
