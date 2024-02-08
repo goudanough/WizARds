@@ -16,7 +16,7 @@ pub struct BossPlugin;
 
 impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<BossState>().add_systems(Startup, (setup, init_dog)).add_systems(
+        app.init_state::<BossState>().add_systems(Startup, (setup, init_dog)).add_systems(
             Update,
             (
                 update_boss,

@@ -84,21 +84,21 @@ fn global_setup(
     {commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane::from_size(128.0))),
-            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
             ..default()
         },
         RigidBody::Static,
         Collider::cuboid(128.0, 0.005, 128.0),
     ));
-    // commands.spawn(DirectionalLightBundle {
-    //     directional_light: DirectionalLight {
-    //         color: Color::WHITE,
-    //         illuminance: 100000.0,
-    //         ..Default::default()
-    //     },
-    //     transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4)),
-    //     ..Default::default()
-    // });
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            color: Color::WHITE,
+            illuminance: 100.0,
+            ..Default::default()
+        },
+        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4)),
+        ..Default::default()
+    });
     ambient_light.color = Color::WHITE;
     ambient_light.brightness = 1.0;
 }
