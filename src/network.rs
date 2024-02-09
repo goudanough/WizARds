@@ -8,9 +8,8 @@ use std::net::SocketAddr;
 use bevy_xpbd_3d::prelude::*;
 use crate::{PlayerInput, WizGgrsConfig, FPS};
 
-#[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
+#[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
-    #[default]
     Uninitialized,
     HostWaiting,
     ClientWaiting,
@@ -26,16 +25,9 @@ pub struct PlayerObj {
 #[derive(Component)]
 pub struct PlayerHead;
 #[derive(Component)]
-
-pub struct PlayerHeadHitbox;
-#[derive(Component)]
 pub struct PlayerLeftPalm;
 #[derive(Component)]
-pub struct PlayerLeftPalmHitbox;
-#[derive(Component)]
 pub struct PlayerRightPalm;
-#[derive(Component)]
-pub struct PlayerRightPalmHitbox;
 
 #[derive(Resource)]
 struct ConnectionArgs {
@@ -52,7 +44,7 @@ impl Plugin for NetworkPlugin {
             .rollback_component_with_clone::<Transform>()
             // TODO add components that need rollback
             // TODO remove these systems and have players be instantiated in a different plugin
-            .add_state::<NetworkingState>()
+            .insert_state(NetworkingState::Uninitialized)
             .add_systems(Startup, init)
             .add_systems(
                 Update,
@@ -184,9 +176,11 @@ fn debug_spawn_networked_player_objs(
     for i in 0..args.players.len() {
         commands
             .spawn((
+                RigidBody::Kinematic,
+                Collider::ball(0.5),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-                    material: materials.add(Color::WHITE.into()),
+                    material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
@@ -195,9 +189,11 @@ fn debug_spawn_networked_player_objs(
             .add_rollback();
         commands
             .spawn((
+                RigidBody::Kinematic,
+                Collider::ball(0.5),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::WHITE.into()),
+                    material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
@@ -206,48 +202,27 @@ fn debug_spawn_networked_player_objs(
             .add_rollback();
         commands
             .spawn((
+                RigidBody::Kinematic,
+                Collider::ball(0.5),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::WHITE.into()),
+                    material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
                 PlayerRightPalm,
             ))
             .add_rollback();
-        commands.spawn((
-            Collider::ball(0.5),
-            PlayerObj { handle: i },
-            PlayerHeadHitbox,
-        ));
-        commands.spawn((
-           Collider::ball(0.5),
-           PlayerObj { handle: i },
-           PlayerLeftPalmHitbox,
-           
-        ))
-        .add_rollback();
-        commands.spawn((
-           Collider::ball(0.5),
-           PlayerObj { handle: i },
-           PlayerRightPalmHitbox,
-        ))
-        .add_rollback();
-
     }
 }
 
 fn debug_move_networked_player_objs(
-    mut commands: Commands,
     mut player_heads: Query<
         (&mut Transform, &PlayerObj),
         (
             With<PlayerHead>,
             Without<PlayerLeftPalm>,
             Without<PlayerRightPalm>,
-            Without<PlayerHeadHitbox>,
-            Without<PlayerLeftPalmHitbox>,
-            Without<PlayerRightPalmHitbox>,
             With<Rollback>,
         ),
     >,
@@ -257,9 +232,6 @@ fn debug_move_networked_player_objs(
             Without<PlayerHead>,
             With<PlayerLeftPalm>,
             Without<PlayerRightPalm>,
-            Without<PlayerHeadHitbox>,
-            Without<PlayerLeftPalmHitbox>,
-            Without<PlayerRightPalmHitbox>,
             With<Rollback>,
         ),
     >,
@@ -269,45 +241,6 @@ fn debug_move_networked_player_objs(
             Without<PlayerHead>,
             Without<PlayerLeftPalm>,
             With<PlayerRightPalm>,
-            Without<PlayerHeadHitbox>,
-            Without<PlayerLeftPalmHitbox>,
-            Without<PlayerRightPalmHitbox>,
-            With<Rollback>,
-        ),
-    >,
-    mut player_heads_hitboxes: Query<
-        (&mut Transform, &PlayerObj),
-        (
-            Without<PlayerHead>,
-            Without<PlayerLeftPalm>,
-            Without<PlayerRightPalm>,
-            With<PlayerHeadHitbox>,
-            Without<PlayerLeftPalmHitbox>,
-            Without<PlayerRightPalmHitbox>,
-            With<Rollback>,
-        ),
-    >,
-    mut player_left_palms_hitboxes: Query<
-        (&mut Transform, &PlayerObj),
-        (
-            Without<PlayerHead>,
-            Without<PlayerLeftPalm>,
-            Without<PlayerRightPalm>,
-            Without<PlayerHeadHitbox>,
-            With<PlayerLeftPalmHitbox>,
-            Without<PlayerRightPalmHitbox>,
-            With<Rollback>,
-        ),
-    >,
-    mut player_right_palms_hitboxes: Query<
-        (&mut Transform, &PlayerObj),
-        (
-            Without<PlayerHead>,
-            Without<PlayerLeftPalm>,
-            Without<PlayerRightPalm>,
-            Without<PlayerHeadHitbox>,
-            Without<PlayerLeftPalmHitbox>,
-            With<PlayerRightPalmHitbox>,
             With<Rollback>,
         ),
     >,
@@ -317,37 +250,15 @@ fn debug_move_networked_player_objs(
         let input = inputs[p.handle].0;
         t.translation = input.head_pos;
         t.rotation = input.head_rot;
-        
-    }
-
-    for (mut t, p) in player_heads_hitboxes.iter_mut() {
-        let input = inputs[p.handle].0;
-        t.translation = input.head_pos;
-        t.rotation = input.head_rot;
-        
     }
     for (mut t, p) in player_left_palms.iter_mut() {
         let input = inputs[p.handle].0;
         t.translation = input.left_hand_pos;
         t.rotation = input.left_hand_rot;
-        
-    }
-    for (mut t, p) in player_left_palms_hitboxes.iter_mut() {
-        let input = inputs[p.handle].0;
-        t.translation = input.left_hand_pos;
-        t.rotation = input.left_hand_rot;
-    
     }
     for (mut t, p) in player_right_palms.iter_mut() {
         let input = inputs[p.handle].0;
         t.translation = input.right_hand_pos;
         t.rotation = input.right_hand_rot;
-        
-    }
-    for (mut t, p) in player_right_palms_hitboxes.iter_mut() {
-        let input = inputs[p.handle].0;
-        t.translation = input.right_hand_pos;
-        t.rotation = input.right_hand_rot;
-        
     }
 }

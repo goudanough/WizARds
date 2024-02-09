@@ -13,15 +13,15 @@ use bevy_oxr::xr_input::hands::common::{
 };
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
-use bevy_oxr::xr_input::xr_camera::XrCameraType;
 use bevy_oxr::DefaultXrPlugins;
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
-
+use bevy_xpbd_3d::prelude::RigidBody;
+use bevy_xpbd_3d::prelude::Collider;
+use bevy_xpbd_3d::prelude::CollidingEntities;
 mod network;
 
 const FPS: usize = 72;
-
 
 pub type WizGgrsConfig = GgrsConfig<PlayerInput>;
 
@@ -45,7 +45,8 @@ pub fn main() {
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_plugins(NetworkPlugin);
+        .add_plugins(NetworkPlugin)
+        .add_systems(Update, my_system);
 
     #[cfg(target_os = "android")]
     {
@@ -63,7 +64,7 @@ pub fn main() {
         })
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)
-        .add_plugins(HandInputDebugRenderer)
+        .add_plugins(HandInputDebugRenderer);
     }
 
     #[cfg(not(target_os = "android"))]
@@ -105,24 +106,30 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        mesh: meshes.add(shape::Plane::from_size(5.0)),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
         ..default()
     });
     // cube
-    commands.spawn(PbrBundle {
+    commands.spawn((
+        RigidBody::Static,
+        Collider::cuboid(8.0, 0.002, 8.0),
+        PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
-    });
+    }));
     // cube
-    commands.spawn(PbrBundle {
+    commands.spawn((
+        RigidBody::Static,
+        Collider::cuboid(8.0, 0.002, 8.0),
+        PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.0, 0.0).into()),
+        material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
         transform: Transform::from_xyz(0.0, 0.5, 1.0),
         ..default()
-    });
+    }));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -230,4 +237,14 @@ fn spoof_xr_components(mut commands: Commands) {
     };
 
     commands.insert_resource(HandsResource { left, right });
+}
+
+fn my_system(query: Query<(Entity, &CollidingEntities)>) {
+    for (entity, colliding_entities) in &query {
+        println!(
+            "{:?} is colliding with the following entities: {:?}",
+            entity,
+            colliding_entities
+        );
+    }
 }
