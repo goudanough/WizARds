@@ -1,3 +1,12 @@
+#[cfg(target_os = "android")]
+use std::ffi::CString;
+#[cfg(target_os = "android")]
+use std::path::Path;
+#[cfg(target_os = "android")]
+use zip::ZipArchive;
+#[cfg(target_os = "android")]
+use bevy::winit::android_activity::AndroidApp;
+
 use bevy::prelude::*;
 use vosk::*;
 use cpal::{traits::{DeviceTrait, HostTrait, StreamTrait}, SampleFormat};
@@ -70,6 +79,16 @@ fn queue_input_data(data: &[i16], queue: &Arc<ArrayQueue<i16>>) {
 
 fn fetch_recogniser() -> Recognizer {
     let grammar = ["red", "green", "blue"];
+    
+    #[cfg(target_os = "android")]
+    {
+    if !(Path::new("/storage/emulated/0/Android/data/org.goudanough.wizARds/files/vosk-model").exists()) {
+        let activity = bevy::winit::ANDROID_APP.get().unwrap();
+        let model_zip = activity.asset_manager().open(&CString::new("vosk-model.zip").unwrap()).unwrap();
+        zip::ZipArchive::new(model_zip).unwrap().extract("/storage/emulated/0/Android/data/org.goudanough.wizARds/files");
+        }
+    }
+
     // Attempt to fetch model, repeat until successful.
     let model: Model = loop {
         match Model::new("/storage/emulated/0/Android/data/org.goudanough.wizARds/files/vosk-model") {
