@@ -129,6 +129,7 @@ fn setup(
     // plane
     let plane_mesh = Mesh::from(shape::Plane::from_size(5.0));
     commands.spawn((Collider::trimesh_from_mesh(&plane_mesh).unwrap(), 
+        RigidBody::Static,
         PbrBundle {
             mesh: meshes.add(plane_mesh),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
@@ -141,6 +142,7 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
         },
+        RigidBody::Static,
         Collider::cuboid(0.1, 0.1, 0.1)));
     // cube
     commands.spawn((PbrBundle {
@@ -148,8 +150,9 @@ fn setup(
         material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
         transform: Transform::from_xyz(0.0, 0.5, 1.0),
         ..default()
-    },
-    Collider::cuboid(0.1, 0.1, 0.1)));
+        },
+        RigidBody::Static,
+        Collider::cuboid(0.1, 0.1, 0.1)));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {

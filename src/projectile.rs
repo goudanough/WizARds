@@ -86,5 +86,6 @@ pub fn spawn_projectile(mut commands: Commands,
             transform: transform,
             ..default()
         },
+        RigidBody::Kinematic,
         Velocity(direction.normalize() * speed)));
 }
