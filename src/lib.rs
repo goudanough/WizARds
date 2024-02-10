@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
-
+mod boss;
+mod player;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
@@ -14,6 +15,8 @@ use bevy_oxr::xr_input::hands::common::{
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
 use bevy_oxr::DefaultXrPlugins;
+use bevy_xpbd_3d::components::{Collider, ColliderDensity, Friction, RigidBody};
+use bevy_xpbd_3d::plugins::PhysicsPlugins;
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
 
@@ -43,7 +46,11 @@ pub fn main() {
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_plugins(NetworkPlugin);
+        .add_plugins(NetworkPlugin)
+        // boss and player plugins(not use)
+        .add_plugins(boss::BossPlugin)
+        // physics plugin
+        .add_plugins(PhysicsPlugins::default());
 
     #[cfg(target_os = "android")]
     {
@@ -80,7 +87,7 @@ struct PancakeCamera;
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(5.0, 6.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(5.0, 16.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
         PancakeCamera,
@@ -100,31 +107,34 @@ fn setup(
         blue: 0.0,
         alpha: 0.0,
     };
-
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane::from_size(128.0))),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+            ..default()
+        },
+        RigidBody::Static,
+        Collider::cuboid(128.0, 0.005, 128.0),
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+    commands.spawn((PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
         material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        transform: Transform::from_xyz(2.0, 0.5, 4.0),
         ..default()
-    });
+    },RigidBody::Dynamic, Collider::cuboid(0.5, 0.5, 0.5),ColliderDensity(100.0),));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+    commands.spawn((PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
         material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
-        transform: Transform::from_xyz(0.0, 0.5, 1.0),
+        transform: Transform::from_xyz(3.0, 0.5, 1.0),
         ..default()
-    });
+    },RigidBody::Dynamic, Collider::cuboid(0.5, 0.5, 0.5),ColliderDensity(100.0)),);
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1500.0,
+            intensity: 15000.0,
             shadows_enabled: true,
             ..default()
         },

@@ -6,7 +6,7 @@ use bevy_oxr::xr_input::{
 };
 use std::net::SocketAddr;
 
-use crate::{PlayerInput, WizGgrsConfig, FPS};
+use crate::{player, PlayerInput, WizGgrsConfig, FPS};
 
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
@@ -183,6 +183,7 @@ fn debug_spawn_networked_player_objs(
                 },
                 PlayerObj { handle: i },
                 PlayerHead,
+                player::Player,
             ))
             .add_rollback();
         commands
