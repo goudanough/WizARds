@@ -14,7 +14,6 @@ mod xr;
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use bevy::transform::components::Transform;
 use bevy_ggrs::GgrsConfig;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode};
@@ -65,7 +64,6 @@ pub fn main() {
         .add_plugins(boss::BossPlugin)
         .add_plugins(network::NetworkPlugin)
         .add_plugins(projectile::ProjectilePlugin)
-        .add_plugins(speech::SpeechPlugin)
         .add_plugins(spell_control::SpellControlPlugin)
         .add_plugins(spells::SpellsPlugin)
         .add_plugins(health_bar::HealthBarPlugin);
@@ -102,6 +100,7 @@ pub fn main() {
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)
         //.add_plugins(HandInputDebugRenderer)
+        .add_plugins(speech::SpeechPlugin)
         .add_plugins(xr::scene::QuestScene);
     }
 

@@ -28,6 +28,7 @@ zip = "0.6.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 android-activity = "0.5.2"
+bytemuck = { version = "1.14.1", features=["derive"]}
 
 [profile.release]
 opt-level = 3

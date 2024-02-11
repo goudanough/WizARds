@@ -29,11 +29,12 @@ android:
     uses_permission:
       - name: "com.oculus.permission.USE_SCENE"
       - name: "com.oculus.permission.HAND_TRACKING"
+      - name: "com.oculus.permission.USE_ANCHOR_API"
       - name: "android.permission.RECORD_AUDIO"
       - name: "android.permission.WRITE_EXTERNAL_STORAGE"
       - name: "android.permission.READ_EXTERNAL_STORAGE"
       - name: "android.permission.INTERNET"
-      - name: "com.oculus.permission.USE_ANCHOR_API"
+      - name: "android.permission.ACCESS_NETWORK_STATE"
     uses_feature:
       - name: "com.oculus.experimental.enabled"
       - name: "com.oculus.feature.PASSTHROUGH"

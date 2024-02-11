@@ -5,7 +5,7 @@ use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::OpenXRTracker;
 
 use crate::{
-    network::{LocalPlayerID, PlayerHead, PlayerID},
+    network::{PlayerHead, PlayerID, LOCAL_PLAYER_HNDL},
     speech::{collect_voice, recognise_voice, start_voice},
     spells::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
@@ -148,13 +148,10 @@ fn despawn_trajectory_indictaor(
 fn check_if_done_firing(
     spell_obj: Query<(Entity, &PlayerID), With<SpellObj>>,
     mut next_spell_state: ResMut<NextState<SpellStatus>>,
-    local_p_id: Res<LocalPlayerID>,
 ) {
-    if spell_obj
+    if !spell_obj
         .iter()
-        .filter(|(_, p_id)| p_id.handle == local_p_id.handle)
-        .count()
-        == 0
+        .any(|(_, p_id)| p_id.handle == LOCAL_PLAYER_HNDL)
     {
         next_spell_state.set(SpellStatus::None);
     }
