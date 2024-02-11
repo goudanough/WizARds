@@ -24,6 +24,7 @@ use self::multicast::{MulticastEmitter, MulticastListener};
 
 mod multicast;
 
+// This series of states is used to represent what stage of device discovery we're in
 #[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
     #[default]
@@ -35,6 +36,8 @@ enum NetworkingState {
     Done,
 }
 
+// This state is just used for clients that are waiting
+// to recieve an anchor to synchronise the game space
 #[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
 enum AwaitingAnchor {
     #[default]
@@ -43,6 +46,8 @@ enum AwaitingAnchor {
     Done,
 }
 
+// This state is just used for clients that are waiting
+// to recieve a list of all the player IPs
 #[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
 enum AwaitingIps {
     #[default]
@@ -66,11 +71,12 @@ pub struct PlayerLeftPalm;
 #[derive(Component)]
 pub struct PlayerRightPalm;
 
+// Why this number? I asked a random number generator!
+const GGRS_PORT: u16 = 47511;
+
+// Needs to be configured by both host and client during initialization for use in init_ggrs
 #[derive(Resource)]
-struct ConnectionArgs {
-    local_port: u16,
-    remote_players: Vec<IpAddr>,
-}
+struct RemoteAddresses(Vec<IpAddr>);
 
 pub struct NetworkPlugin;
 
@@ -79,7 +85,6 @@ impl Plugin for NetworkPlugin {
         app.add_plugins(GgrsPlugin::<WizGgrsConfig>::default())
             // define frequency of rollback game logic update
             .set_rollback_schedule_fps(FPS)
-            // TODO add components that need rollback
             .rollback_component_with_clone::<Transform>()
             .insert_resource(RemoteAddresses(Vec::new()))
             .init_state::<NetworkingState>()
@@ -87,23 +92,24 @@ impl Plugin for NetworkPlugin {
             .init_state::<AwaitingIps>()
             // On startup we need to allow a user to choose whether they want to host or join
             .add_systems(Startup, init)
-            // If the host enters a waiting state, they need to scan the room and open a listener
+            // If the player chooses to host, we need to scan the room and open a multicast listener
             .add_systems(OnEnter(NetworkingState::HostWaiting), host_init)
-            // We loop, creating TCP streams to clients that want to join and recording addresses
+            // We loop, creating TCP streams to clients that want to join, and recording addresses
             .add_systems(
                 Update,
                 host_wait.run_if(in_state(NetworkingState::HostWaiting)),
             )
             // When all clients are joined, we need to tell each client the IPs of all clients
             .add_systems(OnExit(NetworkingState::HostWaiting), host_inform_clients)
-            // When all clients are joined, we need to tell each client the IPs of all clients
+            // When all clients are joined, we need to share the room anchor with the clients
             .add_systems(OnExit(NetworkingState::HostWaiting), host_share_anchor)
-            // If we choose to join, then we start sending multicast packets for host discovery
+            // If we choose to join, initialize networking ready to send multicast packets for device discovery
             .add_systems(
                 OnEnter(NetworkingState::ClientEstablishConnection),
                 client_init,
             )
-            // We wait for our tcp listener to accept an incoming connection from the host
+            // We loop, sending multicast packets for device discovery and waiting for our tcp listener
+            // to accept an incoming connection from the host
             .add_systems(
                 Update,
                 client_establish_tcp.run_if(in_state(NetworkingState::ClientEstablishConnection)),
@@ -123,16 +129,17 @@ impl Plugin for NetworkPlugin {
                 Update,
                 client_await_ips.run_if(in_state(AwaitingIps::Awaiting)),
             )
-            // If we get an anchor we may be done, check to see
+            // If we get an anchor, we may be ready to begin our GGRS session, check to see
             .add_systems(
                 OnEnter(AwaitingAnchor::Done),
                 client_check_end_await_information,
             )
-            // If we get a list of IPs we may be done, check to see
+            // If we get a list of IPs, we may be ready to begin our GGRS session, check to see
             .add_systems(
                 OnEnter(AwaitingIps::Done),
                 client_check_end_await_information,
             )
+            // All setup is done. Initialize the GGRS session
             .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)
             .add_systems(OnEnter(NetworkingState::Done), spawn_networked_player_objs)
             .add_systems(ReadInputs, read_local_inputs)
@@ -146,7 +153,7 @@ fn init(mut state: ResMut<NextState<NetworkingState>>) {
     // as the host or a client that will be joining the game
     #[cfg(target_os = "android")]
     {
-        state.0 = Some(NetworkingState::ClientEstablishConnection);
+        state.0 = Some(NetworkingState::HostWaiting);
     }
 
     // Devices that aren't the quest 3 should *only* be able to act as clients
@@ -156,21 +163,23 @@ fn init(mut state: ResMut<NextState<NetworkingState>>) {
     }
 }
 
+// Used for listening to incoming multicast packets
+// created: host_init | dropped: host_wait
 #[derive(Resource)]
 struct MulticastListenerRes(MulticastListener);
 
-#[derive(Resource)]
-struct RemoteAddresses(Vec<IpAddr>);
-
+// Used for communicating addresses back to clients in host_inform_clients
+// created: host_init | dropped: host_inform_clients
 #[derive(Resource)]
 struct ClientConnections(Vec<TcpStream>);
 
+// Used for sharing an anchor with other quest clients in host_share_anchor
+// created: host_init | dropped: host_share_anchor
 #[derive(Resource)]
 struct FbIds(Vec<u64>);
 
 // Create a multicast listener and insert it as a resource
 fn host_init(mut commands: Commands, mut state: ResMut<NextState<SceneState>>) {
-    println!("host_init");
     state.0 = Some(SceneState::Scanning);
     let listener = MulticastListener::new();
     commands.insert_resource(MulticastListenerRes(listener));
@@ -187,23 +196,34 @@ fn host_wait(
     mut connections: ResMut<ClientConnections>,
     mut fb_ids: ResMut<FbIds>,
 ) {
-    println!("host_wait");
-    while let Some((msg, addr)) = listener.0.get_buf() {
-        if addresses.0.contains(&addr.ip()) {
+    let (addresses, connections, fb_ids) = (&mut addresses.0, &mut connections.0, &mut fb_ids.0);
+    let listener = &listener.0;
+
+    // Loop over all the multicast packets that we've recieved
+    while let Some((msg, addr)) = listener.get_buf() {
+        // Ignore known addresses
+        if addresses.contains(&addr.ip()) {
             continue;
         }
-        println!("got packet: {}", std::str::from_utf8(&msg).unwrap());
+
+        // Attempt to decode the message into a TCP port and ID
         let Some((port, fb_id)) = multicast::decode(msg) else {
             continue;
         };
+
+        //Log the IP of the incoming connection
+        addresses.push(addr.ip());
+
+        // Initialize a TCP connection to the client
         let stream = TcpStream::connect((addr.ip(), port)).unwrap();
         stream.set_nonblocking(true).unwrap();
-        fb_ids.0.push(fb_id);
-        addresses.0.push(addr.ip());
-        connections.0.push(stream);
+        connections.push(stream);
+        if fb_id != 0 {
+            fb_ids.push(fb_id);
+        }
 
         // Currently hardcoded to exit on 1 remote client
-        if addresses.0.len() == 1 {
+        if addresses.len() == 1 {
             // Drop the listener, we don't need it anymore
             commands.remove_resource::<MulticastListenerRes>();
             state.0 = Some(NetworkingState::InitGgrs);
@@ -212,8 +232,13 @@ fn host_wait(
     }
 }
 
-fn host_share_anchor() {
-    println!("host_share_anchor");
+// Runs once all connections are complete
+// Allows clients to synchronise their game space
+fn host_share_anchor(mut commands: Commands) {
+    // TODO: emit a call to xrShareSpacesFB
+
+    // Drop all the other user IDs
+    commands.remove_resource::<FbIds>();
 }
 
 // Runs once all connections are complete
@@ -223,12 +248,13 @@ fn host_inform_clients(
     addresses: Res<RemoteAddresses>,
     connections: Res<ClientConnections>,
 ) {
-    println!("host_inform_clients");
+    let (addresses, connections) = (&addresses.0, &connections.0);
 
-    for mut conn in &connections.0 {
+    // Loop over each connection and send them the list of IPs
+    for mut conn in connections {
         use std::fmt::Write;
         let mut buf = String::new();
-        for addr in &addresses.0 {
+        for addr in addresses {
             // Make sure we don't tell any client about itself
             if conn.peer_addr().unwrap().ip() != *addr {
                 // For the sake of simplicity all IPs are sent as null-seperated strings
@@ -243,15 +269,19 @@ fn host_inform_clients(
     commands.remove_resource::<ClientConnections>();
 }
 
+// This resource is used by the client to send multicast packets
+// created: client_init | dropped: client_await_ips
 #[derive(Resource)]
 struct MulticastEmitterRes(MulticastEmitter);
 
+// TODO: make sure the emitter knows the FB ID
 fn client_init(mut commands: Commands) {
-    println!("client_init");
     let emitter = MulticastEmitter::new(SpaceUserFB::NULL);
     commands.insert_resource(MulticastEmitterRes(emitter));
 }
 
+// This is the stream generated by the listener accepting incoming data
+// created: client_establish_tcp | dropped: client_await_ips
 #[derive(Resource)]
 struct HostConnection(TcpStream);
 
@@ -260,7 +290,6 @@ fn client_establish_tcp(
     mut commands: Commands,
     emit: Res<MulticastEmitterRes>,
 ) {
-    println!("client_establish_tcp");
     let emit = &emit.0;
 
     // First we do a listen to see if we've got any incoming connections
@@ -280,11 +309,11 @@ fn client_start_await_information(
     mut anchors: ResMut<NextState<AwaitingAnchor>>,
     mut ips: ResMut<NextState<AwaitingIps>>,
 ) {
-    println!("client_start_await_information");
     anchors.0 = Some(AwaitingAnchor::Awaiting);
     ips.0 = Some(AwaitingIps::Awaiting);
 }
 
+// Await an event telling us that we've got an anchor to synchronise on
 #[cfg(target_os = "android")]
 fn client_await_anchor(mut anchors: ResMut<NextState<AwaitingAnchor>>, events: NonSend<XrEvents>) {
     println!("client_await_anchor");
@@ -302,7 +331,6 @@ fn client_await_anchor(mut anchors: ResMut<NextState<AwaitingAnchor>>, events: N
 // We don't generate XrEvents in pancake mode. Move along swiftly.
 #[cfg(not(target_os = "android"))]
 fn client_await_anchor(mut anchors: ResMut<NextState<AwaitingAnchor>>) {
-    println!("client_await_anchor");
     anchors.0 = Some(AwaitingAnchor::Done);
 }
 
@@ -311,33 +339,37 @@ fn client_await_ips(
     mut state: ResMut<NextState<AwaitingIps>>,
     mut stream: ResMut<HostConnection>,
 ) {
-    println!("client_await_ips");
+    let stream = &mut stream.0;
     let mut buf = Vec::new();
 
-    match stream.0.read_to_end(&mut buf) {
+    match stream.read_to_end(&mut buf) {
         Ok(len) => {
+            // Gather all valid IPs from the message we've been sent
             let mut ips = buf[..len]
                 .split(|chr| *chr == 0)
+                // This shouldn't really need filter_map but I'm lazy and couldn't be bothered to deal with
+                // fact that if the message is populated then the last byte will be a 0 and that'll cause an extra split
                 .filter_map(|slice| IpAddr::from_str(std::str::from_utf8(slice).ok()?).ok())
                 .collect::<Vec<_>>();
-            ips.push(stream.0.peer_addr().unwrap().ip());
+            // The host doesn't know it's own IP, so it isn't included in the message. We add it here.
+            ips.push(stream.peer_addr().unwrap().ip());
             commands.insert_resource(RemoteAddresses(ips));
+            commands.remove_resource::<MulticastEmitterRes>();
             commands.remove_resource::<HostConnection>();
             state.0 = Some(AwaitingIps::Done);
         }
         Err(err) if err.kind() == io::ErrorKind::WouldBlock => return,
         Err(err) if err.kind() == io::ErrorKind::ConnectionReset => return,
-        Err(err) => panic!("{err:?} on {:?}", stream.0),
+        Err(err) => panic!("{err:?} on {:?}", stream),
     };
 }
 
-// Start awaiting both anchors and IPs
+// Check if we've finished awaiting both anchors and IPs. If so, we move onto the InitGgrs state
 fn client_check_end_await_information(
     mut state: ResMut<NextState<NetworkingState>>,
     anchors: ResMut<State<AwaitingAnchor>>,
     ips: ResMut<State<AwaitingIps>>,
 ) {
-    println!("client_check_end_await_information");
     if (*anchors.get() == AwaitingAnchor::Done) && (*ips.get() == AwaitingIps::Done) {
         state.0 = Some(NetworkingState::InitGgrs);
     }
@@ -348,20 +380,14 @@ fn init_ggrs(
     mut state: ResMut<NextState<NetworkingState>>,
     addresses: Res<RemoteAddresses>,
 ) {
-    println!("init_ggrs");
     // Once everyone has information about the clients that are going to be playing
     // We can go ahead and configure and start our Ggrs session
 
-    // TODO currently networking is hard coded, need to be able to select ips and port after game starts
-    let args = ConnectionArgs {
-        local_port: 8000,
-        remote_players: addresses.0.clone(),
-    };
-    assert!(args.remote_players.len() > 0);
+    let addresses = &addresses.0;
 
     // create a GGRS session
     let mut sess_build = SessionBuilder::<WizGgrsConfig>::new()
-        .with_num_players(args.remote_players.len() + 1)
+        .with_num_players(addresses.len() + 1)
         .add_player(PlayerType::Local, 0)
         .unwrap();
     // .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
@@ -369,20 +395,17 @@ fn init_ggrs(
     // .with_input_delay(2); // (optional) set input delay for the local player
 
     // add players
-    for (i, player_addr) in args.remote_players.iter().enumerate() {
+    for (i, player_addr) in addresses.iter().enumerate() {
         // remote players
-        let remote_addr: SocketAddr = (*player_addr, 8000).into();
+        let remote_addr: SocketAddr = (*player_addr, GGRS_PORT).into();
         sess_build = sess_build
             .add_player(PlayerType::Remote(remote_addr), i + 1)
             .unwrap();
     }
 
     // start the GGRS session
-    let socket = UdpNonBlockingSocket::bind_to_port(args.local_port).unwrap();
+    let socket = UdpNonBlockingSocket::bind_to_port(GGRS_PORT).unwrap();
     let sess = sess_build.start_p2p_session(socket).unwrap();
-
-    // add network info as a bevy resource
-    commands.insert_resource(args);
 
     // add your GGRS session
     commands.insert_resource(Session::P2P(sess));
@@ -423,12 +446,12 @@ pub fn read_local_inputs(
 
 fn spawn_networked_player_objs(
     mut commands: Commands,
-    args: Res<ConnectionArgs>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    addresses: Res<RemoteAddresses>,
 ) {
     // Add one cube on each player's head
-    for i in 0..args.remote_players.len() + 1 {
+    for i in 0..addresses.0.len() + 1 {
         commands
             .spawn((
                 RigidBody::Kinematic,

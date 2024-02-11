@@ -8,10 +8,10 @@ use bevy_oxr::xr::sys::SpaceUserFB;
 
 // Administratively scoped multicast
 const MULTICAST_ADDRESS: Ipv4Addr = Ipv4Addr::new(239, 2, 2, 2);
-const MULTICAST_PORT: u16 = 8888;
+const MULTICAST_PORT: u16 = 18860;
 const MULTICAST_SOCKET: (Ipv4Addr, u16) = (MULTICAST_ADDRESS, MULTICAST_PORT);
 
-const MULTICAST_MTU: usize = 4096;
+const MULTICAST_MTU: usize = 1500;
 
 pub fn decode(msg: Box<[u8]>) -> Option<(u16, u64)> {
     let msg_parts = msg.split(|b| *b == b':').collect::<Vec<&[u8]>>();
@@ -75,7 +75,6 @@ impl MulticastEmitter {
     }
 
     pub fn emit(&self) {
-        // TODO: Create the message
         use std::fmt::Write;
         let mut msg = String::new();
         write!(
