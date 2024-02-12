@@ -99,7 +99,7 @@ fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState
     // TODO currently networking is hard coded, need to be able to select ips and port after game starts
     let args = ConnectionArgs {
         local_port: 8000,
-        players: vec!["localhost".to_owned(), "172.20.10.7:8000".to_owned()],
+        players: vec!["localhost".to_owned()],
     };
     assert!(args.players.len() > 0);
 
@@ -180,7 +180,8 @@ fn debug_spawn_networked_player_objs(
                 Collider::ball(0.5),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-                    material: materials.add(Color::WHITE),
+                    material: materials.add(Color::GREEN),
+                    transform:Transform::from_xyz(6.0, 0.0, 0.0),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
@@ -193,7 +194,7 @@ fn debug_spawn_networked_player_objs(
                 Collider::ball(0.5),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::WHITE),
+                    material: materials.add(Color::RED),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
@@ -206,7 +207,7 @@ fn debug_spawn_networked_player_objs(
                 Collider::ball(0.5),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::WHITE),
+                    material: materials.add(Color::YELLOW),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
