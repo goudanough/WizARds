@@ -42,8 +42,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SceneBundle {
             scene: model,
-            transform: Transform::from_xyz(0.0, 1.0, 15.0).with_scale(Vec3::new(2.0, 2.0, 2.0)),
 
+            transform: Transform::from_xyz(0.0, 1.0, 15.0).with_scale(Vec3::new(2.0, 2.0, 2.0)),
             ..default()
         },
         RigidBody::Dynamic,
@@ -79,7 +79,8 @@ fn update_boss(
     mut query: Query<&mut Transform, (With<Boss>, Without<Player>)>,
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
 ) {
-    if let Ok(player_transform) = player_query.get_single() {
+
+    if let Some(player_transform) = player_query.iter().next() {
         let mut boss_transform = query.single_mut();
 
         let mut player_pos_flat = player_transform.translation;

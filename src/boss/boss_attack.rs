@@ -37,8 +37,7 @@ pub fn spawn_and_launch_dog(
 ) {
     if dog.1.tick(time.delta()).just_finished() {
         let boss_transform = boss_query.single();
-        let player_transform = player_query.single();
-    
+        let player_transform = player_query.single()；
         let player_pos = Vec3::new(player_transform.translation.x, 0.0, player_transform.translation.z);
         let boss_pos = Vec3::new(boss_transform.translation.x, 0.0, boss_transform.translation.z);
         let launch_dir = (player_pos - boss_pos).normalize();
