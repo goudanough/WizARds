@@ -119,7 +119,7 @@ fn query_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
 
 // This struct is to retain the XrSpace handle representing the mesh of the room
 #[derive(Resource)]
-struct MeshSpace(sys::Space);
+pub struct MeshSpace(pub sys::Space);
 
 fn get_query_results(
     resultsAvailable: SpaceQueryResultsAvailableFB,
