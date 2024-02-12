@@ -4261,8 +4261,3 @@ dependencies = [
  "quote",
  "syn 2.0.48",
 ]
-
-[[patch.unused]]
-name = "ggrs"
-version = "0.10.0"
-source = "git+https://github.com/goudanough/ggrs#4c5fb7f20bc547bc9ddd7c1d629975e2b1d16339"
