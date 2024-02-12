@@ -3,7 +3,6 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
-use bevy_xpbd_3d::prelude::*;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::extensions::XrExtensions;
 #[cfg(target_os = "android")]
@@ -11,28 +10,28 @@ use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
 #[cfg(target_os = "android")]
-use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput, HandResource, HandsResource};
+use bevy_oxr::xr_input::hands::common::{
+    HandInputDebugRenderer, HandResource, HandsResource, OpenXrHandInput,
+};
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::hands::hand_tracking::HandTrackingData;
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::hands::HandBone;
+use bevy_xpbd_3d::prelude::*;
 
-#[cfg(target_os = "android")]
-use bevy_oxr::DefaultXrPlugins;
 #[cfg(target_os = "android")]
 use bevy_oxr::input::XrInput;
 #[cfg(target_os = "android")]
-use bevy_oxr::xr_input::{actions::XrActionSets,
-                        oculus_touch::OculusController,
-                        Hand};
-#[cfg(target_os = "android")]
 use bevy_oxr::resources::{XrFrameState, XrInstance, XrSession};
-// #[cfg(target_os = "android")]
-// use bevy_oxr::xr_input::prototype_locomotion::{proto_locomotion, PrototypeLocomotionConfig};
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::trackers::{
-    OpenXRController, OpenXRLeftController, OpenXRRightController, OpenXRTracker,OpenXRLeftEye, OpenXRRightEye
+    OpenXRController, OpenXRLeftController, OpenXRLeftEye, OpenXRRightController, OpenXRRightEye,
+    OpenXRTracker,
 };
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::{actions::XrActionSets, oculus_touch::OculusController, Hand};
+#[cfg(target_os = "android")]
+use bevy_oxr::DefaultXrPlugins;
 use projectile::ProjectilePlugin;
 
 mod projectile;
@@ -42,7 +41,6 @@ use crate::spell_control::SpellControlPlugin;
 
 mod speech;
 mod spell_control;
-
 
 #[bevy_main]
 pub fn main() {
@@ -56,12 +54,11 @@ pub fn main() {
         .add_plugins(SpellControlPlugin);
 
     #[cfg(target_os = "android")]
-    {   
-
-        //println!("{}", Path::new("/storage/emulated/0/Android/data/org.goudanough.wizARds/files/vosk-model").exists());
-       
+    {
         let mut reqeusted_extensions = XrExtensions::default();
-        reqeusted_extensions.enable_fb_passthrough().enable_hand_tracking();
+        reqeusted_extensions
+            .enable_fb_passthrough()
+            .enable_hand_tracking();
 
         app.add_plugins(DefaultXrPlugins {
             reqeusted_extensions,
@@ -128,31 +125,37 @@ fn setup(
 
     // plane
     let plane_mesh = Mesh::from(shape::Plane::from_size(5.0));
-    commands.spawn((Collider::trimesh_from_mesh(&plane_mesh).unwrap(), 
+    commands.spawn((
+        Collider::trimesh_from_mesh(&plane_mesh).unwrap(),
         RigidBody::Static,
         PbrBundle {
             mesh: meshes.add(plane_mesh),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
             ..default()
-        }));
+        },
+    ));
     // cube
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..default()
         },
         RigidBody::Static,
-        Collider::cuboid(0.1, 0.1, 0.1)));
+        Collider::cuboid(0.1, 0.1, 0.1),
+    ));
     // cube
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
-        transform: Transform::from_xyz(0.0, 0.5, 1.0),
-        ..default()
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+            material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
+            transform: Transform::from_xyz(0.0, 0.5, 1.0),
+            ..default()
         },
         RigidBody::Static,
-        Collider::cuboid(0.1, 0.1, 0.1)));
+        Collider::cuboid(0.1, 0.1, 0.1),
+    ));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -184,12 +187,3 @@ fn spawn_controllers_example(mut commands: Commands) {
         Hand::Right,
     ));
 }
-
-
-
-
-
-
-  
-
-
