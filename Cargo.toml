@@ -14,7 +14,12 @@ path = "src/main.rs"
 
 [dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy", rev = "d4132f661a8a567fd3f9c3b329c2b4032bb1e05e" }
+bevy_ggrs = { git = "https://github.com/goudanough/bevy_ggrs", rev = "b9ef8772fc39f1bc166df7588b69b0760fc3437f" }
+bytemuck = { version = "1.14.1", features=["derive"]}
 bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "c85f7435b54aa1788aa75f46c71583d29d0cf76f", default-features = false }
+
+[patch.crates-io]
+ggrs = { git = "https://github.com/goudanough/ggrs" }
 
 [profile.release]
 opt-level = 3
