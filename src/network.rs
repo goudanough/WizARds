@@ -9,6 +9,7 @@ use bevy_xpbd_3d::prelude::*;
 use crate::{PlayerInput, WizGgrsConfig, FPS};
 
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
+#[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
     Uninitialized,
     HostWaiting,
@@ -44,6 +45,7 @@ impl Plugin for NetworkPlugin {
             .rollback_component_with_clone::<Transform>()
             // TODO add components that need rollback
             // TODO remove these systems and have players be instantiated in a different plugin
+            .insert_state(NetworkingState::Uninitialized)
             .insert_state(NetworkingState::Uninitialized)
             .add_systems(Startup, init)
             .add_systems(
@@ -180,8 +182,7 @@ fn debug_spawn_networked_player_objs(
                 Collider::ball(0.1),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-                    material: materials.add(Color::GREEN),
-                    transform:Transform::from_xyz(6.0, 0.0, 0.0),
+                    material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
@@ -194,7 +195,7 @@ fn debug_spawn_networked_player_objs(
                 Collider::ball(0.1),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::RED),
+                    material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
@@ -207,7 +208,7 @@ fn debug_spawn_networked_player_objs(
                 Collider::ball(0.1),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::YELLOW),
+                    material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
                 PlayerObj { handle: i },
