@@ -25,9 +25,7 @@ pub fn boss_action(
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
     mut state: ResMut<NextState<BossState>>,
 ) {
-    let Some(player_transform) = player_query.iter().next() else{
-        return;
-    };
+    let player_transform = player_query.single();
     let boss_transform = query.single_mut();
 
     let distance = player_transform
@@ -35,9 +33,9 @@ pub fn boss_action(
         .distance(boss_transform.translation);
 
     // change boss state depend on distance
-    if distance > 16.0 {
+    if distance > 20.0 {
         state.set(BossState::Idle);
-    } else if distance > 7.0 {
+    } else if distance > 10.0 {
         state.set(BossState::MoveTowardsPlayer);
     } else if distance >= 0.0 {
         state.set(BossState::Attack);
@@ -49,9 +47,7 @@ pub fn boss_move(
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
     time: Res<Time>,
 ) {
-    let Some(player_transform) = player_query.iter().next()else{
-        return;
-    };
+    let player_transform = player_query.single();
     let mut boss_transform = query.single_mut();
 
     let direction = player_transform.translation - boss_transform.translation;

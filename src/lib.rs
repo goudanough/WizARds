@@ -4,7 +4,8 @@ mod player;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
-use bevy_ggrs::GgrsConfig;
+use bevy_xpbd_3d::prelude::*;
+#[cfg(target_os = "android")]
 use bevy_oxr::graphics::extensions::XrExtensions;
 use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
@@ -43,7 +44,7 @@ pub struct PlayerInput {
 #[bevy_main]
 pub fn main() {
     let mut app = App::new();
-    app.add_systems(Startup, setup)
+    app.add_systems(Startup, global_setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(NetworkPlugin)
@@ -73,9 +74,13 @@ pub fn main() {
 
     #[cfg(not(target_os = "android"))]
     {
-        app.add_plugins(DefaultPlugins)
-            .add_systems(Startup, spawn_camera)
-            .add_systems(Startup, spoof_xr_components);
+        app.add_plugins((
+            DefaultPlugins,
+            PhysicsPlugins::default(),
+            player::PlayerPlugin,
+            boss::BossPlugin,
+        ))
+        .add_systems(Startup, spawn_camera);
     }
 
     app.run()
@@ -87,17 +92,16 @@ struct PancakeCamera;
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(5.0, 16.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+        transform: Transform::from_xyz(0.0, 1.0, 0.0).looking_at(Vec3::new(0.0, 1.0, 1.0), Vec3::Y),
+        ..default()
         },
-        PancakeCamera,
+    PancakeCamera,
     ));
 }
-
-/// set up a simple 3D scene
-fn setup(
+fn global_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut ambient_light: ResMut<AmbientLight>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut clear_color: ResMut<ClearColor>,
 ) {
@@ -138,9 +142,20 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        RigidBody::Static,
+        Collider::cuboid(128.0, 0.005, 128.0),
+    ));
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            color: Color::WHITE,
+            illuminance: 100.0,
+            ..Default::default()
+        },
+        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4)),
+        ..Default::default()
     });
+    ambient_light.color = Color::WHITE;
+    ambient_light.brightness = 1.0;
 }
 
 fn spoof_xr_components(mut commands: Commands) {
