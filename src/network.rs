@@ -9,7 +9,6 @@ use bevy_xpbd_3d::prelude::*;
 use crate::{PlayerInput, WizGgrsConfig, FPS};
 
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
-#[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
     Uninitialized,
     HostWaiting,
