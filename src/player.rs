@@ -12,8 +12,7 @@ impl Plugin for PlayerPlugin {
             /*.add_systems(
                 PhysicsSchedule,
                 (move_camera, movement.before(move_camera)).before(PhysicsStepSet::BroadPhase)
-            )*/
-            .add_systems(Update, cursor_movement_system);
+            )*/;
     }
 }
 
@@ -53,80 +52,4 @@ fn setup(
         Restitution::new(0.0).with_combine_rule(CoefficientCombine::Min),
         Player,
     ));
-}
-
-// w,a,s,d move position
-// fn movement(
-//     keyboard_input: Res<Input<KeyCode>>,
-//     mut players: Query<(&mut LinearVelocity, &ShapeHits), With<Player>>,
-//     camera_query: Query<&Transform, (With<Camera3d>, Without<Player>)>,
-// ) {
-//     if let Ok((mut linear_velocity, ground_hits)) = players.get_single_mut() {
-//         let camera_transform = camera_query.single();
-//         let mut forward = camera_transform.forward();
-//         forward.y = 0.0;
-//         forward = forward.normalize();
-//         let mut right = camera_transform.right();
-//         right.y = 0.0;
-//         right = right.normalize();
-//         // Directional movement
-//         if keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up) {
-//             linear_velocity.0 += forward * 1.2;
-//         }
-//         if keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down) {
-//             linear_velocity.0 += forward * -1.2;
-//         }
-//         if keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left) {
-//             linear_velocity.0 += right * -1.2;
-//         }
-//         if keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right) {
-//             linear_velocity.0 += right * 1.2;
-//         }
-
-//         // Jump if space pressed and the player is close enough to the ground
-//         if keyboard_input.just_pressed(KeyCode::Space) && !ground_hits.is_empty() {
-//             linear_velocity.y += 4.0;
-//         }
-
-//         // Slow player down on the x and y axes
-//         linear_velocity.x *= 0.8;
-//         linear_velocity.z *= 0.8;
-//     }
-// }
-
-// move camera eq player position
-fn move_camera(
-    mut players: Query<&Transform, With<Player>>,
-    mut camera_query: Query<&mut Transform, (With<Camera3d>, Without<Player>)>,
-) {
-    if let Ok(transform) = players.get_single_mut() {
-        camera_query.single_mut().translation = transform.translation;
-    }
-}
-
-// rotate camera
-fn cursor_movement_system(
-    mut mouse_motion_events: EventReader<MouseMotion>,
-    mut query: Query<&mut Transform, With<Camera>>,
-    time: Res<Time>,
-) {
-    let mut delta: Vec2 = Vec2::ZERO;
-    for event in mouse_motion_events.read() {
-        delta += event.delta * time.delta_seconds();
-    }
-
-    if delta == Vec2::ZERO {
-        return;
-    }
-
-    for mut transform in query.iter_mut() {
-
-        let yaw = Quat::from_rotation_y(-delta.x * CAMERA_ROTATE_SPEED.x.to_radians());
-
-        let pitch = Quat::from_rotation_x(-delta.y * CAMERA_ROTATE_SPEED.y.to_radians());
-
-        let target_rotation = yaw * transform.rotation * pitch;
-
-        transform.rotation = transform.rotation.lerp(target_rotation, 0.1);
-    }
 }

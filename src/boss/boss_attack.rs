@@ -37,7 +37,10 @@ pub fn spawn_and_launch_dog(
 ) {
     if dog.1.tick(time.delta()).just_finished() {
         let boss_transform = boss_query.single();
-        let player_transform = player_query.single()；
+        let Some(player_transform) = player_query.iter().next() else{
+            return;
+        };
+    
         let player_pos = Vec3::new(player_transform.translation.x, 0.0, player_transform.translation.z);
         let boss_pos = Vec3::new(boss_transform.translation.x, 0.0, boss_transform.translation.z);
         let launch_dir = (player_pos - boss_pos).normalize();
@@ -55,9 +58,9 @@ pub fn spawn_and_launch_dog(
             },
             RigidBody::Dynamic,
             Collider::cuboid(0.5, 0.5, 0.5), 
-            LinearVelocity(launch_dir * 20.0),
-            DogDog(Timer::from_seconds(5.0, TimerMode::Once)),
-            ColliderDensity(1000.0),
+            LinearVelocity(launch_dir * 15.0),
+            DogDog(Timer::from_seconds(60.0, TimerMode::Once)),
+            ColliderDensity(10.0),
         ));
     }
 }
