@@ -112,8 +112,8 @@ fn setup(
     });
     // cube
     commands.spawn((
-        RigidBody::Kinematic,
-                Collider::ball(0.01),
+        RigidBody::Static,
+        Collider::ball(0.01),
         PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
         material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
@@ -122,7 +122,7 @@ fn setup(
     }));
     // cube
     commands.spawn((
-RigidBody::Kinematic,
+        RigidBody::Static,
         Collider::ball(0.01),
         PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),

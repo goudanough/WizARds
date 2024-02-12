@@ -177,7 +177,7 @@ fn debug_spawn_networked_player_objs(
         commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::ball(0.5),
+                Collider::ball(0.1),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
                     material: materials.add(Color::GREEN),
@@ -191,7 +191,7 @@ fn debug_spawn_networked_player_objs(
         commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::ball(0.5),
+                Collider::ball(0.1),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                     material: materials.add(Color::RED),
@@ -204,7 +204,7 @@ fn debug_spawn_networked_player_objs(
         commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::ball(0.5),
+                Collider::ball(0.1),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                     material: materials.add(Color::YELLOW),
