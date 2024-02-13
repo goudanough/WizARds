@@ -1,6 +1,7 @@
 mod boss_attack;
 mod boss_state;
 use bevy::prelude::*;
+use bevy::transform::components::Transform;
 use bevy_xpbd_3d::prelude::*;
 
 use crate::player::Player;
@@ -35,17 +36,19 @@ struct Boss;
 #[derive(Component)]
 struct Health(f32);
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let model = asset_server.load("white bear.glb#Scene0");
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>,mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    ) {
+    //let model = asset_server.load("white bear.glb#Scene0");
     let font = asset_server.load("fonts/fira_mono.ttf");
 
     commands.spawn((
-        SceneBundle {
-            scene: model,
-            transform: Transform::from_xyz(0.0, 1.0, 9.0).with_scale(Vec3::new(2.0, 2.0, 2.0)),
-
-            ..default()
-        },
+    PbrBundle{
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+        material: materials.add(Color::rgb(0.0, 0.0, 1.0)),
+        transform: Transform::from_xyz(1.0, 0.5, 3.0),
+        ..default()
+    },
         RigidBody::Dynamic,
         Collider::cuboid(1.0, 1.0, 1.0),
         Boss,
@@ -91,7 +94,7 @@ fn update_boss(
 
             let left_rotation = Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2);
 
-            boss_transform.rotation = look_rotation * left_rotation;
+            boss_transform.rotation = look_rotation * left_rotation; 
         }
     }
 }

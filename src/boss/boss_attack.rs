@@ -13,18 +13,23 @@ use bevy::{
     transform::components::Transform,
 };
 use bevy_xpbd_3d::components::{Collider, ColliderDensity, LinearVelocity, RigidBody};
+use bevy::asset::Assets;
+use bevy::render::mesh::Mesh;
+use bevy::render::mesh::shape;
+use bevy::pbr::PbrBundle;
 
 use crate::player::Player;
 
 use super::Boss;
 
 #[derive(Resource)]
-pub struct Dog(Handle<Scene>, Timer);
+pub struct Dog(Handle<bevy::prelude::Mesh>, Timer);
 
 #[derive(Component)]
 pub struct DogDog(Timer);
-pub fn init_dog(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let dog = asset_server.load("dog.glb#Scene0");
+pub fn init_dog(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>,
+    ) {
+    let dog = meshes.add(Mesh::from(shape::Cube { size: 0.1 }));
     commands.insert_resource(Dog(dog, Timer::from_seconds(5.0, TimerMode::Repeating)));
 }
 
@@ -50,8 +55,8 @@ pub fn spawn_and_launch_dog(
         let dog_position = boss_transform.translation + left * 2.0;
         commands.spawn((
 
-            SceneBundle {
-                scene: dog.0.clone(),
+            PbrBundle {
+                mesh: dog.0.clone(),
                 transform: Transform::from_translation(dog_position)
                     .with_scale(Vec3::new(0.5, 0.5, 0.5)).with_rotation(Quat::from_rotation_y(90.0f32.to_radians())),
                 ..default()
