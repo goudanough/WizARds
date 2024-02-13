@@ -84,7 +84,7 @@ fn handle_projectile_collision(
 }
 
 pub fn spawn_projectile(
-    mut commands: Commands,
+    commands: &mut Commands,
     mesh: Handle<Mesh>,
     material: Handle<StandardMaterial>,
     transform: Transform,

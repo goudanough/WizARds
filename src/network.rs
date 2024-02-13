@@ -6,7 +6,7 @@ use bevy_oxr::xr_input::{
 };
 use std::net::SocketAddr;
 
-use crate::{PlayerInput, WizGgrsConfig, FPS};
+use crate::{spell_control::SpellCast, PlayerInput, WizGgrsConfig, FPS};
 
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
@@ -143,6 +143,7 @@ fn read_local_inputs(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
     local_player: Res<LocalPlayers>,
+    mut spell_cast: ResMut<SpellCast>,
 ) {
     let mut local_inputs = HashMap::new();
     let left_eye = left_eye.get_single().unwrap();
@@ -159,11 +160,12 @@ fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
-            spell: 0, // TODO set spell using spell system
+            spell: spell_cast.0, // TODO set spell using spell system
             ..Default::default()
         },
     );
     commands.insert_resource(LocalInputs::<WizGgrsConfig>(local_inputs));
+    spell_cast.0 = 0;
 }
 
 fn debug_spawn_networked_player_objs(

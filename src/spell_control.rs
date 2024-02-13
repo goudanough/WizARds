@@ -1,5 +1,8 @@
+use crate::network::PlayerObj;
 use crate::speech::RecordingStatus;
 use bevy::prelude::*;
+use bevy_ggrs::ggrs::PlayerHandle;
+use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
 use bevy_oxr::xr_input::hands::common::{
     HandInputDebugRenderer, HandResource, HandsResource, OpenXrHandInput,
 };
@@ -10,7 +13,7 @@ use bevy_oxr::xr_input::trackers::{
 };
 use bevy_xpbd_3d::prelude::*;
 pub struct SpellControlPlugin;
-use crate::projectile::*;
+use crate::{projectile::*, WizGgrsConfig};
 
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
@@ -19,6 +22,7 @@ impl Plugin for SpellControlPlugin {
                 spell_type: SpellType::Red,
                 status: SpellStatus::None,
             })
+            .insert_resource(SpellCast(0))
             .add_systems(Startup, spawn_text)
             .add_systems(
                 Update,
@@ -27,7 +31,8 @@ impl Plugin for SpellControlPlugin {
                     update_sphere,
                     update_thumb_index_depth_text,
                 ),
-            );
+            )
+            .add_systems(GgrsSchedule, spawn_new_spells);
     }
 }
 
@@ -41,9 +46,9 @@ pub enum SpellStatus {
 
 #[derive(Copy, Clone)]
 pub enum SpellType {
-    Red,
-    Blue,
-    Green,
+    Red = 1,
+    Blue = 2,
+    Green = 3,
 }
 
 #[derive(Resource, Copy, Clone)]
@@ -52,11 +57,19 @@ pub struct Spell {
     pub status: SpellStatus,
 }
 
+struct SpellInfo {
+    color: Color,
+    id: u32,
+}
+
 #[derive(Component)]
 struct ThumbIndexDistText;
 
 #[derive(Component)]
 struct SpellObject;
+
+#[derive(Resource)]
+pub struct SpellCast(pub u32);
 
 fn update_sphere(
     mut create_spell: ResMut<Spell>,
@@ -68,17 +81,22 @@ fn update_sphere(
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    //mut clear_color: ResMut<ClearColor>
+    mut spell_cast: ResMut<SpellCast>, //mut clear_color: ResMut<ClearColor>
 ) {
     let right_hand = hand_bones.get(hands_resource.right.palm).unwrap();
 
     let dist =
         right_hand.translation - (0.07 * right_hand.rotation.mul_vec3(right_hand.translation));
     let spell_type = create_spell.spell_type;
-    let spell = match spell_type {
+    let color = match spell_type {
         SpellType::Red => Color::RED,
         SpellType::Blue => Color::BLUE,
         SpellType::Green => Color::GREEN,
+    };
+
+    let spell = SpellInfo {
+        color: color,
+        id: spell_type as u32,
     };
     match create_spell.status {
         SpellStatus::None => {
@@ -96,7 +114,7 @@ fn update_sphere(
                         radius: 0.03,
                         ..default()
                     })),
-                    material: materials.add(spell),
+                    material: materials.add(spell.color),
                     transform: Transform::from_xyz(dist.x, dist.y, dist.z),
                     ..default()
                 },
@@ -118,23 +136,56 @@ fn update_sphere(
                 radius: 0.03,
                 ..default()
             }));
-            let material = materials.add(spell);
-            let collider = Collider::ball(0.03);
-            let transform = Transform::from_xyz(dist.x, dist.y, dist.z);
-            let direction = -right_hand.rotation.mul_vec3(right_hand.translation);
-            let speed = 1.;
+
+            spell_cast.0 = spell.id as u32;
             create_spell.status = SpellStatus::None;
-            spawn_projectile(
-                commands,
-                mesh,
-                material,
-                transform,
-                collider,
-                direction,
-                speed,
-                default(),
-            );
         }
+    }
+}
+
+fn spawn_new_spells(
+    inputs: Res<PlayerInputs<WizGgrsConfig>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    player_objs: Query<&PlayerObj, With<Rollback>>,
+) {
+    for (p) in player_objs.iter() {
+        let input = inputs[p.handle].0;
+
+        let mesh = meshes.add(Mesh::from(shape::UVSphere {
+            radius: 0.03,
+            ..default()
+        }));
+
+        let material: Handle<StandardMaterial> = if input.spell == 1 {
+            materials.add(Color::rgb(1., 0., 0.))
+        } else if input.spell == 2 {
+            materials.add(Color::rgb(0., 0., 1.))
+        } else if input.spell == 3 {
+            materials.add(Color::rgb(0., 1., 0.))
+        } else {
+            materials.add(Color::rgb(1., 1., 1.))
+        };
+
+        let collider = Collider::ball(0.03);
+        let direction = -input.right_hand_rot.mul_vec3(input.right_hand_pos);
+        let transform = Transform {
+            translation: input.right_hand_pos + (0.07 * direction),
+            ..default()
+        };
+        let speed = 1.;
+
+        spawn_projectile(
+            &mut commands,
+            mesh,
+            material,
+            transform,
+            collider,
+            direction,
+            speed,
+            default(),
+        );
     }
 }
 
@@ -209,35 +260,3 @@ fn update_thumb_index_depth_text(
         text.sections[1].value = thumb_index_dist.dist.to_string();
     }
 }
-
-/*
-fn hand_location(
-    mut commands: Commands,
-    left_eye: Query<&Transform, With<OpenXRLeftEye>>,
-    right_eye: Query<&Transform, With<OpenXRRightEye>>,
-    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
-    hands_resource: Res<HandsResource>,
-    mut recording_mode: ResMut<RecordingStatus>,
-) {
-    let left_eye = left_eye.get_single().unwrap();
-    let right_eye = right_eye.get_single().unwrap();
-    let left_hand = hand_bones.get(hands_resource.left.palm).unwrap();
-    let right_hand = hand_bones.get(hands_resource.right.palm).unwrap();
-    //let player = local_player.0.first().unwrap();
-
-    let head_pos = left_eye.translation.lerp(right_eye.translation, 0.5);
-
-    let left_hand_head_dist = bevy::math::Vec3::length(head_pos - left_hand.translation);
-
-    if left_hand_head_dist < 0.4 {
-        if !recording_mode.just_started && !recording_mode.recording {
-            recording_mode.just_started = true;
-            recording_mode.recording = true;
-            recording_mode.just_ended = false;
-        }
-    } else if recording_mode.recording {
-        recording_mode.just_ended = true;
-
-    }
-}
-*/
