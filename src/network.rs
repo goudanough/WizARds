@@ -1,41 +1,24 @@
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
-#[cfg(target_os = "android")]
-use bevy_oxr::XrEvents;
-use bevy_oxr::{
-    resources::{XrInstance, XrSession},
-    xr::{
-        sys::{SpaceShareInfoFB, SpaceUserFB},
-        AsyncRequestIdFB,
-    },
-    xr_input::{
-        hands::{common::HandsResource, HandBone},
-        trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
-    },
+use bevy_oxr::xr_input::{
+    hands::{common::HandsResource, HandBone},
+    trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
 
 use bevy_xpbd_3d::prelude::*;
-use std::{
-    io::{self, Read, Write},
-    mem::MaybeUninit,
-    net::{IpAddr, SocketAddr, TcpStream},
-    ptr::null,
-    str::FromStr,
+use std::net::{IpAddr, SocketAddr};
+
+use crate::{player, speech::{RecognizedWord, RecordingStatus}, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
+
+use self::{
+    client_init::{client_await_data, client_establish_tcp, client_sync_anchor},
+    host_init::{
+        host_establish_connections, host_inform_clients, host_share_anchor, host_wait_share_anchor,
+    },
 };
 
-#[cfg(target_os = "android")]
-use crate::speech::{fetch_recogniser, SpeechRecognizer};
-
-use crate::{
-    player,
-    speech::{RecognizedWord, RecordingStatus},
-    spell_control::QueuedSpell,
-    xr::scene::{SceneState, MeshSpace},
-    PhysLayer, PlayerInput, WizGgrsConfig, FPS,
-};
-
-use self::multicast::{MulticastEmitter, MulticastListener};
-
+mod client_init;
+mod host_init;
 mod multicast;
 
 // This series of states is used to represent what stage of device discovery we're in
@@ -43,30 +26,11 @@ mod multicast;
 pub enum NetworkingState {
     #[default]
     HostClientMenu,
-    HostWaiting,
+    HostEstablishConnections,
+    HostSendData,
     ClientEstablishConnection,
     ClientWaitForData,
     InitGgrs,
-    Done,
-}
-
-// This state is just used for clients that are waiting
-// to recieve an anchor to synchronise the game space
-#[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
-enum AwaitingAnchor {
-    #[default]
-    Uninitialized,
-    Awaiting,
-    Done,
-}
-
-// This state is just used for clients that are waiting
-// to recieve a list of all the player IPs
-#[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
-enum AwaitingIps {
-    #[default]
-    Uninitialized,
-    Awaiting,
     Done,
 }
 
@@ -105,8 +69,6 @@ impl Plugin for NetworkPlugin {
             .rollback_component_with_clone::<Transform>()
             .insert_resource(RemoteAddresses(Vec::new()))
             .init_state::<NetworkingState>()
-            .init_state::<AwaitingAnchor>()
-            .init_state::<AwaitingIps>()
             // On startup we need to allow a user to choose whether they want to host or join
             .add_systems(Startup, init)
             .add_systems(
@@ -114,20 +76,29 @@ impl Plugin for NetworkPlugin {
                 menu_select.run_if(in_state(NetworkingState::HostClientMenu)),
             )
             // If the player chooses to host, we need to scan the room and open a multicast listener
-            .add_systems(OnEnter(NetworkingState::HostWaiting), host_init)
+            .add_systems(
+                OnEnter(NetworkingState::HostEstablishConnections),
+                host_init::host_init,
+            )
             // We loop, creating TCP streams to clients that want to join, and recording addresses
             .add_systems(
                 Update,
-                host_wait.run_if(in_state(NetworkingState::HostWaiting)),
+                host_establish_connections
+                    .run_if(in_state(NetworkingState::HostEstablishConnections)),
+            )
+            // We tell the host to share the anchor with the clients
+            .add_systems(OnEnter(NetworkingState::HostSendData), host_share_anchor)
+            // We wait until the host has finished sharing the anchor with the clients
+            .add_systems(
+                Update,
+                host_wait_share_anchor.run_if(in_state(NetworkingState::HostSendData)),
             )
             // When all clients are joined, we need to tell each client the IPs of all clients
-            .add_systems(OnExit(NetworkingState::HostWaiting), host_inform_clients)
-            // When all clients are joined, we need to share the room anchor with the clients
-            .add_systems(OnExit(NetworkingState::HostWaiting), host_share_anchor)
+            .add_systems(OnExit(NetworkingState::HostSendData), host_inform_clients)
             // If we choose to join, initialize networking ready to send multicast packets for device discovery
             .add_systems(
                 OnEnter(NetworkingState::ClientEstablishConnection),
-                client_init,
+                client_init::client_init,
             )
             // We loop, sending multicast packets for device discovery and waiting for our tcp listener
             // to accept an incoming connection from the host
@@ -135,30 +106,15 @@ impl Plugin for NetworkPlugin {
                 Update,
                 client_establish_tcp.run_if(in_state(NetworkingState::ClientEstablishConnection)),
             )
-            // Start waiting for an anchor and a list of IPs
+            // Waiting for an anchor ID and a list of IPs
             .add_systems(
-                OnEnter(NetworkingState::ClientWaitForData),
-                client_start_await_information,
+                Update,
+                client_await_data.run_if(in_state(NetworkingState::ClientWaitForData)),
             )
             // Await an anchor
             .add_systems(
-                Update,
-                client_await_anchor.run_if(in_state(AwaitingAnchor::Awaiting)),
-            )
-            // Await a list of IPs
-            .add_systems(
-                Update,
-                client_await_ips.run_if(in_state(AwaitingIps::Awaiting)),
-            )
-            // If we get an anchor, we may be ready to begin our GGRS session, check to see
-            .add_systems(
-                OnEnter(AwaitingAnchor::Done),
-                client_check_end_await_information,
-            )
-            // If we get a list of IPs, we may be ready to begin our GGRS session, check to see
-            .add_systems(
-                OnEnter(AwaitingIps::Done),
-                client_check_end_await_information,
+                OnExit(NetworkingState::ClientWaitForData),
+                client_sync_anchor,
             )
             // All setup is done. Initialize the GGRS session
             .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)
@@ -184,7 +140,7 @@ fn menu_select(word: Res<RecognizedWord>, mut state: ResMut<NextState<Networking
     match &*word.0 {
         "host" => {
             println!("Hosting session");
-            state.set(NetworkingState::HostWaiting)
+            state.set(NetworkingState::HostEstablishConnections)
         }
         "join" => {
             println!("Joining session");
@@ -192,254 +148,6 @@ fn menu_select(word: Res<RecognizedWord>, mut state: ResMut<NextState<Networking
         }
         _ => {}
     };
-}
-
-// Used for listening to incoming multicast packets
-// created: host_init | dropped: host_wait
-#[derive(Resource)]
-struct MulticastListenerRes(MulticastListener);
-
-// Used for communicating addresses back to clients in host_inform_clients
-// created: host_init | dropped: host_inform_clients
-#[derive(Resource)]
-struct ClientConnections(Vec<TcpStream>);
-
-// Used for sharing an anchor with other quest clients in host_share_anchor
-// created: host_init | dropped: host_share_anchor
-#[derive(Resource)]
-struct FbIds(Vec<u64>);
-
-// Create a multicast listener and insert it as a resource
-fn host_init(mut commands: Commands, mut state: ResMut<NextState<SceneState>>) {
-    state.0 = Some(SceneState::Scanning);
-    let listener = MulticastListener::new();
-    commands.insert_resource(MulticastListenerRes(listener));
-    commands.insert_resource(ClientConnections(Vec::new()));
-    commands.insert_resource(FbIds(Vec::new()));
-}
-
-// Handle any incoming UDP packets that have reached us through multicast
-fn host_wait(
-    mut state: ResMut<NextState<NetworkingState>>,
-    mut commands: Commands,
-    listener: Res<MulticastListenerRes>,
-    mut addresses: ResMut<RemoteAddresses>,
-    mut connections: ResMut<ClientConnections>,
-    mut fb_ids: ResMut<FbIds>,
-) {
-    let (addresses, connections, fb_ids) = (&mut addresses.0, &mut connections.0, &mut fb_ids.0);
-    let listener = &listener.0;
-
-    // Loop over all the multicast packets that we've recieved
-    while let Some((msg, addr)) = listener.get_buf() {
-        // Ignore known addresses
-        if addresses.contains(&addr.ip()) {
-            continue;
-        }
-
-        // Attempt to decode the message into a TCP port and ID
-        let Some((port, fb_id)) = multicast::decode(msg) else {
-            continue;
-        };
-
-        //Log the IP of the incoming connection
-        addresses.push(addr.ip());
-
-        // Initialize a TCP connection to the client
-        let stream = TcpStream::connect((addr.ip(), port)).unwrap();
-        stream.set_nonblocking(true).unwrap();
-        connections.push(stream);
-        if fb_id != 0 {
-            fb_ids.push(fb_id);
-        }
-
-        // Currently hardcoded to exit on 1 remote client
-        if addresses.len() == 1 {
-            // Drop the listener, we don't need it anymore
-            commands.remove_resource::<MulticastListenerRes>();
-            state.0 = Some(NetworkingState::InitGgrs);
-            return;
-        }
-    }
-}
-
-// Runs once all connections are complete
-// Allows clients to synchronise their game space
-fn host_share_anchor(
-    mut commands: Commands,
-    instance: Option<Res<XrInstance>>,
-    session: Option<Res<XrSession>>,
-    fb_ids: Res<FbIds>,
-    anchor: Res<MeshSpace>,
-) {
-    let (Some(instance), Some(session)) = (instance, session) else {
-        return;
-    };
-    let anchor = anchor.0;
-    let fb_ids = &fb_ids.0;
-    let vtable = instance.exts().fb_spatial_entity_sharing.unwrap();
-    let info = SpaceShareInfoFB {
-        ty: SpaceShareInfoFB::TYPE,
-        next: null(),
-        space_count: 1,
-        spaces: [anchor].as_mut_ptr(),
-        user_count: fb_ids.len() as u32,
-        users: fb_ids
-            .into_iter()
-            .map(|id| SpaceUserFB::from_raw(*id))
-            .collect::<Vec<_>>()
-            .as_mut_ptr(),
-    };
-    let mut request: MaybeUninit<AsyncRequestIdFB> = MaybeUninit::uninit();
-    oxr!((vtable.share_spaces)(
-        session.as_raw(),
-        &info,
-        request.as_mut_ptr()
-    ));
-
-    // Drop all the other user IDs
-    commands.remove_resource::<FbIds>();
-}
-
-// Runs once all connections are complete
-// Informs all clients about every IP that will be participating
-fn host_inform_clients(
-    mut commands: Commands,
-    addresses: Res<RemoteAddresses>,
-    connections: Res<ClientConnections>,
-) {
-    let (addresses, connections) = (&addresses.0, &connections.0);
-
-    // Loop over each connection and send them the list of IPs
-    for mut conn in connections {
-        use std::fmt::Write;
-        let mut buf = String::new();
-        for addr in addresses {
-            // Make sure we don't tell any client about itself
-            if conn.peer_addr().unwrap().ip() != *addr {
-                // For the sake of simplicity all IPs are sent as null-seperated strings
-                write!(buf, "{addr}\0").unwrap();
-            }
-        }
-
-        conn.write_all(buf.as_bytes()).unwrap();
-    }
-
-    // Drop all the open tcp streams
-    commands.remove_resource::<ClientConnections>();
-}
-
-// This resource is used by the client to send multicast packets
-// created: client_init | dropped: client_await_ips
-#[derive(Resource)]
-struct MulticastEmitterRes(MulticastEmitter);
-
-fn client_init(
-    mut commands: Commands,
-    instance: Option<Res<XrInstance>>,
-    session: Option<Res<XrSession>>,
-) {
-    let (Some(instance), Some(session)) = (instance, session) else {
-        let emitter = MulticastEmitter::new(SpaceUserFB::NULL);
-        commands.insert_resource(MulticastEmitterRes(emitter));
-        return;
-    };
-
-    // TODO: Get user ID
-}
-
-// This is the stream generated by the listener accepting incoming data
-// created: client_establish_tcp | dropped: client_await_ips
-#[derive(Resource)]
-struct HostConnection(TcpStream);
-
-fn client_establish_tcp(
-    mut state: ResMut<NextState<NetworkingState>>,
-    mut commands: Commands,
-    emit: Res<MulticastEmitterRes>,
-) {
-    let emit = &emit.0;
-
-    // First we do a listen to see if we've got any incoming connections
-    if let Some((stream, _)) = emit.accept() {
-        commands.insert_resource(HostConnection(stream));
-        state.0 = Some(NetworkingState::ClientWaitForData);
-    } else {
-        // If we there are no incoming requests then we emit a new multicast message
-        // TODO: put this on a timer
-        emit.emit();
-    }
-}
-
-// Start awaiting both anchors and IPs
-fn client_start_await_information(
-    mut anchors: ResMut<NextState<AwaitingAnchor>>,
-    mut ips: ResMut<NextState<AwaitingIps>>,
-) {
-    anchors.0 = Some(AwaitingAnchor::Awaiting);
-    ips.0 = Some(AwaitingIps::Awaiting);
-}
-
-// Await an event telling us that we've got an anchor to synchronise on
-#[cfg(target_os = "android")]
-fn client_await_anchor(mut anchors: ResMut<NextState<AwaitingAnchor>>, events: NonSend<XrEvents>) {
-    println!("client_await_anchor");
-    // for event in &events.0 {
-    //     let event = unsafe { bevy_oxr::xr::Event::from_raw(&(*event).inner) }.unwrap();
-    //     if let bevy_oxr::xr::Event::SpaceShareCompleteFB(res) = event {
-    //         // TODO: whatever the fuck is supposed to go here
-    //         anchors.0 = Some(AwaitingAnchor::Done);
-    //         return;
-    //     }
-    // }
-    anchors.0 = Some(AwaitingAnchor::Done);
-}
-
-// We don't generate XrEvents in pancake mode. Move along swiftly.
-#[cfg(not(target_os = "android"))]
-fn client_await_anchor(mut anchors: ResMut<NextState<AwaitingAnchor>>) {
-    anchors.0 = Some(AwaitingAnchor::Done);
-}
-
-fn client_await_ips(
-    mut commands: Commands,
-    mut state: ResMut<NextState<AwaitingIps>>,
-    mut stream: ResMut<HostConnection>,
-) {
-    let stream = &mut stream.0;
-    let mut buf = Vec::new();
-
-    match stream.read_to_end(&mut buf) {
-        Ok(len) => {
-            // Gather all valid IPs from the message we've been sent
-            let mut ips = buf[..len]
-                .split(|chr| *chr == 0)
-                // This shouldn't really need filter_map but I'm lazy and couldn't be bothered to deal with
-                // fact that if the message is populated then the last byte will be a 0 and that'll cause an extra split
-                .filter_map(|slice| IpAddr::from_str(std::str::from_utf8(slice).ok()?).ok())
-                .collect::<Vec<_>>();
-            // The host doesn't know it's own IP, so it isn't included in the message. We add it here.
-            ips.push(stream.peer_addr().unwrap().ip());
-            commands.insert_resource(RemoteAddresses(ips));
-            commands.remove_resource::<MulticastEmitterRes>();
-            commands.remove_resource::<HostConnection>();
-            state.0 = Some(AwaitingIps::Done);
-        }
-        Err(err) if err.kind() == io::ErrorKind::WouldBlock => (),
-        Err(err) if err.kind() == io::ErrorKind::ConnectionReset => (),
-        Err(err) => panic!("{err:?} on {:?}", stream),
-    }
-}
-
-// Check if we've finished awaiting both anchors and IPs. If so, we move onto the InitGgrs state
-fn client_check_end_await_information(
-    mut state: ResMut<NextState<NetworkingState>>,
-    anchors: ResMut<State<AwaitingAnchor>>,
-    ips: ResMut<State<AwaitingIps>>,
-) {
-    if (*anchors.get() == AwaitingAnchor::Done) && (*ips.get() == AwaitingIps::Done) {
-        state.0 = Some(NetworkingState::InitGgrs);
-    }
 }
 
 fn init_ggrs(

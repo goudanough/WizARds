@@ -1,5 +1,6 @@
 use std::ptr::{null, null_mut};
 
+use crate::{oxr, xr::MeshSpace, PhysLayer};
 use bevy::{
     prelude::*,
     render::{mesh, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
@@ -19,8 +20,6 @@ use bevy_oxr::{
     XrEvents,
 };
 use bevy_xpbd_3d::prelude::*;
-
-use crate::{oxr, PhysLayer};
 
 #[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum SceneState {
@@ -116,10 +115,6 @@ fn query_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
         &mut request
     ));
 }
-
-// This struct is to retain the XrSpace handle representing the mesh of the room
-#[derive(Resource)]
-pub struct MeshSpace(pub sys::Space);
 
 fn get_query_results(
     resultsAvailable: SpaceQueryResultsAvailableFB,
