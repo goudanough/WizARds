@@ -99,7 +99,7 @@ fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState
     // TODO currently networking is hard coded, need to be able to select ips and port after game starts
     let args = ConnectionArgs {
         local_port: 8000,
-        players: vec!["localhost".to_owned(), "172.20.10.7:8000".to_owned()],
+        players: vec!["localhost".to_owned()],
     };
     assert!(args.players.len() > 0);
 
@@ -160,7 +160,7 @@ fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
-            spell: spell_cast.0, // TODO set spell using spell system
+            spell: spell_cast.0,
             ..Default::default()
         },
     );

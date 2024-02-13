@@ -1,6 +1,7 @@
 use std::default;
 
 use bevy::{input::keyboard::KeyboardInput, prelude::*, render::mesh, transform};
+use bevy_ggrs::AddRollbackCommandExtension;
 use bevy_xpbd_3d::prelude::*;
 
 #[derive(Debug, Default)]
@@ -80,6 +81,7 @@ fn handle_projectile_collision(
     contact: &Entity,
 ) {
     println!("Collision with projectile {:#?}", projectile);
+    println!("{:?} {:?}", p_entity, contact);
     commands.entity(*p_entity).despawn();
 }
 
@@ -93,16 +95,18 @@ pub fn spawn_projectile(
     speed: f32,
     projectile: Projectile,
 ) {
-    commands.spawn((
-        projectile,
-        collider,
-        PbrBundle {
-            mesh: mesh,
-            material: material,
-            transform: transform,
-            ..default()
-        },
-        RigidBody::Kinematic,
-        Velocity(direction.normalize() * speed),
-    ));
+    commands
+        .spawn((
+            projectile,
+            collider,
+            PbrBundle {
+                mesh: mesh,
+                material: material,
+                transform: transform,
+                ..default()
+            },
+            RigidBody::Kinematic,
+            Velocity(direction.normalize() * speed),
+        ))
+        .add_rollback();
 }
