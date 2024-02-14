@@ -1,8 +1,10 @@
 use std::default;
 
 use bevy::{input::keyboard::KeyboardInput, prelude::*, render::mesh, transform};
-use bevy_ggrs::AddRollbackCommandExtension;
+use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_xpbd_3d::prelude::*;
+
+use crate::network::PlayerObj;
 
 #[derive(Debug, Default)]
 enum ProjectileMovement {
@@ -41,7 +43,7 @@ pub struct ProjectilePlugin;
 impl Plugin for ProjectilePlugin {
     fn build(&self, mut app: &mut App) {
         app.add_systems(
-            Update,
+            GgrsSchedule,
             (update_projectiles, detect_projectile_collisions).chain(),
         );
     }
@@ -49,7 +51,7 @@ impl Plugin for ProjectilePlugin {
 
 fn update_projectiles(
     time: Res<Time>,
-    mut projectiles: Query<(&mut Transform, &Velocity, &Projectile)>,
+    mut projectiles: Query<(&mut Transform, &Velocity, &Projectile), Without<PlayerObj>>,
 ) {
     for mut p in &mut projectiles {
         match p.2.movement {

@@ -99,7 +99,7 @@ fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState
     // TODO currently networking is hard coded, need to be able to select ips and port after game starts
     let args = ConnectionArgs {
         local_port: 8000,
-        players: vec!["localhost".to_owned()],
+        players: vec!["localhost".to_owned(), "192.168.66.202:8000".to_owned()],
     };
     assert!(args.players.len() > 0);
 
@@ -136,7 +136,7 @@ fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState
     state.0 = Some(NetworkingState::Done);
 }
 
-fn read_local_inputs(
+pub fn read_local_inputs(
     mut commands: Commands,
     left_eye: Query<&Transform, With<OpenXRLeftEye>>,
     right_eye: Query<&Transform, With<OpenXRRightEye>>,
@@ -212,7 +212,7 @@ fn debug_spawn_networked_player_objs(
     }
 }
 
-fn debug_move_networked_player_objs(
+pub fn debug_move_networked_player_objs(
     mut player_heads: Query<
         (&mut Transform, &PlayerObj),
         (

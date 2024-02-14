@@ -1,4 +1,4 @@
-use crate::network::{PlayerHead, PlayerObj};
+use crate::network::{read_local_inputs, PlayerHead, PlayerObj};
 use crate::speech::RecordingStatus;
 use bevy::prelude::*;
 use bevy_ggrs::ggrs::PlayerHandle;
@@ -143,7 +143,8 @@ fn spawn_new_spells(
     mut materials: ResMut<Assets<StandardMaterial>>,
     player_objs: Query<&PlayerObj, With<PlayerHead>>,
 ) {
-    for (p) in player_objs.iter() {
+    let mut count: u8 = 0;
+    for p in player_objs.iter() {
         let input = inputs[p.handle].0;
         if input.spell != 0 {
             let mesh = meshes.add(Mesh::from(shape::UVSphere {
@@ -168,7 +169,9 @@ fn spawn_new_spells(
                 ..default()
             };
             let speed = 1.;
-            println!("spawn projectile");
+            println!("spawn projectile {}", count);
+            println!("{}", p.handle);
+            count += 1;
             spawn_projectile(
                 &mut commands,
                 mesh,
