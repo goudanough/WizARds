@@ -4457,6 +4457,7 @@ dependencies = [
 name = "wizARds"
 version = "0.0.1"
 dependencies = [
+ "android-activity",
  "bevy",
  "bevy_ggrs",
  "bevy_oxr",

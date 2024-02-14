@@ -22,6 +22,9 @@ bevy_xpbd_3d = { git = "https://github.com/goudanough/bevy_xpbd", rev = "7712767
 [patch.crates-io]
 ggrs = { git = "https://github.com/goudanough/ggrs" }
 
+[target.'cfg(target_os = "android")'.dependencies]
+android-activity = "0.5.2"
+
 [profile.release]
 opt-level = 3
 lto = "thin"

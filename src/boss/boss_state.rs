@@ -35,7 +35,7 @@ pub fn boss_action(
         .distance(boss_transform.translation);
 
     // change boss state depend on distance
-    if distance > 16.0 {
+    if distance > 10.0 {
         state.set(BossState::Idle);
     } else if distance > 7.0 {
         state.set(BossState::MoveTowardsPlayer);

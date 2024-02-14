@@ -1,6 +1,9 @@
 android:
   runtime_libs:
     - "runtime_libs"
+  assets:
+    - "assets/dog.glb"
+    - "assets/white bear.glb"
   manifest:
     package: "org.goudanough.wizARds"
     application:
