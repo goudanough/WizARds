@@ -23,9 +23,6 @@ crossbeam = "0.8.4"
 vosk = "0.2.0"
 zip = "0.6.6"
 
-[patch.crates-io]
-ggrs = { git = "https://github.com/goudanough/ggrs" }
-
 [target.'cfg(target_os = "android")'.dependencies]
 android-activity = "0.5.2"
 
