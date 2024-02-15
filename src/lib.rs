@@ -1,24 +1,35 @@
 #![allow(non_snake_case)]
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+mod network;
+mod projectile;
+mod speech;
+mod spell_control;
+
+use crate::speech::SpeechPlugin;
+use crate::spell_control::SpellControlPlugin;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
 use bevy_ggrs::GgrsConfig;
-use bevy_oxr::graphics::extensions::XrExtensions;
-use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
+#[cfg(target_os = "android")]
+use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode};
+#[cfg(target_os = "android")]
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
 use bevy_oxr::xr_input::hands::common::{
-    HandInputDebugRenderer, HandResource, HandsResource, IndexResource, LittleResource,
-    MiddleResource, OpenXrHandInput, RingResource, ThumbResource,
+    HandResource, HandsResource, IndexResource, LittleResource, MiddleResource, RingResource,
+    ThumbResource,
 };
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
+#[cfg(target_os = "android")]
 use bevy_oxr::DefaultXrPlugins;
+use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
-use bevy_xpbd_3d::prelude::*;
-
-mod network;
+use projectile::ProjectilePlugin;
 
 const FPS: usize = 72;
 
@@ -46,7 +57,10 @@ pub fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(NetworkPlugin)
         .add_plugins(PhysicsPlugins::default())
-        .add_systems(Update, print_collisions);
+        .add_systems(Update, print_collisions)
+        .add_plugins(ProjectilePlugin)
+        .add_plugins(SpeechPlugin)
+        .add_plugins(SpellControlPlugin);
 
     #[cfg(target_os = "android")]
     {
@@ -105,31 +119,38 @@ fn setup(
     };
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    let plane_mesh = Mesh::from(shape::Plane::from_size(5.0));
+    commands.spawn((
+        Collider::trimesh_from_mesh(&plane_mesh).unwrap(),
+        RigidBody::Static,
+        PbrBundle {
+            mesh: meshes.add(plane_mesh),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+            ..default()
+        },
+    ));
     // cube
     commands.spawn((
-        RigidBody::Static,
-        Collider::ball(0.01),
         PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    }));
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..default()
+        },
+        RigidBody::Static,
+        Collider::cuboid(0.1, 0.1, 0.1),
+    ));
     // cube
     commands.spawn((
-        RigidBody::Static,
-        Collider::ball(0.01),
         PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
-        transform: Transform::from_xyz(0.0, 0.5, 1.0),
-        ..default()
-    }));
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+            material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
+            transform: Transform::from_xyz(0.0, 0.5, 1.0),
+            ..default()
+        },
+        RigidBody::Static,
+        Collider::cuboid(0.1, 0.1, 0.1),
+    ));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -243,8 +264,7 @@ fn print_collisions(mut collision_event_reader: EventReader<Collision>) {
     for Collision(contacts) in collision_event_reader.read() {
         println!(
             "Entities {:?} and {:?} are colliding",
-            contacts.entity1,
-            contacts.entity2,
+            contacts.entity1, contacts.entity2,
         );
     }
 }
