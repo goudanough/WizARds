@@ -4,7 +4,7 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*, render::mesh, transform};
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_xpbd_3d::prelude::*;
 
-use crate::network::PlayerObj;
+use crate::network::{debug_move_networked_player_objs, PlayerObj};
 
 #[derive(Debug, Default)]
 enum ProjectileMovement {
@@ -44,7 +44,11 @@ impl Plugin for ProjectilePlugin {
     fn build(&self, mut app: &mut App) {
         app.add_systems(
             GgrsSchedule,
-            (update_projectiles, detect_projectile_collisions).chain(),
+            (
+                update_projectiles.ambiguous_with(debug_move_networked_player_objs), // TODO this is a hack, make it work without the hack.
+                detect_projectile_collisions,
+            )
+                .chain(),
         );
     }
 }
