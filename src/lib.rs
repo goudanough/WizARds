@@ -63,7 +63,6 @@ pub fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(NetworkPlugin)
         .add_plugins(PhysicsPlugins::default())
-        .add_systems(Update, print_collisions)
         .add_plugins(ProjectilePlugin)
         .add_plugins(SpeechPlugin)
         .add_plugins(SpellControlPlugin);
@@ -264,13 +263,4 @@ fn spoof_xr_components(mut commands: Commands) {
     };
 
     commands.insert_resource(HandsResource { left, right });
-}
-
-fn print_collisions(mut collision_event_reader: EventReader<Collision>) {
-    for Collision(contacts) in collision_event_reader.read() {
-        println!(
-            "Entities {:?} and {:?} are colliding",
-            contacts.entity1, contacts.entity2,
-        );
-    }
 }
