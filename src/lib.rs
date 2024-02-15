@@ -1,43 +1,35 @@
 #![allow(non_snake_case)]
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::prelude::*;
-use bevy::transform::components::Transform;
-
-use bevy_ggrs::GgrsConfig;
-
-use bevy_xpbd_3d::prelude::*;
-
-use bevy_oxr::graphics::extensions::XrExtensions;
-use bevy_oxr::graphics::XrAppInfo;
-use bevy_oxr::graphics::XrPreferdBlendMode;
-use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
-use bevy_oxr::xr_input::hands::common::HandInputDebugRenderer;
-use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
-use bevy_oxr::xr_input::hands::common::{
-    HandResource, HandsResource, IndexResource, LittleResource, MiddleResource, RingResource,
-    ThumbResource,
-};
-
-use bevy_oxr::xr_input::hands::HandBone;
-use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
-use bevy_oxr::DefaultXrPlugins;
-
-use bytemuck::{Pod, Zeroable};
-
 mod network;
 mod projectile;
 mod speech;
 mod spell_control;
 
-use projectile::ProjectilePlugin;
-
 use crate::speech::SpeechPlugin;
-
 use crate::spell_control::SpellControlPlugin;
-
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy::prelude::*;
+use bevy::transform::components::Transform;
+use bevy_ggrs::GgrsConfig;
+#[cfg(target_os = "android")]
+use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode};
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
+use bevy_oxr::xr_input::hands::common::{
+    HandResource, HandsResource, IndexResource, LittleResource, MiddleResource, RingResource,
+    ThumbResource,
+};
+use bevy_oxr::xr_input::hands::HandBone;
+use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
+#[cfg(target_os = "android")]
+use bevy_oxr::DefaultXrPlugins;
+use bevy_xpbd_3d::prelude::*;
+use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
+use projectile::ProjectilePlugin;
 
 const FPS: usize = 72;
 
@@ -57,17 +49,23 @@ pub struct PlayerInput {
     right_hand_rot: Quat,
 }
 
+#[derive(PhysicsLayer)]
+enum PhysLayer {
+    Player,
+    PlayerProjectile,
+}
+
 #[bevy_main]
 pub fn main() {
     let mut app = App::new();
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(NetworkPlugin)
         .add_plugins(PhysicsPlugins::default())
         .add_plugins(ProjectilePlugin)
         .add_plugins(SpeechPlugin)
-        .add_plugins(SpellControlPlugin)
-        .add_plugins(NetworkPlugin);
+        .add_plugins(SpellControlPlugin);
 
     #[cfg(target_os = "android")]
     {
