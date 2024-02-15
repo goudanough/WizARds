@@ -1,16 +1,10 @@
-use crate::network::{read_local_inputs, PlayerHead, PlayerObj};
+use crate::network::{PlayerHead, PlayerObj};
 use crate::speech::RecordingStatus;
 use bevy::prelude::*;
-use bevy_ggrs::ggrs::PlayerHandle;
-use bevy_ggrs::{GgrsSchedule, PlayerInputs, Rollback};
-use bevy_oxr::xr_input::hands::common::{
-    HandInputDebugRenderer, HandResource, HandsResource, OpenXrHandInput,
-};
+use bevy_ggrs::{GgrsSchedule, PlayerInputs};
+use bevy_oxr::xr_input::hands::common::HandsResource;
 use bevy_oxr::xr_input::hands::HandBone;
-use bevy_oxr::xr_input::trackers::{
-    OpenXRController, OpenXRLeftController, OpenXRLeftEye, OpenXRRightController, OpenXRRightEye,
-    OpenXRTracker,
-};
+use bevy_oxr::xr_input::trackers::OpenXRTracker;
 use bevy_xpbd_3d::prelude::*;
 pub struct SpellControlPlugin;
 use crate::{projectile::*, WizGgrsConfig};
@@ -87,7 +81,7 @@ fn handle_spell_casting(
     };
 
     let spell = SpellInfo {
-        color: color,
+        color,
         id: spell_type as u32,
     };
     match create_spell.status {
@@ -126,12 +120,7 @@ fn handle_spell_casting(
                 commands.entity(entity).despawn();
             }
 
-            let mesh = meshes.add(Mesh::from(shape::UVSphere {
-                radius: 0.03,
-                ..default()
-            }));
-
-            spell_cast.0 = spell.id as u32;
+            spell_cast.0 = spell.id;
         }
     }
 }
@@ -220,9 +209,8 @@ fn handle_spell_control(
     }
 
     if thumb_middle_dist < 0.01 {
-        match spell.status {
-            SpellStatus::Armed => spell.status = SpellStatus::Fired,
-            _ => (),
+        if let SpellStatus::Armed = spell.status {
+            spell.status = SpellStatus::Fired
         }
     }
 }

@@ -101,7 +101,7 @@ fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState
         local_port: 8000,
         players: vec!["localhost".to_owned(), "192.168.66.202:8000".to_owned()],
     };
-    assert!(args.players.len() > 0);
+    assert!(!args.players.is_empty());
 
     // create a GGRS session
     let mut sess_build =

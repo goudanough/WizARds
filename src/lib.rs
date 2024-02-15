@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -14,17 +15,13 @@ use crate::spell_control::SpellControlPlugin;
 
 mod speech;
 mod spell_control;
-use bevy_oxr::graphics::extensions::XrExtensions;
-use bevy_oxr::graphics::XrAppInfo;
-use bevy_oxr::graphics::XrPreferdBlendMode;
-use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
 use bevy_oxr::xr_input::hands::common::{
-    HandInputDebugRenderer, HandResource, HandsResource, IndexResource, LittleResource,
-    MiddleResource, OpenXrHandInput, RingResource, ThumbResource,
+    HandResource, HandsResource, IndexResource, LittleResource, MiddleResource, RingResource,
+    ThumbResource,
 };
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
-use bevy_oxr::DefaultXrPlugins;
+
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
 mod network;
@@ -86,18 +83,6 @@ pub fn main() {
     }
 
     app.run()
-}
-
-#[derive(Component)]
-struct VRCamera;
-fn spawn_vr_camera(mut commands: Commands) {
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(5.0, 6.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        VRCamera,
-    ));
 }
 
 #[derive(Component)]

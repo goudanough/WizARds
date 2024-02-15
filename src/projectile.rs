@@ -1,6 +1,4 @@
-use std::default;
-
-use bevy::{input::keyboard::KeyboardInput, prelude::*, render::mesh, transform};
+use bevy::prelude::*;
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_xpbd_3d::prelude::*;
 
@@ -10,7 +8,6 @@ use crate::network::{debug_move_networked_player_objs, PlayerObj};
 enum ProjectileMovement {
     #[default]
     Linear,
-    Static,
 }
 #[derive(Debug)]
 enum ProjectileEffect {
@@ -18,7 +15,7 @@ enum ProjectileEffect {
 }
 impl Default for ProjectileEffect {
     fn default() -> Self {
-        ProjectileEffect::Damage((10))
+        ProjectileEffect::Damage(10)
     }
 }
 
@@ -28,6 +25,7 @@ enum ProjectileVisual {
     None,
 }
 
+#[allow(dead_code)]
 #[derive(Component, Debug, Default)]
 pub struct Projectile {
     movement: ProjectileMovement,
@@ -41,7 +39,7 @@ struct Velocity(Vec3);
 pub struct ProjectilePlugin;
 
 impl Plugin for ProjectilePlugin {
-    fn build(&self, mut app: &mut App) {
+    fn build(&self, app: &mut App) {
         app.add_systems(
             GgrsSchedule,
             (
@@ -60,7 +58,6 @@ fn update_projectiles(
     for mut p in &mut projectiles {
         match p.2.movement {
             ProjectileMovement::Linear => p.0.translation += p.1 .0 * time.delta_seconds(),
-            ProjectileMovement::Static => (),
         }
     }
 }
@@ -106,9 +103,9 @@ pub fn spawn_projectile(
             projectile,
             collider,
             PbrBundle {
-                mesh: mesh,
-                material: material,
-                transform: transform,
+                mesh,
+                material,
+                transform,
                 ..default()
             },
             RigidBody::Kinematic,
