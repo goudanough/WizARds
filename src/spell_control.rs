@@ -1,5 +1,7 @@
 use crate::speech::RecordingStatus;
 use bevy::prelude::*;
+use bevy::render::mesh::shape::Quad;
+use bevy_oxr::xr::sys::pfn::QuerySystemTrackedKeyboardFB;
 use bevy_oxr::xr_input::hands::common::{
     HandInputDebugRenderer, HandResource, HandsResource, OpenXrHandInput,
 };
@@ -8,6 +10,8 @@ use bevy_oxr::xr_input::trackers::{
     OpenXRController, OpenXRLeftController, OpenXRLeftEye, OpenXRRightController, OpenXRRightEye,
     OpenXRTracker,
 };
+
+use bevy_oxr::xr_input::xr_camera::XrCameraBundle;
 use bevy_xpbd_3d::prelude::*;
 pub struct SpellControlPlugin;
 use crate::projectile::*;
@@ -43,9 +47,6 @@ pub struct Spell {
     pub spell_type: SpellType,
     pub status: SpellStatus,
 }
-
-#[derive(Component)]
-struct ThumbIndexDistText;
 
 #[derive(Component)]
 struct SpellObject;
@@ -106,18 +107,18 @@ fn update_sphere(
                 transform.translation = Transform::from_xyz(dist.x, dist.y, dist.z).translation;
             }
 
-            if let Some(first_hit) = spatial_query.cast_ray(
-                right_wrist.translation,                               // Origin
-                -right_hand.rotation.mul_vec3(right_hand.translation), // Direction
-                1000.0,                        // Maximum time of impact (travel distance)
-                true,                          // Does the ray treat colliders as "solid"
-                SpatialQueryFilter::default(), // Query filter
+            if let Some(ray_hit) = spatial_query.cast_ray(
+                right_wrist.translation,
+                -right_hand.rotation.mul_vec3(right_hand.translation),
+                1000.0,
+                true,
+                SpatialQueryFilter::default(),
             ) {
                 gizmos.line(
                     dist,
                     right_hand.translation
                         + (-right_hand.rotation.mul_vec3(right_hand.translation))
-                            * first_hit.time_of_impact,
+                            * ray_hit.time_of_impact,
                     Color::RED,
                 )
             }
@@ -193,65 +194,3 @@ fn thumb_index_spell_selection(
         }
     }
 }
-
-fn spawn_text(mut commands: Commands) {
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new(
-                "Dist Thumb to Index: ",
-                TextStyle {
-                    font_size: 100.0,
-                    color: Color::RED,
-                    ..default()
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font_size: 60.0,
-                color: Color::GOLD,
-                ..default()
-            }),
-        ]),
-        ThumbIndexDistText,
-    ));
-}
-
-fn update_thumb_index_depth_text(
-    mut query: Query<&mut Text, With<ThumbIndexDistText>>,
-    thumb_index_dist: Res<ThumbIndexDist>,
-) {
-    for mut text in &mut query {
-        text.sections[1].value = thumb_index_dist.dist.to_string();
-    }
-}
-
-/*
-fn hand_location(
-    mut commands: Commands,
-    left_eye: Query<&Transform, With<OpenXRLeftEye>>,
-    right_eye: Query<&Transform, With<OpenXRRightEye>>,
-    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
-    hands_resource: Res<HandsResource>,
-    mut recording_mode: ResMut<RecordingStatus>,
-) {
-    let left_eye = left_eye.get_single().unwrap();
-    let right_eye = right_eye.get_single().unwrap();
-    let left_hand = hand_bones.get(hands_resource.left.palm).unwrap();
-    let right_hand = hand_bones.get(hands_resource.right.palm).unwrap();
-    //let player = local_player.0.first().unwrap();
-
-    let head_pos = left_eye.translation.lerp(right_eye.translation, 0.5);
-
-    let left_hand_head_dist = bevy::math::Vec3::length(head_pos - left_hand.translation);
-
-    if left_hand_head_dist < 0.4 {
-        if !recording_mode.just_started && !recording_mode.recording {
-            recording_mode.just_started = true;
-            recording_mode.recording = true;
-            recording_mode.just_ended = false;
-        }
-    } else if recording_mode.recording {
-        recording_mode.just_ended = true;
-
-    }
-}
-*/
