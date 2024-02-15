@@ -1,3 +1,4 @@
+pub mod depth;
 pub mod scene;
 
 #[macro_export]
