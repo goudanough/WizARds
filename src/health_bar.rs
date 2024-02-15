@@ -9,7 +9,7 @@ const HEALTHBAR_DISTANCE: f32 = 0.5;
 impl Plugin for HealthBarPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_health_bar)
-            .add_systems(Update, update_health_bar.after(spawn_health_bar));
+            .add_systems(Update, update_health_bar);
     }
 }
 
@@ -26,7 +26,7 @@ impl Health {
 }
 
 #[derive(Component)]
-struct HealthBarBack;
+struct HealthBarBackground;
 
 #[derive(Component)]
 struct HealthBar;
@@ -52,7 +52,7 @@ fn spawn_health_bar(
                 current: 0.7,
                 max: 1.0,
             },
-            HealthBarBack,
+            HealthBarBackground,
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -73,14 +73,14 @@ fn spawn_health_bar(
 
 fn update_health_bar(
     health_query: Query<&Health, With<Health>>,
-    mut health_bar_bg_query: Query<&mut Transform, (With<HealthBarBack>, Without<HealthBar>)>,
+    mut health_bar_bg_query: Query<&mut Transform, (With<HealthBarBackground>, Without<HealthBar>)>,
 
-    mut health_bar_query: Query<&mut Transform, Without<HealthBarBack>>,
+    mut health_bar_query: Query<&mut Transform, (Without<HealthBarBackground>, With<HealthBar>)>,
     left_eye: Query<
         &Transform,
         (
             With<OpenXRLeftEye>,
-            Without<HealthBarBack>,
+            Without<HealthBarBackground>,
             Without<HealthBar>,
         ),
     >,
@@ -88,7 +88,7 @@ fn update_health_bar(
         &Transform,
         (
             With<OpenXRRightEye>,
-            Without<HealthBarBack>,
+            Without<HealthBarBackground>,
             Without<HealthBar>,
         ),
     >,
