@@ -45,7 +45,6 @@ impl Plugin for NetworkPlugin {
             // TODO add components that need rollback
             // TODO remove these systems and have players be instantiated in a different plugin
             .insert_state(NetworkingState::Uninitialized)
-            .insert_state(NetworkingState::Uninitialized)
             .add_systems(Startup, init)
             .add_systems(
                 Update,
