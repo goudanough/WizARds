@@ -1,4 +1,4 @@
-use crate::{spell_control::SpellCast, PlayerInput, WizGgrsConfig, FPS};
+use crate::{spell_control::SpellCast, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
 use bevy_oxr::xr_input::{
@@ -183,6 +183,9 @@ fn debug_spawn_networked_player_objs(
             .spawn((
                 RigidBody::Kinematic,
                 Collider::ball(0.1),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
                     material: materials.add(Color::WHITE),
@@ -196,6 +199,9 @@ fn debug_spawn_networked_player_objs(
             .spawn((
                 RigidBody::Kinematic,
                 Collider::ball(0.1),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                     material: materials.add(Color::WHITE),
@@ -209,6 +215,9 @@ fn debug_spawn_networked_player_objs(
             .spawn((
                 RigidBody::Kinematic,
                 Collider::ball(0.1),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                     material: materials.add(Color::WHITE),

@@ -49,6 +49,12 @@ pub struct PlayerInput {
     right_hand_rot: Quat,
 }
 
+#[derive(PhysicsLayer)]
+enum PhysLayer {
+    Player,
+    PlayerProjectile,
+}
+
 #[bevy_main]
 pub fn main() {
     let mut app = App::new();
