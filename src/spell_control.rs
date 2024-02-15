@@ -1,18 +1,10 @@
 use crate::speech::RecordingStatus;
 use bevy::prelude::*;
-use bevy::render::mesh::shape::Quad;
-use bevy_oxr::xr::sys::pfn::QuerySystemTrackedKeyboardFB;
-use bevy_oxr::xr_input::hands::common::{
-    HandInputDebugRenderer, HandResource, HandsResource, OpenXrHandInput,
-};
+use bevy_oxr::xr_input::hands::common::HandsResource;
 use bevy_oxr::xr_input::hands::HandBone;
-use bevy_oxr::xr_input::trackers::{
-    OpenXRController, OpenXRLeftController, OpenXRLeftEye, OpenXRRightController, OpenXRRightEye,
-    OpenXRTracker,
-};
-
-use bevy_oxr::xr_input::xr_camera::XrCameraBundle;
+use bevy_oxr::xr_input::trackers::OpenXRTracker;
 use bevy_xpbd_3d::prelude::*;
+
 pub struct SpellControlPlugin;
 use crate::projectile::*;
 

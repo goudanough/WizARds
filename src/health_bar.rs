@@ -29,10 +29,7 @@ impl Health {
 struct HealthBarBack;
 
 #[derive(Component)]
-struct HealthBar {
-    max: f32,
-    min: f32,
-}
+struct HealthBar;
 
 fn spawn_health_bar(
     mut commands: Commands,
@@ -69,7 +66,7 @@ fn spawn_health_bar(
                     transform: Transform::from_xyz(0.0, 0.0, 0.0),
                     ..default()
                 },
-                HealthBar { max: 1.0, min: 0.0 },
+                HealthBar,
             ));
         });
 }

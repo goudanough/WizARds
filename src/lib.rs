@@ -2,7 +2,6 @@
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use bevy::render::render_resource::DepthBiasState;
 use bevy::transform::components::Transform;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::extensions::XrExtensions;
@@ -28,8 +27,7 @@ use bevy_oxr::resources::{XrFrameState, XrInstance, XrSession};
 use bevy_oxr::xr_input::{actions::XrActionSets, oculus_touch::OculusController, Hand};
 #[cfg(target_os = "android")]
 use bevy_oxr::DefaultXrPlugins;
-// #[cfg(target_os = "android")]
-// use bevy_oxr::xr_input::prototype_locomotion::{proto_locomotion, PrototypeLocomotionConfig};
+
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::trackers::{
     OpenXRController, OpenXRLeftController, OpenXRLeftEye, OpenXRRightController, OpenXRRightEye,
