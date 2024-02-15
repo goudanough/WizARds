@@ -23,7 +23,7 @@ impl Plugin for SpellControlPlugin {
                 status: SpellStatus::None,
             })
             .insert_resource(SpellCast(0))
-            .add_systems(Update, (thumb_index_spell_selection, handle_spell_casting))
+            .add_systems(Update, (handle_spell_control, handle_spell_casting))
             .add_systems(GgrsSchedule, spawn_new_spells);
     }
 }
@@ -191,7 +191,7 @@ pub struct ThumbIndexDist {
     dist: f32,
 }
 
-fn thumb_index_spell_selection(
+fn handle_spell_control(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
     mut recording_mode: ResMut<RecordingStatus>,
@@ -224,35 +224,5 @@ fn thumb_index_spell_selection(
             SpellStatus::Armed => spell.status = SpellStatus::Fired,
             _ => (),
         }
-    }
-}
-
-fn spawn_text(mut commands: Commands) {
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new(
-                "Dist Thumb to Index: ",
-                TextStyle {
-                    font_size: 100.0,
-                    color: Color::RED,
-                    ..default()
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font_size: 60.0,
-                color: Color::GOLD,
-                ..default()
-            }),
-        ]),
-        ThumbIndexDistText,
-    ));
-}
-
-fn update_thumb_index_depth_text(
-    mut query: Query<&mut Text, With<ThumbIndexDistText>>,
-    thumb_index_dist: Res<ThumbIndexDist>,
-) {
-    for mut text in &mut query {
-        text.sections[1].value = thumb_index_dist.dist.to_string();
     }
 }
