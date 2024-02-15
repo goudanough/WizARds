@@ -99,7 +99,9 @@ fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState
     // TODO currently networking is hard coded, need to be able to select ips and port after game starts
     let args = ConnectionArgs {
         local_port: 8000,
-        players: vec!["localhost".to_owned(), "192.168.66.202:8000".to_owned()],
+        players: vec![
+            "localhost".to_owned(), /*"192.168.66.202:8000".to_owned()*/
+        ],
     };
     assert!(!args.players.is_empty());
 

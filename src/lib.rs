@@ -15,12 +15,19 @@ use crate::spell_control::SpellControlPlugin;
 
 mod speech;
 mod spell_control;
+use bevy_oxr::graphics::extensions::XrExtensions;
+use bevy_oxr::graphics::XrAppInfo;
+use bevy_oxr::graphics::XrPreferdBlendMode;
+use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
+use bevy_oxr::xr_input::hands::common::HandInputDebugRenderer;
+use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
 use bevy_oxr::xr_input::hands::common::{
     HandResource, HandsResource, IndexResource, LittleResource, MiddleResource, RingResource,
     ThumbResource,
 };
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
+use bevy_oxr::DefaultXrPlugins;
 
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
