@@ -37,7 +37,7 @@ use bevy_oxr::xr_input::hands::common::{
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
 #[cfg(target_os = "android")]
-use bevy_oxr::DefaultXrPlugins;
+use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
 use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use health_bar::HealthBarPlugin;
@@ -106,14 +106,19 @@ pub fn main() {
         reqeusted_extensions.raw_mut().meta_spatial_entity_mesh = true;
         reqeusted_extensions.raw_mut().fb_triangle_mesh = true;
         reqeusted_extensions.raw_mut().khr_convert_timespec_time = true;
+        reqeusted_extensions.raw_mut().meta_environment_depth = true;
 
-        app.add_plugins(DefaultXrPlugins {
-            reqeusted_extensions,
-            prefered_blend_mode: XrPreferdBlendMode::AlphaBlend,
-            app_info: XrAppInfo {
-                name: "wizARds".to_string(),
-            },
-        })
+        app.add_plugins(
+            (DefaultXrPlugins {
+                reqeusted_extensions,
+                prefered_blend_mode: XrPreferdBlendMode::AlphaBlend,
+                app_info: XrAppInfo {
+                    name: "wizARds".to_string(),
+                },
+            }
+            .build()
+            .add_after::<OpenXrPlugin, _>(xr::depth::EnvDepthPlugin)),
+        )
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)
         //.add_plugins(HandInputDebugRenderer)
