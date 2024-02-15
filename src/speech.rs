@@ -146,7 +146,6 @@ fn handle_voice(
         recording_status.just_started = false;
         spell.status = SpellStatus::None;
 
-        println!("Start collecting voice.");
         //clip.sample_bool = true;
         let n_samples = voice.queue.len();
         // Flush the queue of samples taken before the voice button was pressed.
@@ -166,9 +165,7 @@ fn handle_voice(
     if recording_status.just_ended {
         recording_status.just_ended = false;
         recording_status.recording = false;
-        println!("Finished collecting voice.");
         // Pass data to recogniser
-        println!("Collected {} samples!", clip.data.len());
         let mut averaged_channel_data: Vec<i16> = Vec::new();
         for index in (1..clip.data.len()).step_by(2) {
             averaged_channel_data.push((clip.data[index - 1] + clip.data[index]) / 2);
@@ -180,7 +177,6 @@ fn handle_voice(
             .final_result()
             .single()
             .expect("Expect a single result, got one with alternatives");
-        println!("Heard {}", result.text);
         process_text(result.text, spell);
     }
 }
