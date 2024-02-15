@@ -19,9 +19,6 @@ bytemuck = { version = "1.14.1", features=["derive"]}
 bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "c85f7435b54aa1788aa75f46c71583d29d0cf76f", default-features = false }
 bevy_xpbd_3d = { git = "https://github.com/goudanough/bevy_xpbd", rev = "771276761479c2d5bd8f814e3f9164c39103f083" }
 
-[patch.crates-io]
-ggrs = { git = "https://github.com/goudanough/ggrs" }
-
 [target.'cfg(target_os = "android")'.dependencies]
 android-activity = "0.5.2"
 
