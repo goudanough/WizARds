@@ -1,23 +1,43 @@
 #![allow(non_snake_case)]
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
+
 use bevy_ggrs::GgrsConfig;
+
+use bevy_xpbd_3d::prelude::*;
+
 use bevy_oxr::graphics::extensions::XrExtensions;
-use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
+use bevy_oxr::graphics::XrAppInfo;
+use bevy_oxr::graphics::XrPreferdBlendMode;
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
+use bevy_oxr::xr_input::hands::common::HandInputDebugRenderer;
+use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
 use bevy_oxr::xr_input::hands::common::{
-    HandInputDebugRenderer, HandResource, HandsResource, IndexResource, LittleResource,
-    MiddleResource, OpenXrHandInput, RingResource, ThumbResource,
+    HandResource, HandsResource, IndexResource, LittleResource, MiddleResource, RingResource,
+    ThumbResource,
 };
+
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
 use bevy_oxr::DefaultXrPlugins;
+
 use bytemuck::{Pod, Zeroable};
-use network::NetworkPlugin;
 
 mod network;
+mod projectile;
+mod speech;
+mod spell_control;
+
+use projectile::ProjectilePlugin;
+
+use crate::speech::SpeechPlugin;
+
+use crate::spell_control::SpellControlPlugin;
+
+use network::NetworkPlugin;
 
 const FPS: usize = 72;
 
@@ -43,6 +63,10 @@ pub fn main() {
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(PhysicsPlugins::default())
+        .add_plugins(ProjectilePlugin)
+        .add_plugins(SpeechPlugin)
+        .add_plugins(SpellControlPlugin)
         .add_plugins(NetworkPlugin);
 
     #[cfg(target_os = "android")]
@@ -102,25 +126,38 @@ fn setup(
     };
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    let plane_mesh = Mesh::from(shape::Plane::from_size(5.0));
+    commands.spawn((
+        Collider::trimesh_from_mesh(&plane_mesh).unwrap(),
+        RigidBody::Static,
+        PbrBundle {
+            mesh: meshes.add(plane_mesh),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
+            ..default()
+        },
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..default()
+        },
+        RigidBody::Static,
+        Collider::cuboid(0.1, 0.1, 0.1),
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-        material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
-        transform: Transform::from_xyz(0.0, 0.5, 1.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+            material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
+            transform: Transform::from_xyz(0.0, 0.5, 1.0),
+            ..default()
+        },
+        RigidBody::Static,
+        Collider::cuboid(0.1, 0.1, 0.1),
+    ));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
