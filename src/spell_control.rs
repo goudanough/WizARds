@@ -1,4 +1,4 @@
-use crate::network::{PlayerHead, PlayerObj};
+use crate::network::{PlayerHead, PlayerObj, PlayerRightPalm};
 use crate::speech::RecordingStatus;
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, PlayerInputs};
@@ -60,6 +60,7 @@ fn handle_spell_casting(
     mut create_spell: ResMut<Spell>,
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     mut spell_query: Query<(Entity, &mut Transform), (With<SpellObject>, Without<HandBone>)>,
+    right_palm_cube: Query<Entity, (With<PlayerRightPalm>, Without<SpellObject>)>,
 
     hands_resource: Res<HandsResource>,
     mut commands: Commands,
@@ -118,9 +119,9 @@ fn handle_spell_casting(
             if let Some(ray_hit) = spatial_query.cast_ray(
                 right_wrist.translation,
                 -right_hand.rotation.mul_vec3(right_hand.translation),
-                1000.0,
+                100.0,
                 true,
-                SpatialQueryFilter::default(),
+                SpatialQueryFilter::new().without_entities([right_palm_cube.get_single().unwrap()]),
             ) {
                 gizmos.line(
                     dist,

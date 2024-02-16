@@ -1,11 +1,13 @@
 #![allow(non_snake_case)]
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+mod health_bar;
 mod network;
 mod projectile;
 mod speech;
 mod spell_control;
 
+use crate::health_bar::HealthBarPlugin;
 use crate::speech::SpeechPlugin;
 use crate::spell_control::SpellControlPlugin;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -30,13 +32,6 @@ use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
 use projectile::ProjectilePlugin;
-
-use crate::health_bar::HealthBarPlugin;
-use crate::speech::SpeechPlugin;
-
-use crate::spell_control::SpellControlPlugin;
-
-use network::NetworkPlugin;
 
 const FPS: usize = 72;
 
@@ -73,8 +68,7 @@ pub fn main() {
         .add_plugins(ProjectilePlugin)
         .add_plugins(SpeechPlugin)
         .add_plugins(SpellControlPlugin)
-        .add_plugins(HealthBarPlugin)
-        .add_plugins(NetworkPlugin);
+        .add_plugins(HealthBarPlugin);
 
     #[cfg(target_os = "android")]
     {
