@@ -1,11 +1,7 @@
 #[cfg(target_os = "android")]
-use bevy::winit::android_activity::AndroidApp;
-#[cfg(target_os = "android")]
 use std::ffi::CString;
 #[cfg(target_os = "android")]
 use std::path::Path;
-#[cfg(target_os = "android")]
-use zip::ZipArchive;
 
 use bevy::prelude::*;
 use cpal::{

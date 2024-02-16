@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_xpbd_3d::prelude::*;
 
-use crate::network::debug_move_networked_player_objs;
+use crate::{
+    network::{debug_move_networked_player_objs, PlayerObj},
+    PhysLayer,
+};
 
 #[derive(Debug, Default)]
 enum ProjectileMovement {
@@ -102,6 +105,9 @@ pub fn spawn_projectile(
         .spawn((
             projectile,
             collider,
+            CollisionLayers::all_masks::<PhysLayer>()
+                .add_group(PhysLayer::PlayerProjectile)
+                .remove_mask(PhysLayer::Player),
             PbrBundle {
                 mesh,
                 material,

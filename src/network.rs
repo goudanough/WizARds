@@ -1,12 +1,12 @@
+use crate::{spell_control::SpellCast, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
 use bevy_oxr::xr_input::{
     hands::{common::HandsResource, HandBone},
     trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
+use bevy_xpbd_3d::prelude::*;
 use std::net::SocketAddr;
-
-use crate::{spell_control::SpellCast, PlayerInput, WizGgrsConfig, FPS};
 
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
@@ -180,6 +180,11 @@ fn debug_spawn_networked_player_objs(
     for i in 0..args.players.len() {
         commands
             .spawn((
+                RigidBody::Kinematic,
+                Collider::ball(0.1),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
                     material: materials.add(Color::WHITE),
@@ -191,6 +196,11 @@ fn debug_spawn_networked_player_objs(
             .add_rollback();
         commands
             .spawn((
+                RigidBody::Kinematic,
+                Collider::ball(0.1),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                     material: materials.add(Color::WHITE),
@@ -202,6 +212,11 @@ fn debug_spawn_networked_player_objs(
             .add_rollback();
         commands
             .spawn((
+                RigidBody::Kinematic,
+                Collider::ball(0.1),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                     material: materials.add(Color::WHITE),
