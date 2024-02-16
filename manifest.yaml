@@ -1,4 +1,6 @@
 android:
+  assets:
+    - "assets/vosk-model.zip"
   runtime_libs:
     - "runtime_libs"
   assets:
@@ -29,6 +31,9 @@ android:
     uses_permission:
       - name: "com.oculus.permission.USE_SCENE"
       - name: "com.oculus.permission.HAND_TRACKING"
+      - name: "android.permission.RECORD_AUDIO"
+      - name: "android.permission.WRITE_EXTERNAL_STORAGE"
+      - name: "android.permission.READ_EXTERNAL_STORAGE"
       - name: "android.permission.INTERNET"
     uses_feature:
       - name: "com.oculus.experimental.enabled"

@@ -1,9 +1,11 @@
+use crate::{spell_control::SpellCast, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
 use bevy_oxr::xr_input::{
     hands::{common::HandsResource, HandBone},
     trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
+use bevy_xpbd_3d::prelude::*;
 use std::net::SocketAddr;
 
 use crate::{player, PlayerInput, WizGgrsConfig, FPS};
@@ -99,9 +101,11 @@ fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState
     // TODO currently networking is hard coded, need to be able to select ips and port after game starts
     let args = ConnectionArgs {
         local_port: 8000,
-        players: vec!["localhost".to_owned()],
+        players: vec![
+            "localhost".to_owned(), /*"192.168.66.202:8000".to_owned()*/
+        ],
     };
-    assert!(args.players.len() > 0);
+    assert!(!args.players.is_empty());
 
     // create a GGRS session
     let mut sess_build =
@@ -136,13 +140,14 @@ fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState
     state.0 = Some(NetworkingState::Done);
 }
 
-fn read_local_inputs(
+pub fn read_local_inputs(
     mut commands: Commands,
     left_eye: Query<&Transform, With<OpenXRLeftEye>>,
     right_eye: Query<&Transform, With<OpenXRRightEye>>,
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
     local_player: Res<LocalPlayers>,
+    mut spell_cast: ResMut<SpellCast>,
 ) {
     let mut local_inputs = HashMap::new();
     let left_eye = left_eye.get_single().unwrap();
@@ -159,11 +164,12 @@ fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
-            spell: 0, // TODO set spell using spell system
+            spell: spell_cast.0,
             ..Default::default()
         },
     );
     commands.insert_resource(LocalInputs::<WizGgrsConfig>(local_inputs));
+    spell_cast.0 = 0;
 }
 
 fn debug_spawn_networked_player_objs(
@@ -176,6 +182,11 @@ fn debug_spawn_networked_player_objs(
     for i in 0..args.players.len() {
         commands
             .spawn((
+                RigidBody::Kinematic,
+                Collider::ball(0.1),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
                     material: materials.add(Color::WHITE),
@@ -188,6 +199,11 @@ fn debug_spawn_networked_player_objs(
             .add_rollback();
         commands
             .spawn((
+                RigidBody::Kinematic,
+                Collider::ball(0.1),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                     material: materials.add(Color::WHITE),
@@ -199,6 +215,11 @@ fn debug_spawn_networked_player_objs(
             .add_rollback();
         commands
             .spawn((
+                RigidBody::Kinematic,
+                Collider::ball(0.1),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                     material: materials.add(Color::WHITE),
@@ -211,7 +232,7 @@ fn debug_spawn_networked_player_objs(
     }
 }
 
-fn debug_move_networked_player_objs(
+pub fn debug_move_networked_player_objs(
     mut player_heads: Query<
         (&mut Transform, &PlayerObj),
         (

@@ -1,26 +1,34 @@
-#![allow(non_snake_case)]
+mod network;
+mod projectile;
+mod speech;
+mod spell_control;
 mod boss;
 mod player;
+
+use crate::speech::SpeechPlugin;
+use crate::spell_control::SpellControlPlugin;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
 use bevy_ggrs::GgrsConfig;
-use bevy_oxr::graphics::extensions::XrExtensions;
-use bevy_oxr::graphics::{XrAppInfo, XrPreferdBlendMode};
+#[cfg(target_os = "android")]
+use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode};
+#[cfg(target_os = "android")]
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
 use bevy_oxr::xr_input::hands::common::{
-    HandInputDebugRenderer, HandResource, HandsResource, IndexResource, LittleResource,
-    MiddleResource, OpenXrHandInput, RingResource, ThumbResource,
+    HandResource, HandsResource, IndexResource, LittleResource, MiddleResource, RingResource,
+    ThumbResource,
 };
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
+#[cfg(target_os = "android")]
 use bevy_oxr::DefaultXrPlugins;
-use bevy_xpbd_3d::components::{Collider, ColliderDensity, Friction, RigidBody};
-use bevy_xpbd_3d::plugins::PhysicsPlugins;
+use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
-
-mod network;
+use projectile::ProjectilePlugin;
 
 const FPS: usize = 72;
 
@@ -40,6 +48,12 @@ pub struct PlayerInput {
     right_hand_rot: Quat,
 }
 
+#[derive(PhysicsLayer)]
+enum PhysLayer {
+    Player,
+    PlayerProjectile,
+}
+
 #[bevy_main]
 pub fn main() {
     let mut app = App::new();
@@ -49,8 +63,10 @@ pub fn main() {
         .add_plugins(NetworkPlugin)
         // boss and player plugins(not use)
         .add_plugins(boss::BossPlugin)
-        // physics plugin
-        .add_plugins(PhysicsPlugins::default());
+        .add_plugins(PhysicsPlugins::default())
+        .add_plugins(ProjectilePlugin)
+        .add_plugins(SpeechPlugin)
+        .add_plugins(SpellControlPlugin);
 
     #[cfg(target_os = "android")]
     {
@@ -108,29 +124,38 @@ fn setup(
         alpha: 0.0,
     };
     // plane
+    let plane_mesh = Mesh::from(shape::Plane::from_size(5.0));
     commands.spawn((
+        Collider::trimesh_from_mesh(&plane_mesh).unwrap(),
+        RigidBody::Static,
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane::from_size(128.0))),
+            mesh: meshes.add(plane_mesh),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
             ..default()
         },
-        RigidBody::Static,
-        Collider::cuboid(128.0, 0.005, 128.0),
     ));
     // cube
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
-        transform: Transform::from_xyz(2.0, 0.5, 4.0),
-        ..default()
-    },RigidBody::Dynamic, Collider::cuboid(0.5, 0.5, 0.5),ColliderDensity(100.0),));
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..default()
+        },
+        RigidBody::Static,
+        Collider::cuboid(0.1, 0.1, 0.1),
+    ));
     // cube
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
-        transform: Transform::from_xyz(3.0, 0.5, 1.0),
-        ..default()
-    },RigidBody::Dynamic, Collider::cuboid(0.5, 0.5, 0.5),ColliderDensity(100.0)),);
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
+            material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
+            transform: Transform::from_xyz(0.0, 0.5, 1.0),
+            ..default()
+        },
+        RigidBody::Static,
+        Collider::cuboid(0.1, 0.1, 0.1),
+    ));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
