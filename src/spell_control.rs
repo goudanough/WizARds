@@ -115,7 +115,6 @@ fn handle_spell_casting(
         }
         SpellStatus::Fired => {
             create_spell.status = SpellStatus::None;
-            println!("Firing");
             for (entity, _) in spell_query.iter() {
                 commands.entity(entity).despawn();
             }
@@ -158,9 +157,6 @@ fn spawn_new_spells(
                 ..default()
             };
             let speed = 1.;
-            println!("spawn projectile {}", count);
-            println!("{}", p.handle);
-            count += 1;
             spawn_projectile(
                 &mut commands,
                 mesh,

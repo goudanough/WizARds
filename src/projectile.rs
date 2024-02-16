@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_xpbd_3d::prelude::*;
 
@@ -14,13 +14,16 @@ enum ProjectileMovement {
 }
 #[derive(Debug)]
 enum ProjectileEffect {
-    Damage(u16),
+    Damage(DamageMask, u16),
 }
 impl Default for ProjectileEffect {
     fn default() -> Self {
-        ProjectileEffect::Damage(10)
+        ProjectileEffect::Damage(DamageMask::FIRE, 10)
     }
 }
+
+#[derive(Component)]
+struct Health(DamageMask, u16);
 
 #[derive(Debug, Default)]
 enum ProjectileVisual {
@@ -39,6 +42,23 @@ pub struct Projectile {
 #[derive(Component)]
 struct Velocity(Vec3);
 
+#[derive(Debug)]
+struct DamageMask(u8);
+
+impl DamageMask {
+    const FIRE: Self = DamageMask(1 << 0);
+    const LIGHTNING: Self = DamageMask(1 << 1);
+
+    fn intersect(&self, other: &Self) -> bool {
+        self.0 & other.0 > 0
+    }
+}
+
+impl From<DamageMask> for u8 {
+    fn from(val: DamageMask) -> Self {
+        val.0
+    }
+}
 pub struct ProjectilePlugin;
 
 impl Plugin for ProjectilePlugin {
@@ -69,13 +89,14 @@ fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
     projectiles: Query<&Projectile>,
+    mut healths: Query<&mut Health>,
 ) {
     for CollisionStarted(e1, e2) in collisions.read() {
         if let Ok(p) = projectiles.get(*e1) {
-            handle_projectile_collision(&mut commands, p, e1, e2);
+            handle_projectile_collision(&mut commands, p, e1, healths.get_mut(*e2));
         }
         if let Ok(p) = projectiles.get(*e2) {
-            handle_projectile_collision(&mut commands, p, e2, e1);
+            handle_projectile_collision(&mut commands, p, e2, healths.get_mut(*e1));
         }
     }
 }
@@ -84,11 +105,17 @@ fn handle_projectile_collision(
     commands: &mut Commands,
     projectile: &Projectile,
     p_entity: &Entity,
-    contact: &Entity,
+    health: Result<Mut<Health>, QueryEntityError>,
 ) {
-    println!("Collision with projectile {:#?}", projectile);
-    println!("{:?} {:?}", p_entity, contact);
     commands.entity(*p_entity).despawn();
+
+    if let ProjectileEffect::Damage(m, a) = &projectile.effect {
+        if let Ok(mut h) = health {
+            if (h.0.intersect(&m)) {
+                h.1 -= a;
+            }
+        }
+    }
 }
 
 pub fn spawn_projectile(
