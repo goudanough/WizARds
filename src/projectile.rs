@@ -14,16 +14,16 @@ struct LinearMovement(f32);
 
 #[derive(Debug, Component)]
 enum ProjectileHitEffect {
-    Damage(DamageMask, u16),
+    Damage(DamageMask, f32),
 }
 impl Default for ProjectileHitEffect {
     fn default() -> Self {
-        ProjectileHitEffect::Damage(DamageMask::FIRE, 10)
+        ProjectileHitEffect::Damage(DamageMask::FIRE, 10.)
     }
 }
 
 #[derive(Component)]
-struct Health(DamageMask, u16);
+struct Health(DamageMask, f32);
 
 #[derive(Component, Debug, Default)]
 pub struct Projectile;
@@ -92,55 +92,43 @@ fn handle_projectile_collision(
     health: Result<Mut<Health>, QueryEntityError>,
 ) {
     commands.entity(*p_entity).despawn();
-
-    if let ProjectileHitEffect::Damage(m, a) = &projectile.effect {
+    if let ProjectileHitEffect::Damage(m, a) = &hit_effect {
         if let Ok(mut h) = health {
-            if (h.0.intersect(&m)) {
+            if h.0.intersect(&m) {
                 h.1 -= a;
             }
         }
     }
 }
 
-pub fn spawn_projectile(commands: &mut Commands, spell: &Spell) {
+pub fn spawn_spell_projectile(commands: &mut Commands, spell: &Spell) {
+    // TODO add PbrBundle for projectiles, this will need:
+    //    - a mesh and material, meaning this function will need access to mesh and material resources.
+    //    - transform information for the projectile, this will also have to be passed in.
     match spell {
-        Spell::Fireball => commands.spawn((CollisionLayers::all_masks::<PhysLayer>()
-            .add_group(PhysLayer::PlayerProjectile)
-            .remove_mask(PhysLayer::Player),)),
-        Spell::Lightning => commands.spawn(
-            (
-                Projectile {
-                    effect: ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10),
-                    visual: ProjectileVisual::None,
-                },
+        Spell::Fireball => commands
+            .spawn((
+                Projectile,
+                LinearMovement(5.),
+                ProjectileHitEffect::Damage(DamageMask::FIRE, 10.),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
                     .remove_mask(PhysLayer::Player),
-            ),
-            LinearMovement(),
-            PbrBundle {
-                mesh,
-                material,
-                transform,
-                ..default()
-            },
-        ),
+                Collider::ball(0.03),
+                RigidBody::Kinematic,
+            ))
+            .add_rollback(),
+        Spell::Lightning => commands
+            .spawn((
+                Projectile,
+                LinearMovement(5.),
+                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10.),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::PlayerProjectile)
+                    .remove_mask(PhysLayer::Player),
+                Collider::ball(0.03),
+                RigidBody::Kinematic,
+            ))
+            .add_rollback(),
     }
-    commands
-        .spawn((
-            projectile,
-            collider,
-            CollisionLayers::all_masks::<PhysLayer>()
-                .add_group(PhysLayer::PlayerProjectile)
-                .remove_mask(PhysLayer::Player),
-            PbrBundle {
-                mesh,
-                material,
-                transform,
-                ..default()
-            },
-            RigidBody::Kinematic,
-            Velocity(direction.normalize() * speed),
-        ))
-        .add_rollback();
 }
