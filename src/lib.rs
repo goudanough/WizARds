@@ -124,38 +124,29 @@ fn setup(
         alpha: 0.0,
     };
     // plane
-    let plane_mesh = Mesh::from(shape::Plane::from_size(5.0));
     commands.spawn((
-        Collider::trimesh_from_mesh(&plane_mesh).unwrap(),
-        RigidBody::Static,
         PbrBundle {
-            mesh: meshes.add(plane_mesh),
+            mesh: meshes.add(Mesh::from(shape::Plane::from_size(128.0))),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
             ..default()
         },
+        RigidBody::Static,
+        Collider::cuboid(128.0, 0.005, 128.0),
     ));
     // cube
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        },
-        RigidBody::Static,
-        Collider::cuboid(0.1, 0.1, 0.1),
-    ));
+    commands.spawn((PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+        transform: Transform::from_xyz(2.0, 0.5, 4.0),
+        ..default()
+    },RigidBody::Dynamic, Collider::cuboid(0.5, 0.5, 0.5),ColliderDensity(100.0),));
     // cube
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-            material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
-            transform: Transform::from_xyz(0.0, 0.5, 1.0),
-            ..default()
-        },
-        RigidBody::Static,
-        Collider::cuboid(0.1, 0.1, 0.1),
-    ));
+    commands.spawn((PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+        material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
+        transform: Transform::from_xyz(3.0, 0.5, 1.0),
+        ..default()
+    },RigidBody::Dynamic, Collider::cuboid(0.5, 0.5, 0.5),ColliderDensity(100.0)),);
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
