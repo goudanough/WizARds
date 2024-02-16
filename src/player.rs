@@ -1,8 +1,8 @@
-use bevy::{input::mouse::MouseMotion, prelude::*};
-use bevy_xpbd_3d::{math::*, prelude::*, PhysicsSchedule, PhysicsStepSet};
+use bevy::{/*input::mouse::MouseMotion,*/ prelude::*};
+use bevy_xpbd_3d::{math::*, prelude::*, /*PhysicsSchedule, PhysicsStepSet*/};
 
 // Set camera move speed.
-const CAMERA_ROTATE_SPEED: Vec2 = Vec2::new(50.0, 50.0);
+//const CAMERA_ROTATE_SPEED: Vec2 = Vec2::new(50.0, 50.0);
 
 pub struct PlayerPlugin;
 
