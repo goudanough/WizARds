@@ -12,7 +12,7 @@ use crossbeam::queue::ArrayQueue;
 use std::sync::Arc;
 use vosk::*;
 
-use crate::spell_control::{Spell, SpellStatus, SpellType};
+use crate::spell_control::{SelectedSpell, Spell, SpellStatus};
 
 const BUFFER_SIZE: usize = 10000;
 
@@ -87,7 +87,7 @@ fn queue_input_data(data: &[i16], queue: &Arc<ArrayQueue<i16>>) {
 }
 
 fn fetch_recogniser() -> Recognizer {
-    let grammar = ["red", "green", "blue"];
+    let grammar = ["fireball", "lightning"];
 
     #[cfg(target_os = "android")]
     {
@@ -136,7 +136,7 @@ fn handle_voice(
     mut recogniser: ResMut<SpeechRecogniser>,
     mut clip: ResMut<VoiceClip>,
     mut recording_status: ResMut<RecordingStatus>,
-    mut spell: ResMut<Spell>,
+    mut spell: ResMut<SelectedSpell>,
 ) {
     if recording_status.just_started {
         recording_status.just_started = false;
@@ -177,22 +177,20 @@ fn handle_voice(
     }
 }
 
-fn process_text(text: &str, mut spell: ResMut<Spell>) {
+fn process_text(text: &str, mut spell: ResMut<SelectedSpell>) {
     let last_recognised_word = text.split_whitespace().last().unwrap_or("");
 
     match last_recognised_word {
-        "red" => {
-            spell.spell_type = SpellType::Red;
+        "fireball" => {
+            spell.spell_type = Spell::Fireball;
             spell.status = SpellStatus::Prepare;
         }
-        "blue" => {
-            spell.spell_type = SpellType::Blue;
+        "lightning" => {
+            spell.spell_type = Spell::Lightning;
             spell.status = SpellStatus::Prepare;
         }
-        "green" => {
-            spell.spell_type = SpellType::Green;
-            spell.status = SpellStatus::Prepare;
+        _ => {
+            spell.status = SpellStatus::None;
         }
-        _ => spell.status = SpellStatus::None,
     }
 }

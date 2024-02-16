@@ -1,49 +1,35 @@
 use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
+use bevy_oxr::xr::PerformanceMetricsCounterFlagsMETA;
 use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     network::{debug_move_networked_player_objs, PlayerObj},
+    spell_control::Spell,
     PhysLayer,
 };
 
-#[derive(Debug, Default)]
-enum ProjectileMovement {
-    #[default]
-    Linear,
-}
-#[derive(Debug)]
-enum ProjectileEffect {
+#[derive(Debug, Default, Component)]
+struct LinearMovement(f32);
+
+#[derive(Debug, Component)]
+enum ProjectileHitEffect {
     Damage(DamageMask, u16),
 }
-impl Default for ProjectileEffect {
+impl Default for ProjectileHitEffect {
     fn default() -> Self {
-        ProjectileEffect::Damage(DamageMask::FIRE, 10)
+        ProjectileHitEffect::Damage(DamageMask::FIRE, 10)
     }
 }
 
 #[derive(Component)]
 struct Health(DamageMask, u16);
 
-#[derive(Debug, Default)]
-enum ProjectileVisual {
-    #[default]
-    None,
-}
-
-#[allow(dead_code)]
 #[derive(Component, Debug, Default)]
-pub struct Projectile {
-    movement: ProjectileMovement,
-    effect: ProjectileEffect,
-    visual: ProjectileVisual,
-}
-
-#[derive(Component)]
-struct Velocity(Vec3);
+pub struct Projectile;
 
 #[derive(Debug)]
-struct DamageMask(u8);
+pub struct DamageMask(u8);
 
 impl DamageMask {
     const FIRE: Self = DamageMask(1 << 0);
@@ -66,7 +52,7 @@ impl Plugin for ProjectilePlugin {
         app.add_systems(
             GgrsSchedule,
             (
-                update_projectiles.ambiguous_with(debug_move_networked_player_objs), // TODO this is a hack, make it work without the hack.
+                update_linear_movement.ambiguous_with(debug_move_networked_player_objs), // TODO this is a hack, make it work without the hack.
                 detect_projectile_collisions,
             )
                 .chain(),
@@ -74,21 +60,19 @@ impl Plugin for ProjectilePlugin {
     }
 }
 
-fn update_projectiles(
+fn update_linear_movement(
     time: Res<Time>,
-    mut projectiles: Query<(&mut Transform, &Velocity, &Projectile), Without<PlayerObj>>,
+    mut projectiles: Query<(&mut Transform, &LinearMovement), Without<PlayerObj>>,
 ) {
-    for mut p in &mut projectiles {
-        match p.2.movement {
-            ProjectileMovement::Linear => p.0.translation += p.1 .0 * time.delta_seconds(),
-        }
+    for (mut t, mut s) in &mut projectiles {
+        t.translation += t.forward() * s.0 * time.delta_seconds();
     }
 }
 
 fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
-    projectiles: Query<&Projectile>,
+    projectiles: Query<&ProjectileHitEffect>,
     mut healths: Query<&mut Health>,
 ) {
     for CollisionStarted(e1, e2) in collisions.read() {
@@ -103,13 +87,13 @@ fn detect_projectile_collisions(
 
 fn handle_projectile_collision(
     commands: &mut Commands,
-    projectile: &Projectile,
+    hit_effect: &ProjectileHitEffect,
     p_entity: &Entity,
     health: Result<Mut<Health>, QueryEntityError>,
 ) {
     commands.entity(*p_entity).despawn();
 
-    if let ProjectileEffect::Damage(m, a) = &projectile.effect {
+    if let ProjectileHitEffect::Damage(m, a) = &projectile.effect {
         if let Ok(mut h) = health {
             if (h.0.intersect(&m)) {
                 h.1 -= a;
@@ -118,16 +102,30 @@ fn handle_projectile_collision(
     }
 }
 
-pub fn spawn_projectile(
-    commands: &mut Commands,
-    mesh: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
-    transform: Transform,
-    collider: Collider,
-    direction: Vec3,
-    speed: f32,
-    projectile: Projectile,
-) {
+pub fn spawn_projectile(commands: &mut Commands, spell: &Spell) {
+    match spell {
+        Spell::Fireball => commands.spawn((CollisionLayers::all_masks::<PhysLayer>()
+            .add_group(PhysLayer::PlayerProjectile)
+            .remove_mask(PhysLayer::Player),)),
+        Spell::Lightning => commands.spawn(
+            (
+                Projectile {
+                    effect: ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10),
+                    visual: ProjectileVisual::None,
+                },
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::PlayerProjectile)
+                    .remove_mask(PhysLayer::Player),
+            ),
+            LinearMovement(),
+            PbrBundle {
+                mesh,
+                material,
+                transform,
+                ..default()
+            },
+        ),
+    }
     commands
         .spawn((
             projectile,

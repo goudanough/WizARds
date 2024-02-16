@@ -9,43 +9,31 @@ use bevy_xpbd_3d::prelude::*;
 pub struct SpellControlPlugin;
 use crate::{projectile::*, WizGgrsConfig};
 
+#[derive(Copy, Clone)]
+pub enum Spell {
+    Fireball = 1,
+    Lightning = 2,
+}
+
+#[derive(States, Debug, Hash, Eq, PartialEq, Clone, Default)]
+pub enum SpellStatus {
+    #[default]
+    None,
+    Armed(Spell),
+}
+
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(ThumbIndexDist { dist: 0.0 })
-            .insert_resource(Spell {
-                spell_type: SpellType::Red,
-                status: SpellStatus::None,
-            })
+            .init_state::<SpellStatus>()
             .insert_resource(SpellCast(0))
-            .add_systems(Update, (handle_spell_control, handle_spell_casting))
+            .add_systems(Update, select_spell.run_if(in_state(SpellStatus::None)))
+            .add_systems(OnEnter(SpellStatus::Armed(())), create_spell)
+            .add_systems(Update, cast_spell.run_if(in_state(SpellStatus::Armed(()))))
+            .add_systems(OnEnter(SpellStatus::None(())), fire_spell)
+            // .add_systems(Update, (handle_spell_control, handle_spell_casting))
             .add_systems(GgrsSchedule, spawn_new_spells);
     }
-}
-
-#[derive(Copy, Clone)]
-pub enum SpellStatus {
-    None,
-    Prepare,
-    Armed,
-    Fired,
-}
-
-#[derive(Copy, Clone)]
-pub enum SpellType {
-    Red = 1,
-    Blue = 2,
-    Green = 3,
-}
-
-#[derive(Resource, Copy, Clone)]
-pub struct Spell {
-    pub spell_type: SpellType,
-    pub status: SpellStatus,
-}
-
-struct SpellInfo {
-    color: Color,
-    id: u32,
 }
 
 #[derive(Component)]
@@ -57,8 +45,41 @@ struct SpellObject;
 #[derive(Resource)]
 pub struct SpellCast(pub u32);
 
+fn select_spell() {}
+
+// Despawn the spell in the player's hand
+fn fire_spell(
+    mut spell_query: Query<(Entity, &mut Transform), (With<SpellObject>, Without<HandBone>)>,
+    mut commands: Commands,
+) {
+    for (entity, _) in spell_query.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
+fn create_spell(
+    mut spell_query: Query<(Entity, &mut Transform), (With<SpellObject>, Without<HandBone>)>,
+    mut commands: Commands,
+) {
+    for (entity, _) in spell_query.iter() {
+        commands.entity(entity).despawn();
+    }
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: 0.03,
+                ..default()
+            })),
+            material: materials.add(spell.color),
+            transform: Transform::from_xyz(dist.x, dist.y, dist.z),
+            ..default()
+        },
+        SpellObject,
+    ));
+}
+
 fn handle_spell_casting(
-    mut create_spell: ResMut<Spell>,
+    mut create_spell: ResMut<SelectedSpell>,
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     mut spell_query: Query<(Entity, &mut Transform), (With<SpellObject>, Without<HandBone>)>,
 
@@ -74,16 +95,7 @@ fn handle_spell_casting(
     let dist =
         right_hand.translation - (0.07 * right_hand.rotation.mul_vec3(right_hand.translation));
     let spell_type = create_spell.spell_type;
-    let color = match spell_type {
-        SpellType::Red => Color::RED,
-        SpellType::Blue => Color::BLUE,
-        SpellType::Green => Color::GREEN,
-    };
 
-    let spell = SpellInfo {
-        color,
-        id: spell_type as u32,
-    };
     match create_spell.status {
         SpellStatus::None => {
             for (entity, _) in spell_query.iter() {
@@ -176,12 +188,12 @@ pub struct ThumbIndexDist {
     dist: f32,
 }
 
-fn handle_spell_control(
+fn cast_spell(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
     mut recording_mode: ResMut<RecordingStatus>,
     mut thumb_index_depth_res: ResMut<ThumbIndexDist>,
-    mut spell: ResMut<Spell>,
+    mut state: Res<NextState<SpellStatus>>,
 ) {
     let thumb_tip_transform = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
     let index_tip_transform = hand_bones.get(hands_resource.left.index.tip).unwrap();
@@ -205,8 +217,7 @@ fn handle_spell_control(
     }
 
     if thumb_middle_dist < 0.01 {
-        if let SpellStatus::Armed = spell.status {
-            spell.status = SpellStatus::Fired
-        }
+        // Signals that we need to fire the spell
+        state.0 = Some(SpellStatus::None);
     }
 }
