@@ -12,13 +12,8 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     SampleFormat,
 };
-use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
-    SampleFormat,
-};
+
 use crossbeam::queue::ArrayQueue;
-use std::sync::Arc;
-use vosk::*;
 use std::sync::Arc;
 use vosk::*;
 
@@ -37,23 +32,12 @@ struct VoiceBuffer {
 }
 #[derive(Resource)]
 struct VoiceClip {
-struct VoiceClip {
     data: Vec<i16>,
 }
 
 impl Plugin for SpeechPlugin {
     fn build(&self, app: &mut App) {
         let (voice, in_stream) = setup_voice();
-        app.insert_resource(SpeechRecogniser(fetch_recogniser()))
-            .insert_resource(voice)
-            .insert_non_send_resource(in_stream)
-            .insert_resource(VoiceClip { data: Vec::new() })
-            .insert_resource(RecordingStatus {
-                just_started: false,
-                recording: false,
-                just_ended: false,
-            })
-            .add_systems(Update, handle_voice);
         app.insert_resource(SpeechRecogniser(fetch_recogniser()))
             .insert_resource(voice)
             .insert_non_send_resource(in_stream)
@@ -71,10 +55,7 @@ fn setup_voice() -> (VoiceBuffer, cpal::Stream) {
     let queue: ArrayQueue<i16> = ArrayQueue::new(BUFFER_SIZE);
     let queue = Arc::new(queue);
     let queue2 = queue.clone();
-    let queue2 = queue.clone();
 
-    let callback = move |data: &[i16], _: &cpal::InputCallbackInfo| queue_input_data(data, &queue2);
-    let err = move |err: cpal::StreamError| eprintln!("An error occurred on stream: {}", err);
     let callback = move |data: &[i16], _: &cpal::InputCallbackInfo| queue_input_data(data, &queue2);
     let err = move |err: cpal::StreamError| eprintln!("An error occurred on stream: {}", err);
 
@@ -85,12 +66,6 @@ fn setup_voice() -> (VoiceBuffer, cpal::Stream) {
     let mut configs = input_device
         .supported_input_configs()
         .expect("error querying configs");
-    let input_device = host
-        .default_input_device()
-        .expect("failed to find input device");
-    let mut configs = input_device
-        .supported_input_configs()
-        .expect("error querying configs");
 
     let config = configs
         .find(|c| {
@@ -101,25 +76,12 @@ fn setup_voice() -> (VoiceBuffer, cpal::Stream) {
         .expect("no supported config.")
         .with_sample_rate(cpal::SampleRate(44100))
         .config();
-    let config = configs
-        .find(|c| {
-            c.sample_format() == SampleFormat::I16
-                && c.channels() == 2
-                && c.max_sample_rate() == cpal::SampleRate(44100)
-        })
-        .expect("no supported config.")
-        .with_sample_rate(cpal::SampleRate(44100))
-        .config();
 
-    let in_stream = input_device
-        .build_input_stream(&config, callback, err, None)
-        .unwrap();
     let in_stream = input_device
         .build_input_stream(&config, callback, err, None)
         .unwrap();
     in_stream.play().unwrap();
 
-    (VoiceBuffer { queue }, in_stream)
     (VoiceBuffer { queue }, in_stream)
 }
 
@@ -131,7 +93,6 @@ fn queue_input_data(data: &[i16], queue: &Arc<ArrayQueue<i16>>) {
 
 fn fetch_recogniser() -> Recognizer {
     let grammar = ["red", "green", "blue"];
-
 
     #[cfg(target_os = "android")]
     {
@@ -153,8 +114,6 @@ fn fetch_recogniser() -> Recognizer {
     let model: Model = loop {
         match Model::new("/storage/emulated/0/Android/data/org.goudanough.wizARds/files/vosk-model")
         {
-        match Model::new("/storage/emulated/0/Android/data/org.goudanough.wizARds/files/vosk-model")
-        {
             Some(model) => break model,
             None => println!("Failed to fetch vosk model, trying again."),
         }
@@ -164,36 +123,23 @@ fn fetch_recogniser() -> Recognizer {
         if let Some(mut r) = Recognizer::new_with_grammar(&model, 44100., &grammar) {
             r.set_words(true);
             return r;
-        } else {
-            println!("Failed to create recogniser, trying again.")
-        }
-        } else {
-            println!("Failed to create recogniser, trying again.")
         }
     }
 }
 
 #[derive(Resource)]
 pub struct RecordingStatus {
-pub struct RecordingStatus {
     pub just_started: bool,
     pub recording: bool,
-    pub just_ended: bool,
     pub just_ended: bool,
 }
 
 fn handle_voice(
     voice: Res<VoiceBuffer>,
     mut recogniser: ResMut<SpeechRecogniser>,
-    voice: Res<VoiceBuffer>,
-    mut recogniser: ResMut<SpeechRecogniser>,
+
     mut clip: ResMut<VoiceClip>,
     mut recording_status: ResMut<RecordingStatus>,
-    mut spell: ResMut<Spell>,
-) {
-    if recording_status.just_started {
-        recording_status.just_started = false;
-        spell.status = SpellStatus::None;
     mut spell: ResMut<Spell>,
 ) {
     if recording_status.just_started {
@@ -238,26 +184,7 @@ fn handle_voice(
 fn process_text(text: &str, mut spell: ResMut<Spell>) {
     let last_recognised_word = text.split_whitespace().last().unwrap_or("");
 
-fn process_text(text: &str, mut spell: ResMut<Spell>) {
-    let last_recognised_word = text.split_whitespace().last().unwrap_or("");
-
     match last_recognised_word {
-        "red" => {
-            spell.spell_type = SpellType::Red;
-            spell.status = SpellStatus::Prepare;
-        }
-        "blue" => {
-            spell.spell_type = SpellType::Blue;
-            spell.status = SpellStatus::Prepare;
-        }
-        "green" => {
-            spell.spell_type = SpellType::Green;
-            spell.status = SpellStatus::Prepare;
-        }
-        _ => spell.status = SpellStatus::None,
-    }
-}
-
         "red" => {
             spell.spell_type = SpellType::Red;
             spell.status = SpellStatus::Prepare;

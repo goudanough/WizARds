@@ -1,6 +1,5 @@
 use crate::network::{PlayerHead, PlayerObj};
 use crate::speech::RecordingStatus;
-use crate::speech::RecordingStatus;
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, PlayerInputs};
 use bevy_oxr::xr_input::hands::common::HandsResource;
@@ -8,18 +7,17 @@ use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::OpenXRTracker;
 use bevy_xpbd_3d::prelude::*;
 pub struct SpellControlPlugin;
-use crate::projectile::*;
+use crate::{projectile::*, WizGgrsConfig};
 
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ThumbIndexDist { dist: 0.0 })
-            .insert_resource(Spell {
-                spell_type: SpellType::Red,
-                status: SpellStatus::None,
-            })
-            .insert_resource(SpellCast(0))
-            .add_systems(Update, (handle_spell_control, handle_spell_casting))
-            .add_systems(GgrsSchedule, spawn_new_spells);
+        app.insert_resource(Spell {
+            spell_type: SpellType::Red,
+            status: SpellStatus::None,
+        })
+        .insert_resource(SpellCast(0))
+        .add_systems(Update, (handle_spell_control, handle_spell_casting))
+        .add_systems(GgrsSchedule, spawn_new_spells);
     }
 }
 
@@ -68,7 +66,9 @@ fn handle_spell_casting(
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut spell_cast: ResMut<SpellCast>, //mut clear_color: ResMut<ClearColor>
+    mut spell_cast: ResMut<SpellCast>,
+    mut gizmos: Gizmos,
+    spatial_query: SpatialQuery,
 ) {
     let right_hand = hand_bones.get(hands_resource.right.palm).unwrap();
     let right_wrist = hand_bones.get(hands_resource.right.wrist).unwrap();
@@ -193,16 +193,10 @@ fn spawn_new_spells(
     }
 }
 
-#[derive(Resource)]
-pub struct ThumbIndexDist {
-    dist: f32,
-}
-
 fn handle_spell_control(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
     mut recording_mode: ResMut<RecordingStatus>,
-    mut thumb_index_depth_res: ResMut<ThumbIndexDist>,
     mut spell: ResMut<Spell>,
 ) {
     let thumb_tip_transform = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
@@ -215,7 +209,6 @@ fn handle_spell_control(
         thumb_tip_transform.translation - middle_tip_transform.translation,
     );
 
-    thumb_index_depth_res.dist = thumb_index_dist;
     if thumb_index_dist < 0.01 {
         if !recording_mode.just_started && !recording_mode.recording {
             recording_mode.just_started = true;

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_xpbd_3d::prelude::*;
 
-use crate::network::{debug_move_networked_player_objs, PlayerObj};
+use crate::network::debug_move_networked_player_objs;
 
 #[derive(Debug, Default)]
 enum ProjectileMovement {

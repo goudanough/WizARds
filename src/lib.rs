@@ -9,12 +9,6 @@ use bevy_ggrs::GgrsConfig;
 
 use bevy_xpbd_3d::prelude::*;
 
-use bevy_oxr::graphics::extensions::XrExtensions;
-use bevy_oxr::graphics::XrAppInfo;
-use bevy_oxr::graphics::XrPreferdBlendMode;
-use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
-use bevy_oxr::xr_input::hands::common::HandInputDebugRenderer;
-use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
 use bevy_oxr::xr_input::hands::common::{
     HandResource, HandsResource, IndexResource, LittleResource, MiddleResource, RingResource,
     ThumbResource,
@@ -22,18 +16,16 @@ use bevy_oxr::xr_input::hands::common::{
 
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
-use bevy_oxr::DefaultXrPlugins;
 
 use bytemuck::{Pod, Zeroable};
 
+mod health_bar;
 mod network;
 mod projectile;
 mod speech;
 mod spell_control;
 
 use projectile::ProjectilePlugin;
-
-mod projectile;
 
 use crate::health_bar::HealthBarPlugin;
 use crate::speech::SpeechPlugin;
@@ -59,9 +51,6 @@ pub struct PlayerInput {
     left_hand_rot: Quat,
     right_hand_rot: Quat,
 }
-mod health_bar;
-mod speech;
-mod spell_control;
 
 #[bevy_main]
 pub fn main() {
