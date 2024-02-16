@@ -123,15 +123,17 @@ fn setup(
         blue: 0.0,
         alpha: 0.0,
     };
+
     // plane
+    let plane_mesh = Mesh::from(shape::Plane::from_size(128.0));
     commands.spawn((
+        Collider::trimesh_from_mesh(&plane_mesh).unwrap(),
+        RigidBody::Static,
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane::from_size(128.0))),
+            mesh: meshes.add(plane_mesh),
             material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
             ..default()
         },
-        RigidBody::Static,
-        Collider::cuboid(128.0, 0.005, 128.0),
     ));
     // cube
     commands.spawn((PbrBundle {

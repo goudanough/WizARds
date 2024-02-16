@@ -10,7 +10,7 @@ use self::{
     boss_state::{boss_action, BossState},
 };
 
-//const BOSS_MAX_HEALTH: f32 = 100.0;
+const BOSS_MAX_HEALTH: f32 = 100.0;
 
 pub struct BossPlugin;
 
@@ -37,7 +37,6 @@ struct Health(f32);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let model = asset_server.load("white bear.glb#Scene0");
-    //let font = asset_server.load("fonts/fira_mono.ttf");
 
     commands.spawn((
         SceneBundle {
@@ -49,29 +48,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         RigidBody::Dynamic,
         Collider::cuboid(1.0, 1.0, 1.0),
         Boss,
-        // Health(BOSS_MAX_HEALTH),
+        Health(BOSS_MAX_HEALTH),
     ));
-
-//     commands.spawn(TextBundle {
-//         text: Text {
-//             sections: vec![TextSection {
-//                 value: "Boss Health: 100/100".to_string(),
-//                 style: TextStyle {
-//                     font,
-//                     font_size: 32.0,
-//                     color: Color::RED,
-//                 },
-//             }],
-//             ..default()
-//         },
-//         style: Style {
-//             position_type: PositionType::Absolute,
-//             top: Val::Px(0.0),
-//             left: Val::Px(0.0),
-//             ..default()
-//         },
-//         ..default()
-//     });
 }
 
 // boss look at player
