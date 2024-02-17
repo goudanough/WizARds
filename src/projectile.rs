@@ -56,7 +56,7 @@ impl Plugin for ProjectilePlugin {
         app.add_systems(
             GgrsSchedule,
             (
-                update_linear_movement.ambiguous_with(debug_move_networked_player_objs), // TODO this is a hack, make it work without the hack.
+                update_linear_movement.ambiguous_with(debug_move_networked_player_objs), // TODO this might be a hack, but also might be how bevy_ggrs works
                 detect_projectile_collisions,
             )
                 .chain(),

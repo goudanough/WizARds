@@ -87,7 +87,6 @@ fn handle_lightning(
     }
 }
 
-// TODO this does not work (or at the very least is not visible or in the right place)
 pub fn spawn_spell_indicator(
     mut commands: Commands,
     hands_resource: Res<HandsResource>,
@@ -95,24 +94,30 @@ pub fn spawn_spell_indicator(
     selected_spell: Res<SelectedSpell>,
 ) {
     let spell_ind_id = match selected_spell.0.unwrap() {
-        Spell::Fireball => commands.spawn(PbrBundle {
-            mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
-            material: asset_handles.mats[MatName::Red as usize].clone(),
-            transform: Transform::from_translation(Vec3::new(0.5, 0.0, 0.0))
-                .with_scale(0.2 * Vec3::ONE),
-            ..Default::default()
-        }),
-        Spell::Lightning => commands.spawn(PbrBundle {
-            mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
-            material: asset_handles.mats[MatName::Blue as usize].clone(),
-            transform: Transform::from_translation(Vec3::new(0.5, 0.0, 0.0))
-                .with_scale(0.2 * Vec3::ONE),
-            ..Default::default()
-        }),
+        Spell::Fireball => commands.spawn((
+            SpellIndicator,
+            PbrBundle {
+                mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                material: asset_handles.mats[MatName::Red as usize].clone(),
+                transform: Transform::from_translation(Vec3::new(0.0, -0.1, 0.0))
+                    .with_scale(0.2 * Vec3::ONE),
+                ..Default::default()
+            },
+        )),
+        Spell::Lightning => commands.spawn((
+            SpellIndicator,
+            PbrBundle {
+                mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                material: asset_handles.mats[MatName::Blue as usize].clone(),
+                transform: Transform::from_translation(Vec3::new(0.0, -0.1, 0.0))
+                    .with_scale(0.2 * Vec3::ONE),
+                ..Default::default()
+            },
+        )),
     }
     .id();
     commands
-        .get_entity(hands_resource.left.palm)
+        .get_entity(hands_resource.right.palm)
         .unwrap()
         .push_children(&[spell_ind_id]);
 }

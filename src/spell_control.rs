@@ -101,11 +101,9 @@ fn check_spell_select_input(
 
     if let SpellStatus::VoiceRecording = spell_state.get() {
         if thumb_index_dist > 0.01 {
-            println!("next: Determine");
             next_spell_state.set(SpellStatus::Determine);
         }
     } else if thumb_index_dist < 0.01 {
-        println!("next: Record");
         next_spell_state.set(SpellStatus::VoiceRecording);
     }
 }
@@ -120,7 +118,6 @@ fn check_spell_fire_input(
     let thumb_middle_dist = (thumb_tip.translation - middle_tip.translation).length();
 
     if thumb_middle_dist < 0.01 {
-        println!("next: Fire");
         next_spell_state.set(SpellStatus::Fire)
     }
 }
@@ -149,7 +146,6 @@ fn check_if_done_firing(
         .count()
         == 0
     {
-        println!("next: None");
         next_spell_state.set(SpellStatus::None);
     }
 }
@@ -170,7 +166,7 @@ fn spawn_new_spell_entities(
             let spell_transform = Transform {
                 translation: palm_transform.translation
                     - 0.1 * Vec3::from(palm_transform.local_y()),
-                rotation: input.right_hand_rot, // TODO test if this is the right direction
+                rotation: input.right_hand_rot, // TODO currently incorrect direction, needs integrating with a proper aiming system
                 ..default()
             };
             spawn_spell(

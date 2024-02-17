@@ -171,7 +171,6 @@ pub fn recognise_voice(
         "lightning" => (SpellStatus::Armed, Some(Spell::Lightning)),
         _ => (SpellStatus::None, None),
     };
-    println!("next: {:?} --------------------", next_s.clone() as usize);
     next_spell_state.set(next_s);
     selected_spell.0 = s_spell;
 }
