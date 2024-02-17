@@ -14,7 +14,7 @@ pub enum ProjectileType {
 }
 
 #[derive(Debug, Default, Component)]
-struct LinearMovement(f32);
+pub struct LinearMovement(f32);
 
 #[derive(Debug, Component)]
 enum ProjectileHitEffect {
@@ -64,7 +64,7 @@ impl Plugin for ProjectilePlugin {
     }
 }
 
-fn update_linear_movement(
+pub fn update_linear_movement(
     time: Res<Time>,
     mut projectiles: Query<(&mut Transform, &LinearMovement), Without<PlayerID>>,
 ) {

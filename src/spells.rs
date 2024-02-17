@@ -3,8 +3,8 @@ use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_oxr::xr_input::hands::common::HandsResource;
 
 use crate::assets::{AssetHandles, MatName, MeshName};
-use crate::network::PlayerID;
-use crate::projectile::{spawn_projectile, ProjectileType};
+use crate::network::{debug_move_networked_player_objs, PlayerID};
+use crate::projectile::{spawn_projectile, update_linear_movement, ProjectileType};
 use crate::spell_control::{SelectedSpell, Spell};
 
 pub struct SpellsPlugin;
@@ -23,8 +23,13 @@ pub struct LightningSpell;
 
 impl Plugin for SpellsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(GgrsSchedule, handle_fireballs)
-            .add_systems(GgrsSchedule, handle_lightning);
+        app.add_systems(
+            GgrsSchedule,
+            (handle_lightning, handle_fireballs)
+                .chain()
+                .before(update_linear_movement)
+                .after(debug_move_networked_player_objs),
+        );
     }
 }
 
@@ -82,6 +87,7 @@ fn handle_lightning(
     }
 }
 
+// TODO this does not work (or at the very least is not visible or in the right place)
 pub fn spawn_spell_indicator(
     mut commands: Commands,
     hands_resource: Res<HandsResource>,

@@ -10,6 +10,7 @@ mod spells;
 
 use crate::speech::SpeechPlugin;
 use crate::spell_control::SpellControlPlugin;
+use assets::AssetHandlesPlugin;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
@@ -32,6 +33,7 @@ use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
 use projectile::ProjectilePlugin;
+use spells::SpellsPlugin;
 
 const FPS: usize = 72;
 
@@ -67,7 +69,9 @@ pub fn main() {
         .add_plugins(PhysicsPlugins::default())
         .add_plugins(ProjectilePlugin)
         .add_plugins(SpeechPlugin)
-        .add_plugins(SpellControlPlugin);
+        .add_plugins(SpellControlPlugin)
+        .add_plugins(SpellsPlugin)
+        .add_plugins(AssetHandlesPlugin);
 
     #[cfg(target_os = "android")]
     {
