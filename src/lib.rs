@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+mod assets;
 mod network;
 mod projectile;
 mod speech;
@@ -39,7 +40,7 @@ pub type WizGgrsConfig = GgrsConfig<PlayerInput>;
 #[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable, Default)]
 pub struct PlayerInput {
     head_pos: Vec3,
-    spell: u32, // TODO change to be an enum type equivalent to a u32
+    spell: u32,
     left_hand_pos: Vec3,
     _padding0: u32,
     right_hand_pos: Vec3,

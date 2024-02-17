@@ -1,4 +1,4 @@
-use crate::{spell_control::SpellCast, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
+use crate::{spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
 use bevy_oxr::xr_input::{
@@ -18,7 +18,12 @@ enum NetworkingState {
 }
 
 #[derive(Component)]
-pub struct PlayerObj {
+pub struct PlayerID {
+    pub handle: usize,
+}
+
+#[derive(Resource)]
+pub struct LocalPlayerID {
     pub handle: usize,
 }
 
@@ -117,6 +122,7 @@ fn init_ggrs(mut commands: Commands, mut state: ResMut<NextState<NetworkingState
         // local player
         if player_addr == "localhost" {
             sess_build = sess_build.add_player(PlayerType::Local, i).unwrap();
+            commands.insert_resource(LocalPlayerID { handle: i });
         } else {
             // remote players
             let remote_addr: SocketAddr = player_addr.parse().unwrap();
@@ -145,7 +151,7 @@ pub fn read_local_inputs(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
     local_player: Res<LocalPlayers>,
-    mut spell_cast: ResMut<SpellCast>,
+    mut queued_spell: ResMut<QueuedSpell>,
 ) {
     let mut local_inputs = HashMap::new();
     let left_eye = left_eye.get_single().unwrap();
@@ -162,12 +168,12 @@ pub fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
-            spell: spell_cast.0,
+            spell: queued_spell.to_owned().into(),
             ..Default::default()
         },
     );
     commands.insert_resource(LocalInputs::<WizGgrsConfig>(local_inputs));
-    spell_cast.0 = 0;
+    queued_spell.0 = None;
 }
 
 fn debug_spawn_networked_player_objs(
@@ -190,7 +196,7 @@ fn debug_spawn_networked_player_objs(
                     material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
-                PlayerObj { handle: i },
+                PlayerID { handle: i },
                 PlayerHead,
             ))
             .add_rollback();
@@ -206,7 +212,7 @@ fn debug_spawn_networked_player_objs(
                     material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
-                PlayerObj { handle: i },
+                PlayerID { handle: i },
                 PlayerLeftPalm,
             ))
             .add_rollback();
@@ -222,7 +228,7 @@ fn debug_spawn_networked_player_objs(
                     material: materials.add(Color::WHITE),
                     ..Default::default()
                 },
-                PlayerObj { handle: i },
+                PlayerID { handle: i },
                 PlayerRightPalm,
             ))
             .add_rollback();
@@ -231,7 +237,7 @@ fn debug_spawn_networked_player_objs(
 
 pub fn debug_move_networked_player_objs(
     mut player_heads: Query<
-        (&mut Transform, &PlayerObj),
+        (&mut Transform, &PlayerID),
         (
             With<PlayerHead>,
             Without<PlayerLeftPalm>,
@@ -240,7 +246,7 @@ pub fn debug_move_networked_player_objs(
         ),
     >,
     mut player_left_palms: Query<
-        (&mut Transform, &PlayerObj),
+        (&mut Transform, &PlayerID),
         (
             Without<PlayerHead>,
             With<PlayerLeftPalm>,
@@ -249,7 +255,7 @@ pub fn debug_move_networked_player_objs(
         ),
     >,
     mut player_right_palms: Query<
-        (&mut Transform, &PlayerObj),
+        (&mut Transform, &PlayerID),
         (
             Without<PlayerHead>,
             Without<PlayerLeftPalm>,

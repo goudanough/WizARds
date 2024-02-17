@@ -1,10 +1,10 @@
 use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
-use bevy_oxr::xr::PerformanceMetricsCounterFlagsMETA;
 use bevy_xpbd_3d::prelude::*;
 
 use crate::{
-    network::{debug_move_networked_player_objs, PlayerObj},
+    assets::{AssetHandles, MatName, MeshName},
+    network::{debug_move_networked_player_objs, PlayerID},
     spell_control::Spell,
     PhysLayer,
 };
@@ -62,10 +62,11 @@ impl Plugin for ProjectilePlugin {
 
 fn update_linear_movement(
     time: Res<Time>,
-    mut projectiles: Query<(&mut Transform, &LinearMovement), Without<PlayerObj>>,
+    mut projectiles: Query<(&mut Transform, &LinearMovement), Without<PlayerID>>,
 ) {
-    for (mut t, mut s) in &mut projectiles {
-        t.translation += t.forward() * s.0 * time.delta_seconds();
+    for (mut t, s) in projectiles.iter_mut() {
+        let forward = t.forward();
+        t.translation += forward * s.0 * time.delta_seconds();
     }
 }
 
@@ -92,25 +93,36 @@ fn handle_projectile_collision(
     health: Result<Mut<Health>, QueryEntityError>,
 ) {
     commands.entity(*p_entity).despawn();
-    if let ProjectileHitEffect::Damage(m, a) = &hit_effect {
-        if let Ok(mut h) = health {
-            if h.0.intersect(&m) {
-                h.1 -= a;
+    match &hit_effect {
+        ProjectileHitEffect::Damage(m, a) => {
+            if let Ok(mut h) = health {
+                if h.0.intersect(m) {
+                    h.1 -= a;
+                }
             }
         }
+        _ => unreachable!(),
     }
 }
 
-pub fn spawn_spell_projectile(commands: &mut Commands, spell: &Spell) {
-    // TODO add PbrBundle for projectiles, this will need:
-    //    - a mesh and material, meaning this function will need access to mesh and material resources.
-    //    - transform information for the projectile, this will also have to be passed in.
+pub fn spawn_spell_projectile(
+    commands: &mut Commands,
+    spell: &Spell,
+    spell_transform: Transform,
+    asset_handles: &Res<AssetHandles>,
+) {
     match spell {
         Spell::Fireball => commands
             .spawn((
                 Projectile,
-                LinearMovement(5.),
-                ProjectileHitEffect::Damage(DamageMask::FIRE, 10.),
+                PbrBundle {
+                    mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                    material: asset_handles.mats[MatName::Red as usize].clone(),
+                    transform: spell_transform.with_scale(0.3 * Vec3::ONE),
+                    ..Default::default()
+                },
+                LinearMovement(5.0),
+                ProjectileHitEffect::Damage(DamageMask::FIRE, 10.0),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
                     .remove_mask(PhysLayer::Player),
@@ -121,8 +133,14 @@ pub fn spawn_spell_projectile(commands: &mut Commands, spell: &Spell) {
         Spell::Lightning => commands
             .spawn((
                 Projectile,
-                LinearMovement(5.),
-                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10.),
+                PbrBundle {
+                    mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                    material: asset_handles.mats[MatName::Blue as usize].clone(),
+                    transform: spell_transform.with_scale(0.3 * Vec3::ONE),
+                    ..Default::default()
+                },
+                LinearMovement(5.0),
+                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10.0),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
                     .remove_mask(PhysLayer::Player),
@@ -130,5 +148,5 @@ pub fn spawn_spell_projectile(commands: &mut Commands, spell: &Spell) {
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
-    }
+    };
 }
