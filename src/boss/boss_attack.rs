@@ -6,17 +6,7 @@ use crate::{player::Player, projectile::spawn_projectile};
 use super::Boss;
 
 #[derive(Resource)]
-pub struct Dog(Handle<Scene>, Timer);
-
-#[derive(Resource)]
 pub struct AttackTimer(pub Timer);
-
-#[derive(Component)]
-pub struct DogDog(Timer);
-pub fn init_dog(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let dog = asset_server.load("dog.glb#Scene0");
-    commands.insert_resource(Dog(dog, Timer::from_seconds(5.0, TimerMode::Repeating)));
-}
 
 pub fn boss_attack(
     mut timer: ResMut<AttackTimer>,
@@ -70,18 +60,5 @@ pub fn boss_attack(
             speed,
             default(),
         )
-    }
-}
-
-pub fn dog_update(
-    mut commands: Commands,
-    mut query: Query<(Entity, &mut DogDog)>,
-    time: Res<Time>,
-) {
-    for (entity, mut timer) in query.iter_mut() {
-        timer.0.tick(time.delta());
-        if timer.0.finished() {
-            commands.entity(entity).despawn();
-        }
     }
 }

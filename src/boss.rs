@@ -6,8 +6,8 @@ use bevy_xpbd_3d::prelude::*;
 use crate::player::Player;
 
 use self::{
-    boss_attack::{boss_attack, init_dog, AttackTimer},
-    boss_state::{boss_action, BossState},
+    boss_attack::{boss_attack, AttackTimer},
+    boss_state::{boss_action, boss_move, BossState},
 };
 
 const BOSS_MAX_HEALTH: f32 = 100.0;
@@ -25,7 +25,7 @@ impl Plugin for BossPlugin {
                     update_boss,
                     boss_action,
                     boss_attack.run_if(in_state(BossState::Attack)),
-                    boss_state::boss_move.run_if(in_state(BossState::MoveTowardsPlayer)),
+                    boss_move.run_if(in_state(BossState::MoveTowardsPlayer)),
                 ),
             );
     }
