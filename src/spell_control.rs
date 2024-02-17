@@ -58,8 +58,7 @@ pub struct SpellCast(pub u32);
 
 fn handle_spell_casting(
     mut create_spell: ResMut<Spell>,
-    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
-    mut spell_query: Query<(Entity, &mut Transform), (With<SpellObject>, Without<HandBone>)>,
+    spell_query: Query<(Entity, &GlobalTransform), (With<SpellObject>, Without<HandBone>)>,
     right_palm_cube: Query<Entity, (With<PlayerRightPalm>, Without<SpellObject>)>,
 
     hands_resource: Res<HandsResource>,
@@ -71,11 +70,6 @@ fn handle_spell_casting(
     mut gizmos: Gizmos,
     spatial_query: SpatialQuery,
 ) {
-    let right_hand = hand_bones.get(hands_resource.right.palm).unwrap();
-    let right_wrist = hand_bones.get(hands_resource.right.wrist).unwrap();
-
-    let dist =
-        right_hand.translation - (0.07 * right_hand.rotation.mul_vec3(right_hand.translation));
     let spell_type = create_spell.spell_type;
     let color = match spell_type {
         SpellType::Red => Color::RED,
@@ -97,39 +91,45 @@ fn handle_spell_casting(
             for (entity, _) in spell_query.iter() {
                 commands.entity(entity).despawn();
             }
-            commands.spawn((
-                PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::UVSphere {
-                        radius: 0.03,
+
+            let child = commands
+                .spawn((
+                    PbrBundle {
+                        mesh: meshes.add(Mesh::from(shape::UVSphere {
+                            radius: 0.03,
+                            ..default()
+                        })),
+                        material: materials.add(spell.color),
+                        transform: Transform::from_xyz(0.0, -0.1, 0.0),
                         ..default()
-                    })),
-                    material: materials.add(spell.color),
-                    transform: Transform::from_xyz(dist.x, dist.y, dist.z),
-                    ..default()
-                },
-                SpellObject,
-            ));
+                    },
+                    SpellObject,
+                ))
+                .id();
+
+            commands
+                .entity(hands_resource.right.palm)
+                .push_children(&[child]);
+
             create_spell.status = SpellStatus::Armed;
         }
         SpellStatus::Armed => {
-            for (_, mut transform) in spell_query.iter_mut() {
-                transform.translation = Transform::from_xyz(dist.x, dist.y, dist.z).translation;
-            }
-
-            if let Some(ray_hit) = spatial_query.cast_ray(
-                right_wrist.translation,
-                -right_hand.rotation.mul_vec3(right_hand.translation),
-                100.0,
-                true,
-                SpatialQueryFilter::new().without_entities([right_palm_cube.get_single().unwrap()]),
-            ) {
-                gizmos.line(
-                    dist,
-                    right_hand.translation
-                        + (-right_hand.rotation.mul_vec3(right_hand.translation))
-                            * ray_hit.time_of_impact,
-                    Color::RED,
-                )
+            for (_, global_transfrom) in spell_query.iter() {
+                if let Some(ray_hit) = spatial_query.cast_ray(
+                    global_transfrom.translation(),
+                    -global_transfrom.up(),
+                    100.0,
+                    true,
+                    SpatialQueryFilter::new()
+                        .without_entities([right_palm_cube.get_single().unwrap()]),
+                ) {
+                    gizmos.line(
+                        global_transfrom.translation(),
+                        global_transfrom.translation()
+                            + (-global_transfrom.up() * ray_hit.time_of_impact),
+                        Color::RED,
+                    )
+                }
             }
         }
         SpellStatus::Fired => {
@@ -171,9 +171,19 @@ fn spawn_new_spells(
             };
 
             let collider = Collider::ball(0.03);
-            let direction = -input.right_hand_rot.mul_vec3(input.right_hand_pos);
+
+            let palm_transform = Transform {
+                translation: input.right_hand_pos,
+                rotation: input.right_hand_rot,
+                ..default()
+            };
+
+            let direction: Vec3 = palm_transform.local_y().into();
+            let direction = -direction;
+            let spell_intial_translation = input.right_hand_pos + 0.1 * direction;
+
             let transform = Transform {
-                translation: input.right_hand_pos + (0.07 * direction),
+                translation: spell_intial_translation,
                 ..default()
             };
             let speed = 1.;
