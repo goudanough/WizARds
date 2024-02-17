@@ -1,31 +1,26 @@
 use bevy::{
-    asset::{AssetServer, Handle},
-    ecs::{
+    asset::{AssetServer, Handle}, ecs::{
         component::Component,
         entity::Entity,
         query::{With, Without},
         system::{Commands, Query, Res, ResMut, Resource},
-    },
-    math::{Quat, Vec3},
-    prelude::default,
-    scene::{Scene, SceneBundle},
-    time::{Time, Timer, TimerMode},
-    transform::components::Transform,
+    }, math::{Quat, Vec3}, pbr::StandardMaterial, render::mesh::Mesh,  time::{Time, Timer, TimerMode}, transform::components::Transform
 };
-use bevy_xpbd_3d::components::{Collider, ColliderDensity, LinearVelocity, RigidBody};
+use bevy_xpbd_3d::components::Collider;
 
-use crate::player::Player;
+use crate::{player::Player, projectile::{self, Projectile}};
 
 use super::Boss;
 
 #[derive(Resource)]
-pub struct Dog(Handle<Scene>, Timer);
+pub struct Dog(Handle<Mesh>,Handle<StandardMaterial>, Timer);
 
 #[derive(Component)]
 pub struct DogDog(Timer);
 pub fn init_dog(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let dog = asset_server.load("dog.glb#Scene0");
-    commands.insert_resource(Dog(dog, Timer::from_seconds(5.0, TimerMode::Repeating)));
+    let mesh = asset_server.load("dog.glb#Mesh0");
+    let material = asset_server.load("dog.glb#Material0");
+    commands.insert_resource(Dog(mesh,material, Timer::from_seconds(5.0, TimerMode::Repeating)));
 }
 
 pub fn spawn_and_launch_dog(
@@ -35,7 +30,7 @@ pub fn spawn_and_launch_dog(
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
     time: Res<Time>,
 ) {
-    if dog.1.tick(time.delta()).just_finished() {
+    if dog.2.tick(time.delta()).just_finished() {
         let boss_transform = boss_query.single();
         let Some(player_transform) = player_query.iter().next() else{
             return;
@@ -48,20 +43,24 @@ pub fn spawn_and_launch_dog(
         let forward = boss_transform.forward();
         let left = Vec3::new(-forward.z, 0.0, forward.x);
         let dog_position = boss_transform.translation + left * 2.0;
-        commands.spawn((
+        let transform=Transform::from_translation(dog_position)
+        .with_scale(Vec3::new(0.5, 0.5, 0.5)).with_rotation(Quat::from_rotation_y(90.0f32.to_radians()));
+        let collider = Collider::cuboid(0.5, 0.5, 0.5);
+        projectile::spawn_projectile(&mut commands, dog.0.clone(), dog.1.clone(), transform, collider, player_pos, 15.0, Projectile::default());
+        // commands.spawn((
 
-            SceneBundle {
-                scene: dog.0.clone(),
-                transform: Transform::from_translation(dog_position)
-                    .with_scale(Vec3::new(0.5, 0.5, 0.5)).with_rotation(Quat::from_rotation_y(90.0f32.to_radians())),
-                ..default()
-            },
-            RigidBody::Dynamic,
-            Collider::cuboid(0.5, 0.5, 0.5), 
-            LinearVelocity(launch_dir * 15.0),
-            DogDog(Timer::from_seconds(60.0, TimerMode::Once)),
-            ColliderDensity(10.0),
-        ));
+        //     SceneBundle {
+        //         scene: dog.0.clone(),
+        //         transform: Transform::from_translation(dog_position)
+        //             .with_scale(Vec3::new(0.5, 0.5, 0.5)).with_rotation(Quat::from_rotation_y(90.0f32.to_radians())),
+        //         ..default()
+        //     },
+        //     RigidBody::Dynamic,
+        //     Collider::cuboid(0.5, 0.5, 0.5), 
+        //     LinearVelocity(launch_dir * 15.0),
+        //     DogDog(Timer::from_seconds(60.0, TimerMode::Once)),
+        //     ColliderDensity(10.0),
+        // ));
     }
 }
 

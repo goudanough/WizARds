@@ -1,3 +1,6 @@
+#![allow(non_snake_case)]
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
+
 mod network;
 mod projectile;
 mod speech;
