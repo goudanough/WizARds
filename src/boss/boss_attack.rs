@@ -1,8 +1,5 @@
 use bevy::prelude::*;
-use bevy_xpbd_3d::{
-    components::{Collider, ColliderDensity, LinearVelocity, RigidBody},
-    parry::shape::Shape,
-};
+use bevy_xpbd_3d::prelude::*;
 
 use crate::{player::Player, projectile::spawn_projectile};
 
