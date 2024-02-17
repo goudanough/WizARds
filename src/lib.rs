@@ -1,9 +1,12 @@
+#![allow(non_snake_case)]
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
+
+mod boss;
 mod network;
+mod player;
 mod projectile;
 mod speech;
 mod spell_control;
-mod boss;
-mod player;
 
 use crate::speech::SpeechPlugin;
 use crate::spell_control::SpellControlPlugin;
@@ -136,19 +139,29 @@ fn setup(
         },
     ));
     // cube
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
-        transform: Transform::from_xyz(2.0, 0.5, 4.0),
-        ..default()
-    },RigidBody::Dynamic, Collider::cuboid(0.5, 0.5, 0.5),ColliderDensity(100.0),));
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
+            transform: Transform::from_xyz(2.0, 0.5, 4.0),
+            ..default()
+        },
+        RigidBody::Dynamic,
+        Collider::cuboid(0.5, 0.5, 0.5),
+        ColliderDensity(100.0),
+    ));
     // cube
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
-        transform: Transform::from_xyz(3.0, 0.5, 1.0),
-        ..default()
-    },RigidBody::Dynamic, Collider::cuboid(0.5, 0.5, 0.5),ColliderDensity(100.0)),);
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+            material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
+            transform: Transform::from_xyz(3.0, 0.5, 1.0),
+            ..default()
+        },
+        RigidBody::Dynamic,
+        Collider::cuboid(0.5, 0.5, 0.5),
+        ColliderDensity(100.0),
+    ));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {

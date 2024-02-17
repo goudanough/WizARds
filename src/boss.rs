@@ -6,7 +6,7 @@ use bevy_xpbd_3d::prelude::*;
 use crate::player::Player;
 
 use self::{
-    boss_attack::{dog_update, init_dog},
+    boss_attack::{boss_attack, init_dog, AttackTimer},
     boss_state::{boss_action, BossState},
 };
 
@@ -16,16 +16,18 @@ pub struct BossPlugin;
 
 impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<BossState>().add_systems(Startup, (setup, init_dog)).add_systems(
-            Update,
-            (
-                update_boss,
-                boss_action,
-                dog_update,
-                boss_attack::spawn_and_launch_dog.run_if(in_state(BossState::Attack)),
-                boss_state::boss_move.run_if(in_state(BossState::MoveTowardsPlayer)),
-            ),
-        );
+        app.init_state::<BossState>()
+            .add_systems(Startup, setup)
+            .insert_resource(AttackTimer(Timer::from_seconds(5.0, TimerMode::Repeating)))
+            .add_systems(
+                Update,
+                (
+                    update_boss,
+                    boss_action,
+                    boss_attack.run_if(in_state(BossState::Attack)),
+                    boss_state::boss_move.run_if(in_state(BossState::MoveTowardsPlayer)),
+                ),
+            );
     }
 }
 

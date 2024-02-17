@@ -25,7 +25,7 @@ pub fn boss_action(
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
     mut state: ResMut<NextState<BossState>>,
 ) {
-    let Some(player_transform) = player_query.iter().next() else{
+    let Some(player_transform) = player_query.iter().next() else {
         return;
     };
     let boss_transform = query.single_mut();
@@ -49,7 +49,7 @@ pub fn boss_move(
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
     time: Res<Time>,
 ) {
-    let Some(player_transform) = player_query.iter().next()else{
+    let Some(player_transform) = player_query.iter().next() else {
         return;
     };
     let mut boss_transform = query.single_mut();
