@@ -1,7 +1,7 @@
 use crate::{
-    assets::{AssetHandles, MatName, MeshName},
     network::{LocalPlayerID, PlayerHead, PlayerID},
     speech::{collect_voice, recognise_voice, start_voice},
+    spells::{spawn_spell, spawn_spell_indicator, SpellIndicator, SpellObj},
 };
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, PlayerInputs};
@@ -9,7 +9,7 @@ use bevy_oxr::xr_input::hands::common::HandsResource;
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::OpenXRTracker;
 pub struct SpellControlPlugin;
-use crate::{projectile::*, WizGgrsConfig};
+use crate::WizGgrsConfig;
 
 #[derive(Copy, Clone)]
 pub enum Spell {
@@ -60,11 +60,6 @@ impl Plugin for SpellControlPlugin {
         app.init_state::<SpellStatus>()
             .insert_resource(SelectedSpell(None))
             .insert_resource(QueuedSpell(None))
-            // .add_systems(Update, select_spell.run_if(in_state(SpellStatus::None)))
-            // .add_systems(OnEnter(SpellStatus::Armed(())), create_spell_indicator)
-            // .add_systems(Update, cast_spell.run_if(in_state(SpellStatus::Armed(()))))
-            // .add_systems(OnEnter(SpellStatus::None(())), fire_spell)
-            // .add_systems(Update, (handle_spell_control, handle_spell_casting))
             .add_systems(
                 Update,
                 collect_voice.run_if(in_state(SpellStatus::VoiceRecording)),
@@ -79,17 +74,17 @@ impl Plugin for SpellControlPlugin {
                         .or_else(in_state(SpellStatus::Armed)),
                 ),
             )
-            .add_systems(OnEnter(SpellStatus::Armed), spawn_spell_indicator)
             .add_systems(
                 Update,
                 check_spell_fire_input.run_if(in_state(SpellStatus::Armed)),
             )
-            .add_systems(OnExit(SpellStatus::Armed), despawn_spell_indicator)
-            .add_systems(OnEnter(SpellStatus::Fire), queue_new_spell)
             .add_systems(
                 Update,
                 check_if_done_firing.run_if(in_state(SpellStatus::Fire)),
             )
+            .add_systems(OnEnter(SpellStatus::Armed), spawn_spell_indicator)
+            .add_systems(OnExit(SpellStatus::Armed), despawn_spell_indicator)
+            .add_systems(OnEnter(SpellStatus::Fire), queue_new_spell)
             .add_systems(GgrsSchedule, spawn_new_spell_entities);
     }
 }
@@ -127,35 +122,6 @@ fn check_spell_fire_input(
     }
 }
 
-fn spawn_spell_indicator(
-    mut commands: Commands,
-    hands_resource: Res<HandsResource>,
-    asset_handles: Res<AssetHandles>,
-    selected_spell: Res<SelectedSpell>,
-) {
-    let spell_ind_id = match selected_spell.0.unwrap() {
-        Spell::Fireball => commands.spawn(PbrBundle {
-            mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
-            material: asset_handles.mats[MatName::Red as usize].clone(),
-            transform: Transform::from_translation(Vec3::new(0.5, 0.0, 0.0))
-                .with_scale(0.2 * Vec3::ONE),
-            ..Default::default()
-        }),
-        Spell::Lightning => commands.spawn(PbrBundle {
-            mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
-            material: asset_handles.mats[MatName::Blue as usize].clone(),
-            transform: Transform::from_translation(Vec3::new(0.5, 0.0, 0.0))
-                .with_scale(0.2 * Vec3::ONE),
-            ..Default::default()
-        }),
-    }
-    .id();
-    commands
-        .get_entity(hands_resource.left.palm)
-        .unwrap()
-        .push_children(&[spell_ind_id]);
-}
-
 fn despawn_spell_indicator(
     mut commands: Commands,
     indicator_query: Query<Entity, With<SpellIndicator>>,
@@ -188,7 +154,6 @@ fn spawn_new_spell_entities(
     inputs: Res<PlayerInputs<WizGgrsConfig>>,
     mut commands: Commands,
     player_objs: Query<&PlayerID, With<PlayerHead>>,
-    asset_handles: Res<AssetHandles>,
 ) {
     for p in player_objs.iter() {
         let input = inputs[p.handle].0;
@@ -204,11 +169,11 @@ fn spawn_new_spell_entities(
                 rotation: input.right_hand_rot, // TODO test if this is the right direction
                 ..default()
             };
-            spawn_spell_projectile(
+            spawn_spell(
                 &mut commands,
-                &input.spell.try_into().unwrap(),
+                input.spell.try_into().unwrap(),
                 spell_transform,
-                &asset_handles,
+                p.handle,
             );
         }
     }

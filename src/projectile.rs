@@ -5,9 +5,13 @@ use bevy_xpbd_3d::prelude::*;
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
     network::{debug_move_networked_player_objs, PlayerID},
-    spell_control::Spell,
     PhysLayer,
 };
+
+pub enum ProjectileType {
+    Fireball,
+    LightningBolt,
+}
 
 #[derive(Debug, Default, Component)]
 struct LinearMovement(f32);
@@ -105,14 +109,14 @@ fn handle_projectile_collision(
     }
 }
 
-pub fn spawn_spell_projectile(
+pub fn spawn_projectile(
     commands: &mut Commands,
-    spell: &Spell,
-    spell_transform: Transform,
+    projectile_type: ProjectileType,
+    spell_transform: &Transform,
     asset_handles: &Res<AssetHandles>,
 ) {
-    match spell {
-        Spell::Fireball => commands
+    match projectile_type {
+        ProjectileType::Fireball => commands
             .spawn((
                 Projectile,
                 PbrBundle {
@@ -130,7 +134,7 @@ pub fn spawn_spell_projectile(
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
-        Spell::Lightning => commands
+        ProjectileType::LightningBolt => commands
             .spawn((
                 Projectile,
                 PbrBundle {

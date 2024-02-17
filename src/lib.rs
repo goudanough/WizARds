@@ -6,6 +6,7 @@ mod network;
 mod projectile;
 mod speech;
 mod spell_control;
+mod spells;
 
 use crate::speech::SpeechPlugin;
 use crate::spell_control::SpellControlPlugin;
