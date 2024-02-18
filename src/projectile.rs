@@ -163,7 +163,10 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(5.0),
-                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10.0),
+                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 0.0),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::BossProjectile)
+                    .remove_mask(PhysLayer::Boss),
                 Collider::ball(0.2),
                 RigidBody::Kinematic,
             ))

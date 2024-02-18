@@ -59,6 +59,8 @@ pub struct PlayerInput {
 enum PhysLayer {
     Player,
     PlayerProjectile,
+    Boss,
+    BossProjectile,
 }
 
 #[bevy_main]

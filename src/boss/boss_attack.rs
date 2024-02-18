@@ -41,7 +41,7 @@ pub fn boss_attack(
 
         let transform = Transform {
             translation: projectile_start,
-            rotation: Quat::from_rotation_arc(Vec3::Y, projectile_direction),
+            rotation: Quat::from_rotation_arc(-Vec3::Z, projectile_direction),
             ..default()
         };
 
