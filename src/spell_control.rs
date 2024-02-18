@@ -1,7 +1,7 @@
 use crate::{
     network::{LocalPlayerID, PlayerHead, PlayerID},
     speech::{collect_voice, recognise_voice, start_voice},
-    spells::{spawn_spell, spawn_spell_indicator, SpellIndicator, SpellObj},
+    spells::{spawn_spell, spawn_spell_indicator, SpellIndicator, SpellObj, TrajectoryIndicator},
 };
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, PlayerInputs};
@@ -84,7 +84,9 @@ impl Plugin for SpellControlPlugin {
             )
             .add_systems(OnEnter(SpellStatus::Armed), spawn_spell_indicator)
             .add_systems(OnExit(SpellStatus::Armed), despawn_spell_indicator)
+            .add_systems(OnExit(SpellStatus::Armed), despawn_trajectory_indictaor)
             .add_systems(OnEnter(SpellStatus::Fire), queue_new_spell)
+            .add_systems(OnExit(SpellStatus::Fire), despawn_trajectory_indictaor)
             .add_systems(GgrsSchedule, spawn_new_spell_entities);
     }
 }
@@ -133,6 +135,19 @@ fn despawn_spell_indicator(
 
 fn queue_new_spell(mut spell_queue: ResMut<QueuedSpell>, selected_spell: Res<SelectedSpell>) {
     spell_queue.0 = selected_spell.0;
+}
+
+fn despawn_trajectory_indictaor(
+    mut commands: Commands,
+    indicator_query: Query<(Entity, &TrajectoryIndicator), With<SpellIndicator>>,
+    spell_state: Res<State<SpellStatus>>,
+) {
+    for (indicator_e, indicator_comp) in indicator_query.iter() {
+        if *spell_state.get() == SpellStatus::Fire && !indicator_comp.despawn_on_fire {
+            continue;
+        }
+        commands.entity(indicator_e).despawn_recursive();
+    }
 }
 
 fn check_if_done_firing(

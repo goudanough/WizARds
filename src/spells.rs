@@ -14,6 +14,11 @@ pub struct SpellsPlugin;
 pub struct SpellIndicator;
 
 #[derive(Component)]
+pub struct TrajectoryIndicator {
+    pub despawn_on_fire: bool,
+}
+
+#[derive(Component)]
 pub struct SpellObj;
 
 #[derive(Component)]
@@ -128,6 +133,33 @@ pub fn spawn_spell_indicator(
                     .with_scale(0.2 * Vec3::ONE),
                 ..Default::default()
             },
+        )),
+    }
+    .id();
+    commands
+        .get_entity(hands_resource.right.palm)
+        .unwrap()
+        .push_children(&[spell_ind_id]);
+}
+
+pub fn spawn_trajectory_indicator(
+    mut commands: Commands,
+    hands_resource: Res<HandsResource>,
+    asset_handles: Res<AssetHandles>,
+    selected_spell: Res<SelectedSpell>,
+) {
+    let spell_ind_id = match selected_spell.0.unwrap() {
+        Spell::Fireball => commands.spawn((
+            TrajectoryIndicator {
+                despawn_on_fire: true,
+            },
+            // TODO finish implementing these objects
+        )),
+        Spell::Lightning => commands.spawn((
+            TrajectoryIndicator {
+                despawn_on_fire: true,
+            },
+            // TODO finish implementing these objects
         )),
     }
     .id();
