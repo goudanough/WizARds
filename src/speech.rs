@@ -12,21 +12,21 @@ use crossbeam::queue::ArrayQueue;
 use std::sync::Arc;
 use vosk::*;
 
-use crate::spell_control::{Spell, SpellStatus, SpellType};
+use crate::spell_control::{SelectedSpell, Spell, SpellStatus};
 
 const BUFFER_SIZE: usize = 10000;
 
 pub struct SpeechPlugin;
 
 #[derive(Resource)]
-struct SpeechRecogniser(Recognizer);
+pub struct SpeechRecogniser(Recognizer);
 
 #[derive(Resource)]
-struct VoiceBuffer {
+pub struct VoiceBuffer {
     queue: Arc<ArrayQueue<i16>>,
 }
 #[derive(Resource)]
-struct VoiceClip {
+pub struct VoiceClip {
     data: Vec<i16>,
 }
 
@@ -41,8 +41,7 @@ impl Plugin for SpeechPlugin {
                 just_started: false,
                 recording: false,
                 just_ended: false,
-            })
-            .add_systems(Update, handle_voice);
+            });
     }
 }
 
@@ -87,7 +86,7 @@ fn queue_input_data(data: &[i16], queue: &Arc<ArrayQueue<i16>>) {
 }
 
 fn fetch_recogniser() -> Recognizer {
-    let grammar = ["red", "green", "blue"];
+    let grammar = ["fireball", "lightning"];
 
     #[cfg(target_os = "android")]
     {
@@ -131,68 +130,47 @@ pub struct RecordingStatus {
     pub just_ended: bool,
 }
 
-fn handle_voice(
-    voice: Res<VoiceBuffer>,
-    mut recogniser: ResMut<SpeechRecogniser>,
-    mut clip: ResMut<VoiceClip>,
-    mut recording_status: ResMut<RecordingStatus>,
-    mut spell: ResMut<Spell>,
-) {
-    if recording_status.just_started {
-        recording_status.just_started = false;
-        spell.status = SpellStatus::None;
+pub fn start_voice(voice: Res<VoiceBuffer>) {
+    let n_samples = voice.queue.len();
 
-        //clip.sample_bool = true;
-        let n_samples = voice.queue.len();
-        // Flush the queue of samples taken before the voice button was pressed.
-        for _ in 0..n_samples {
-            voice.queue.pop();
-        }
-    }
-    if recording_status.recording {
-        // Get the number of samples in the queue, then add that many to the voice clip.
-        // Don't keep taking until empty, as the queue will continue to fill up as samples are extracted.
-        // TODO Above logic might be wrong / not be a problem, maybe change this - don't want to block on this.
-        let n_samples = voice.queue.len();
-        for _ in 0..n_samples {
-            clip.data.push(voice.queue.pop().unwrap());
-        }
-    }
-    if recording_status.just_ended {
-        recording_status.just_ended = false;
-        recording_status.recording = false;
-        // Pass data to recogniser
-        let mut averaged_channel_data: Vec<i16> = Vec::new();
-        for index in (1..clip.data.len()).step_by(2) {
-            averaged_channel_data.push((clip.data[index - 1] + clip.data[index]) / 2);
-        }
-        recogniser.0.accept_waveform(&averaged_channel_data);
-        clip.data.clear();
-        let result: CompleteResultSingle = recogniser
-            .0
-            .final_result()
-            .single()
-            .expect("Expect a single result, got one with alternatives");
-        process_text(result.text, spell);
+    for _ in 0..n_samples {
+        voice.queue.pop();
     }
 }
 
-fn process_text(text: &str, mut spell: ResMut<Spell>) {
-    let last_recognised_word = text.split_whitespace().last().unwrap_or("");
+pub fn collect_voice(voice: Res<VoiceBuffer>, mut clip: ResMut<VoiceClip>) {
+    let n_samples = voice.queue.len();
 
-    match last_recognised_word {
-        "red" => {
-            spell.spell_type = SpellType::Red;
-            spell.status = SpellStatus::Prepare;
-        }
-        "blue" => {
-            spell.spell_type = SpellType::Blue;
-            spell.status = SpellStatus::Prepare;
-        }
-        "green" => {
-            spell.spell_type = SpellType::Green;
-            spell.status = SpellStatus::Prepare;
-        }
-        _ => spell.status = SpellStatus::None,
+    for _ in 0..n_samples {
+        clip.data.push(voice.queue.pop().unwrap());
     }
+}
+
+pub fn recognise_voice(
+    mut clip: ResMut<VoiceClip>,
+    mut recogniser: ResMut<SpeechRecogniser>,
+    mut next_spell_state: ResMut<NextState<SpellStatus>>,
+    mut selected_spell: ResMut<SelectedSpell>,
+) {
+    let mut averaged_channel_data: Vec<i16> = Vec::new();
+    for index in (1..clip.data.len()).step_by(2) {
+        averaged_channel_data.push((clip.data[index - 1] + clip.data[index]) / 2);
+    }
+    clip.data.clear();
+
+    recogniser.0.accept_waveform(&averaged_channel_data);
+    let result: CompleteResultSingle = recogniser
+        .0
+        .final_result()
+        .single()
+        .expect("Expect a single result, got one with alternatives");
+    let last_word = result.text.split_whitespace().last().unwrap_or("");
+
+    let (next_s, s_spell) = match last_word {
+        "fireball" => (SpellStatus::Armed, Some(Spell::Fireball)),
+        "lightning" => (SpellStatus::Armed, Some(Spell::Lightning)),
+        _ => (SpellStatus::None, None),
+    };
+    next_spell_state.set(next_s);
+    selected_spell.0 = s_spell;
 }

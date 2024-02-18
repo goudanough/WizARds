@@ -3,7 +3,11 @@ mod boss_state;
 use bevy::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 
-use crate::player::Player;
+use crate::{
+    player::Player,
+    projectile::{DamageMask, Health},
+    PhysLayer,
+};
 
 use self::{
     boss_attack::{boss_attack, AttackTimer},
@@ -34,11 +38,10 @@ impl Plugin for BossPlugin {
 #[derive(Component)]
 struct Boss;
 
-#[derive(Component)]
-struct Health(f32);
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let model = asset_server.load("white bear.glb#Scene0");
+
+    let initial_mask: u8 = DamageMask::FIRE.0 | DamageMask::LIGHTNING.0;
 
     commands.spawn((
         SceneBundle {
@@ -47,21 +50,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             ..default()
         },
-        RigidBody::Dynamic,
+        RigidBody::Kinematic,
         Collider::cuboid(1.0, 1.0, 1.0),
+        CollisionLayers::all_masks::<PhysLayer>()
+            .add_group(PhysLayer::Boss)
+            .remove_mask(PhysLayer::BossProjectile),
         Boss,
-        Health(BOSS_MAX_HEALTH),
+        Health(DamageMask(initial_mask), BOSS_MAX_HEALTH),
     ));
 }
 
 // boss look at player
 fn update_boss(
-    mut query: Query<&mut Transform, (With<Boss>, Without<Player>)>,
+    mut query: Query<(&mut Transform), (With<Boss>, Without<Player>)>,
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
+    boss_health: Query<&Health, With<Boss>>,
 ) {
     if let Some(player_transform) = player_query.iter().next() {
         let mut boss_transform = query.single_mut();
-
         let mut player_pos_flat = player_transform.translation;
         player_pos_flat.y = boss_transform.translation.y;
 

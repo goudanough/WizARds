@@ -1,15 +1,18 @@
 #![allow(non_snake_case)]
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+mod assets;
 mod boss;
 mod network;
 mod player;
 mod projectile;
 mod speech;
 mod spell_control;
+mod spells;
 
 use crate::speech::SpeechPlugin;
 use crate::spell_control::SpellControlPlugin;
+use assets::AssetHandlesPlugin;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
@@ -32,6 +35,7 @@ use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use network::NetworkPlugin;
 use projectile::ProjectilePlugin;
+use spells::SpellsPlugin;
 
 const FPS: usize = 72;
 
@@ -41,7 +45,7 @@ pub type WizGgrsConfig = GgrsConfig<PlayerInput>;
 #[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable, Default)]
 pub struct PlayerInput {
     head_pos: Vec3,
-    spell: u32, // TODO change to be an enum type equivalent to a u32
+    spell: u32,
     left_hand_pos: Vec3,
     _padding0: u32,
     right_hand_pos: Vec3,
@@ -55,6 +59,8 @@ pub struct PlayerInput {
 enum PhysLayer {
     Player,
     PlayerProjectile,
+    Boss,
+    BossProjectile,
 }
 
 #[bevy_main]
@@ -69,7 +75,9 @@ pub fn main() {
         .add_plugins(PhysicsPlugins::default())
         .add_plugins(ProjectilePlugin)
         .add_plugins(SpeechPlugin)
-        .add_plugins(SpellControlPlugin);
+        .add_plugins(SpellControlPlugin)
+        .add_plugins(SpellsPlugin)
+        .add_plugins(AssetHandlesPlugin);
 
     #[cfg(target_os = "android")]
     {
