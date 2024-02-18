@@ -158,23 +158,7 @@ fn spawn_new_spell_entities(
     for p in player_objs.iter() {
         let input = inputs[p.handle].0;
         if input.spell != 0 {
-            let palm_transform = Transform {
-                translation: input.right_hand_pos,
-                rotation: input.right_hand_rot,
-                ..default()
-            };
-            let spell_transform = Transform {
-                translation: palm_transform.translation
-                    - 0.1 * Vec3::from(palm_transform.local_y()),
-                rotation: input.right_hand_rot, // TODO currently incorrect direction, needs integrating with a proper aiming system
-                ..default()
-            };
-            spawn_spell(
-                &mut commands,
-                input.spell.try_into().unwrap(),
-                spell_transform,
-                p.handle,
-            );
+            spawn_spell(&mut commands, input, p.handle);
         }
     }
 }

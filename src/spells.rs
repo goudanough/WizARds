@@ -6,6 +6,7 @@ use crate::assets::{AssetHandles, MatName, MeshName};
 use crate::network::{debug_move_networked_player_objs, PlayerID};
 use crate::projectile::{spawn_projectile, update_linear_movement, ProjectileType};
 use crate::spell_control::{SelectedSpell, Spell};
+use crate::PlayerInput;
 
 pub struct SpellsPlugin;
 
@@ -33,7 +34,13 @@ impl Plugin for SpellsPlugin {
     }
 }
 
-pub fn spawn_spell(commands: &mut Commands, spell: Spell, aim_transform: Transform, p_id: usize) {
+pub fn spawn_spell(commands: &mut Commands, input: PlayerInput, p_id: usize) {
+    let spell = input.spell.try_into().unwrap();
+    let right_palm_transform = Transform {
+        translation: input.right_hand_pos,
+        rotation: input.right_hand_rot,
+        ..default()
+    };
     match spell {
         Spell::Fireball => commands
             .spawn((
@@ -41,7 +48,11 @@ pub fn spawn_spell(commands: &mut Commands, spell: Spell, aim_transform: Transfo
                 FireSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: aim_transform,
+                    transform: Transform::from_translation(
+                        right_palm_transform.translation
+                            - 0.1 * Vec3::from(right_palm_transform.local_y()),
+                    )
+                    .with_rotation(input.right_hand_rot), // TODO currently incorrect direction, needs integrating with a proper aiming system
                     ..Default::default()
                 },
             ))
@@ -52,7 +63,11 @@ pub fn spawn_spell(commands: &mut Commands, spell: Spell, aim_transform: Transfo
                 LightningSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: aim_transform,
+                    transform: Transform::from_translation(
+                        right_palm_transform.translation
+                            - 0.1 * Vec3::from(right_palm_transform.local_y()),
+                    )
+                    .with_rotation(input.right_hand_rot), // TODO currently incorrect direction, needs integrating with a proper aiming system
                     ..Default::default()
                 },
             ))
