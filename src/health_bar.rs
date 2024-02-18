@@ -13,14 +13,14 @@ impl Plugin for HealthBarPlugin {
     }
 }
 
-#[derive(Component, Reflect)]
-struct Health {
+#[derive(Component)]
+struct BossHealth {
     max: f32,
     current: f32,
 }
 
-impl Health {
-    fn value(&self) -> f32 {
+impl BossHealth {
+    fn normalized_value(&self) -> f32 {
         self.current / self.max
     }
 }
@@ -48,7 +48,7 @@ fn spawn_health_bar(
                 transform: Transform::from_xyz(0.0, 0.0, 0.0),
                 ..default()
             },
-            Health {
+            BossHealth {
                 current: 0.7,
                 max: 1.0,
             },
@@ -72,7 +72,7 @@ fn spawn_health_bar(
 }
 
 fn update_health_bar(
-    health_query: Query<&Health, With<Health>>,
+    health_query: Query<&BossHealth, With<BossHealth>>,
     mut health_bar_bg_query: Query<&mut Transform, (With<HealthBarBackground>, Without<HealthBar>)>,
 
     mut health_bar_query: Query<&mut Transform, (Without<HealthBarBackground>, With<HealthBar>)>,
@@ -114,5 +114,5 @@ fn update_health_bar(
 
     let mut health_bar_transform = health_bar_query.get_single_mut().unwrap();
 
-    health_bar_transform.scale = Vec3::new(health.value() * health.max, 0.6, 1.0);
+    health_bar_transform.scale = Vec3::new(health.normalized_value() * health.max, 0.6, 1.0);
 }

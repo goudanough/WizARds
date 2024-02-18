@@ -1,238 +1,180 @@
-use crate::network::{PlayerHead, PlayerObj, PlayerRightPalm};
-use crate::speech::RecordingStatus;
+use crate::{
+    network::{LocalPlayerID, PlayerHead, PlayerID},
+    speech::{collect_voice, recognise_voice, start_voice},
+    spells::{
+        spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
+        TrajectoryIndicator,
+    },
+};
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, PlayerInputs};
 use bevy_oxr::xr_input::hands::common::HandsResource;
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::OpenXRTracker;
-use bevy_xpbd_3d::prelude::*;
 pub struct SpellControlPlugin;
-use crate::{projectile::*, WizGgrsConfig};
+use crate::WizGgrsConfig;
+
+#[derive(Copy, Clone)]
+pub enum Spell {
+    Fireball = 1,
+    Lightning = 2,
+}
+
+#[derive(Debug)]
+pub struct SpellConvError;
+impl TryFrom<u32> for Spell {
+    type Error = SpellConvError;
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Spell::Fireball),
+            2 => Ok(Spell::Lightning),
+            _ => Err(SpellConvError),
+        }
+    }
+}
+
+#[derive(States, Debug, Hash, Eq, PartialEq, Clone, Default)]
+pub enum SpellStatus {
+    #[default]
+    None,
+    VoiceRecording,
+    Determine,
+    Armed,
+    Fire,
+}
+
+#[derive(Resource)]
+pub struct SelectedSpell(pub Option<Spell>);
+
+#[derive(Resource, Clone)]
+pub struct QueuedSpell(pub Option<Spell>);
+
+impl Into<u32> for QueuedSpell {
+    fn into(self) -> u32 {
+        match self.0 {
+            Some(s) => s as u32,
+            None => 0,
+        }
+    }
+}
 
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Spell {
-            spell_type: SpellType::Red,
-            status: SpellStatus::None,
-        })
-        .insert_resource(SpellCast(0))
-        .add_systems(Update, (handle_spell_control, handle_spell_casting))
-        .add_systems(GgrsSchedule, spawn_new_spells);
+        app.init_state::<SpellStatus>()
+            .insert_resource(SelectedSpell(None))
+            .insert_resource(QueuedSpell(None))
+            .add_systems(
+                Update,
+                collect_voice.run_if(in_state(SpellStatus::VoiceRecording)),
+            )
+            .add_systems(OnEnter(SpellStatus::VoiceRecording), start_voice)
+            .add_systems(OnEnter(SpellStatus::Determine), recognise_voice)
+            .add_systems(
+                Update,
+                check_spell_select_input.run_if(
+                    in_state(SpellStatus::None)
+                        .or_else(in_state(SpellStatus::VoiceRecording))
+                        .or_else(in_state(SpellStatus::Armed)),
+                ),
+            )
+            .add_systems(
+                Update,
+                check_spell_fire_input.run_if(in_state(SpellStatus::Armed)),
+            )
+            .add_systems(
+                Update,
+                check_if_done_firing.run_if(in_state(SpellStatus::Fire)),
+            )
+            .add_systems(OnEnter(SpellStatus::Armed), spawn_spell_indicator)
+            .add_systems(OnEnter(SpellStatus::Armed), spawn_trajectory_indicator)
+            .add_systems(OnExit(SpellStatus::Armed), despawn_spell_indicator)
+            .add_systems(OnExit(SpellStatus::Armed), despawn_trajectory_indictaor)
+            .add_systems(OnEnter(SpellStatus::Fire), queue_new_spell)
+            .add_systems(OnExit(SpellStatus::Fire), despawn_trajectory_indictaor)
+            .add_systems(GgrsSchedule, spawn_new_spell_entities);
     }
 }
 
-#[derive(Copy, Clone)]
-pub enum SpellStatus {
-    None,
-    Prepare,
-    Armed,
-    Fired,
-}
-
-#[derive(Copy, Clone)]
-pub enum SpellType {
-    Red = 1,
-    Blue = 2,
-    Green = 3,
-}
-
-#[derive(Resource, Copy, Clone)]
-pub struct Spell {
-    pub spell_type: SpellType,
-    pub status: SpellStatus,
-}
-
-struct SpellInfo {
-    color: Color,
-    id: u32,
-}
-
-#[derive(Component)]
-struct ThumbIndexDistText;
-
-#[derive(Component)]
-struct SpellObject;
-
-#[derive(Resource)]
-pub struct SpellCast(pub u32);
-
-fn handle_spell_casting(
-    mut create_spell: ResMut<Spell>,
-    spell_query: Query<(Entity, &GlobalTransform), (With<SpellObject>, Without<HandBone>)>,
-    right_palm_cube: Query<Entity, (With<PlayerRightPalm>, Without<SpellObject>)>,
-
+fn check_spell_select_input(
+    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
-    mut commands: Commands,
-
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut spell_cast: ResMut<SpellCast>,
-    mut gizmos: Gizmos,
-    spatial_query: SpatialQuery,
+    spell_state: Res<State<SpellStatus>>,
+    mut next_spell_state: ResMut<NextState<SpellStatus>>,
 ) {
-    let spell_type = create_spell.spell_type;
-    let color = match spell_type {
-        SpellType::Red => Color::RED,
-        SpellType::Blue => Color::BLUE,
-        SpellType::Green => Color::GREEN,
-    };
+    let thumb_tip = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
+    let index_tip = hand_bones.get(hands_resource.left.index.tip).unwrap();
+    let thumb_index_dist = (thumb_tip.translation - index_tip.translation).length();
 
-    let spell = SpellInfo {
-        color,
-        id: spell_type as u32,
-    };
-    match create_spell.status {
-        SpellStatus::None => {
-            for (entity, _) in spell_query.iter() {
-                commands.entity(entity).despawn();
-            }
+    if let SpellStatus::VoiceRecording = spell_state.get() {
+        if thumb_index_dist > 0.01 {
+            next_spell_state.set(SpellStatus::Determine);
         }
-        SpellStatus::Prepare => {
-            for (entity, _) in spell_query.iter() {
-                commands.entity(entity).despawn();
-            }
-
-            let child = commands
-                .spawn((
-                    PbrBundle {
-                        mesh: meshes.add(Mesh::from(shape::UVSphere {
-                            radius: 0.03,
-                            ..default()
-                        })),
-                        material: materials.add(spell.color),
-                        transform: Transform::from_xyz(0.0, -0.1, 0.0),
-                        ..default()
-                    },
-                    SpellObject,
-                ))
-                .id();
-
-            commands
-                .entity(hands_resource.right.palm)
-                .push_children(&[child]);
-
-            create_spell.status = SpellStatus::Armed;
-        }
-        SpellStatus::Armed => {
-            for (_, global_transfrom) in spell_query.iter() {
-                if let Some(ray_hit) = spatial_query.cast_ray(
-                    global_transfrom.translation(),
-                    -global_transfrom.up(),
-                    100.0,
-                    true,
-                    SpatialQueryFilter::new()
-                        .without_entities([right_palm_cube.get_single().unwrap()]),
-                ) {
-                    gizmos.line(
-                        global_transfrom.translation(),
-                        global_transfrom.translation()
-                            + (-global_transfrom.up() * ray_hit.time_of_impact),
-                        Color::RED,
-                    )
-                }
-            }
-        }
-        SpellStatus::Fired => {
-            create_spell.status = SpellStatus::None;
-            println!("Firing");
-            for (entity, _) in spell_query.iter() {
-                commands.entity(entity).despawn();
-            }
-
-            spell_cast.0 = spell.id;
-        }
+    } else if thumb_index_dist < 0.01 {
+        next_spell_state.set(SpellStatus::VoiceRecording);
     }
 }
 
-fn spawn_new_spells(
+fn check_spell_fire_input(
+    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
+    hands_resource: Res<HandsResource>,
+    mut next_spell_state: ResMut<NextState<SpellStatus>>,
+) {
+    let thumb_tip = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
+    let middle_tip = hand_bones.get(hands_resource.left.middle.tip).unwrap();
+    let thumb_middle_dist = (thumb_tip.translation - middle_tip.translation).length();
+
+    if thumb_middle_dist < 0.01 {
+        next_spell_state.set(SpellStatus::Fire)
+    }
+}
+
+fn despawn_spell_indicator(mut commands: Commands, spell_ind: Query<Entity, With<SpellIndicator>>) {
+    if let Ok(indicator) = spell_ind.get_single() {
+        commands.entity(indicator).despawn_recursive();
+    }
+}
+
+fn queue_new_spell(mut spell_queue: ResMut<QueuedSpell>, selected_spell: Res<SelectedSpell>) {
+    spell_queue.0 = selected_spell.0;
+}
+
+fn despawn_trajectory_indictaor(
+    mut commands: Commands,
+    traj_ind: Query<(Entity, &TrajectoryIndicator)>,
+    spell_state: Res<State<SpellStatus>>,
+) {
+    if let Ok((indicator_e, indicator_comp)) = traj_ind.get_single() {
+        if *spell_state.get() == SpellStatus::Fire && !indicator_comp.despawn_on_fire {
+            return;
+        }
+        commands.entity(indicator_e).despawn_recursive();
+    }
+}
+
+fn check_if_done_firing(
+    spell_obj: Query<(Entity, &PlayerID), With<SpellObj>>,
+    mut next_spell_state: ResMut<NextState<SpellStatus>>,
+    local_p_id: Res<LocalPlayerID>,
+) {
+    if spell_obj
+        .iter()
+        .filter(|(_, p_id)| p_id.handle == local_p_id.handle)
+        .count()
+        == 0
+    {
+        next_spell_state.set(SpellStatus::None);
+    }
+}
+
+fn spawn_new_spell_entities(
     inputs: Res<PlayerInputs<WizGgrsConfig>>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    player_objs: Query<&PlayerObj, With<PlayerHead>>,
+    player_objs: Query<&PlayerID, With<PlayerHead>>,
 ) {
-    let mut count: u8 = 0;
     for p in player_objs.iter() {
         let input = inputs[p.handle].0;
         if input.spell != 0 {
-            let mesh = meshes.add(Mesh::from(shape::UVSphere {
-                radius: 0.03,
-                ..default()
-            }));
-
-            let material: Handle<StandardMaterial> = if input.spell == 1 {
-                materials.add(Color::rgb(1., 0., 0.))
-            } else if input.spell == 2 {
-                materials.add(Color::rgb(0., 0., 1.))
-            } else if input.spell == 3 {
-                materials.add(Color::rgb(0., 1., 0.))
-            } else {
-                materials.add(Color::rgb(1., 1., 1.))
-            };
-
-            let collider = Collider::ball(0.03);
-
-            let palm_transform = Transform {
-                translation: input.right_hand_pos,
-                rotation: input.right_hand_rot,
-                ..default()
-            };
-
-            let direction: Vec3 = palm_transform.local_y().into();
-            let direction = -direction;
-            let spell_intial_translation = input.right_hand_pos + 0.1 * direction;
-
-            let transform = Transform {
-                translation: spell_intial_translation,
-                ..default()
-            };
-            let speed = 1.;
-            println!("spawn projectile {}", count);
-            println!("{}", p.handle);
-            count += 1;
-            spawn_projectile(
-                &mut commands,
-                mesh,
-                material,
-                transform,
-                collider,
-                direction,
-                speed,
-                default(),
-            );
-        }
-    }
-}
-
-fn handle_spell_control(
-    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
-    hands_resource: Res<HandsResource>,
-    mut recording_mode: ResMut<RecordingStatus>,
-    mut spell: ResMut<Spell>,
-) {
-    let thumb_tip_transform = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
-    let index_tip_transform = hand_bones.get(hands_resource.left.index.tip).unwrap();
-    let middle_tip_transform = hand_bones.get(hands_resource.left.middle.tip).unwrap();
-
-    let thumb_index_dist =
-        bevy::math::Vec3::length(thumb_tip_transform.translation - index_tip_transform.translation);
-    let thumb_middle_dist = bevy::math::Vec3::length(
-        thumb_tip_transform.translation - middle_tip_transform.translation,
-    );
-
-    if thumb_index_dist < 0.01 {
-        if !recording_mode.just_started && !recording_mode.recording {
-            recording_mode.just_started = true;
-            recording_mode.recording = true;
-            recording_mode.just_ended = false;
-        }
-    } else if recording_mode.recording {
-        recording_mode.just_ended = true;
-    }
-
-    if thumb_middle_dist < 0.01 {
-        if let SpellStatus::Armed = spell.status {
-            spell.status = SpellStatus::Fired
+            spawn_spell(&mut commands, input, p.handle);
         }
     }
 }
