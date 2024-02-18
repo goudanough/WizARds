@@ -4,6 +4,7 @@ use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
+    boss::BossHealth,
     network::{debug_move_networked_player_objs, PlayerID},
     PhysLayer,
 };
@@ -11,6 +12,7 @@ use crate::{
 pub enum ProjectileType {
     Fireball,
     LightningBolt,
+    BossAttack,
 }
 
 #[derive(Debug, Default, Component)]
@@ -26,18 +28,15 @@ impl Default for ProjectileHitEffect {
     }
 }
 
-#[derive(Component)]
-struct Health(DamageMask, f32);
-
 #[derive(Component, Debug, Default)]
 pub struct Projectile;
 
 #[derive(Debug)]
-pub struct DamageMask(u8);
+pub struct DamageMask(pub u8);
 
 impl DamageMask {
-    const FIRE: Self = DamageMask(1 << 0);
-    const LIGHTNING: Self = DamageMask(1 << 1);
+    pub const FIRE: Self = DamageMask(1 << 0);
+    pub const LIGHTNING: Self = DamageMask(1 << 1);
 
     fn intersect(&self, other: &Self) -> bool {
         self.0 & other.0 > 0
@@ -78,7 +77,7 @@ fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
     projectiles: Query<&ProjectileHitEffect>,
-    mut healths: Query<&mut Health>,
+    mut healths: Query<&mut BossHealth>,
 ) {
     for CollisionStarted(e1, e2) in collisions.read() {
         if let Ok(p) = projectiles.get(*e1) {
@@ -94,14 +93,14 @@ fn handle_projectile_collision(
     commands: &mut Commands,
     hit_effect: &ProjectileHitEffect,
     p_entity: &Entity,
-    health: Result<Mut<Health>, QueryEntityError>,
+    health: Result<Mut<BossHealth>, QueryEntityError>,
 ) {
     commands.entity(*p_entity).despawn();
     match &hit_effect {
         ProjectileHitEffect::Damage(m, a) => {
             if let Ok(mut h) = health {
-                if h.0.intersect(m) {
-                    h.1 -= a;
+                if h.damage_mask.intersect(m) {
+                    h.current -= a;
                 }
             }
         }
@@ -149,6 +148,24 @@ pub fn spawn_projectile(
                     .add_group(PhysLayer::PlayerProjectile)
                     .remove_mask(PhysLayer::Player),
                 Collider::ball(0.03),
+                RigidBody::Kinematic,
+            ))
+            .add_rollback(),
+        ProjectileType::BossAttack => commands
+            .spawn((
+                Projectile,
+                PbrBundle {
+                    mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                    material: asset_handles.mats[MatName::Purple as usize].clone(),
+                    transform: spell_transform.with_scale(2.0 * Vec3::ONE),
+                    ..Default::default()
+                },
+                LinearMovement(5.0),
+                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 0.0),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::BossProjectile)
+                    .remove_mask(PhysLayer::Boss),
+                Collider::ball(0.2),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
