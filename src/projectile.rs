@@ -125,7 +125,7 @@ pub fn spawn_projectile(
                     transform: spell_transform.with_scale(0.3 * Vec3::ONE),
                     ..Default::default()
                 },
-                LinearMovement(5.0),
+                LinearMovement(3.0),
                 ProjectileHitEffect::Damage(DamageMask::FIRE, 10.0),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
@@ -143,7 +143,7 @@ pub fn spawn_projectile(
                     transform: spell_transform.with_scale(0.3 * Vec3::ONE),
                     ..Default::default()
                 },
-                LinearMovement(5.0),
+                LinearMovement(6.0),
                 ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10.0),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
