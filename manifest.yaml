@@ -1,6 +1,7 @@
 android:
   assets:
     - "assets/vosk-model.zip"
+    - "assets/white bear.glb"
   runtime_libs:
     - "runtime_libs"
   manifest:

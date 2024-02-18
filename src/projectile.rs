@@ -11,6 +11,7 @@ use crate::{
 pub enum ProjectileType {
     Fireball,
     LightningBolt,
+    BossAttack,
 }
 
 #[derive(Debug, Default, Component)]
@@ -27,17 +28,17 @@ impl Default for ProjectileHitEffect {
 }
 
 #[derive(Component)]
-struct Health(DamageMask, f32);
+pub struct Health(pub DamageMask, pub f32);
 
 #[derive(Component, Debug, Default)]
 pub struct Projectile;
 
 #[derive(Debug)]
-pub struct DamageMask(u8);
+pub struct DamageMask(pub u8);
 
 impl DamageMask {
-    const FIRE: Self = DamageMask(1 << 0);
-    const LIGHTNING: Self = DamageMask(1 << 1);
+    pub const FIRE: Self = DamageMask(1 << 0);
+    pub const LIGHTNING: Self = DamageMask(1 << 1);
 
     fn intersect(&self, other: &Self) -> bool {
         self.0 & other.0 > 0
@@ -149,6 +150,21 @@ pub fn spawn_projectile(
                     .add_group(PhysLayer::PlayerProjectile)
                     .remove_mask(PhysLayer::Player),
                 Collider::ball(0.03),
+                RigidBody::Kinematic,
+            ))
+            .add_rollback(),
+        ProjectileType::BossAttack => commands
+            .spawn((
+                Projectile,
+                PbrBundle {
+                    mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                    material: asset_handles.mats[MatName::Purple as usize].clone(),
+                    transform: spell_transform.with_scale(2.0 * Vec3::ONE),
+                    ..Default::default()
+                },
+                LinearMovement(5.0),
+                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10.0),
+                Collider::ball(0.2),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),

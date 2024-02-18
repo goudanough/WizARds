@@ -1,4 +1,4 @@
-use crate::{spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
+use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
 use bevy_oxr::xr_input::{
@@ -198,6 +198,7 @@ fn debug_spawn_networked_player_objs(
                 },
                 PlayerID { handle: i },
                 PlayerHead,
+                player::Player,
             ))
             .add_rollback();
         commands
