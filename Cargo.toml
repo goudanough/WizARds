@@ -18,6 +18,7 @@ bevy_xpbd_3d = { git = "https://github.com/goudanough/bevy_xpbd", rev = "7712767
 bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "c85f7435b54aa1788aa75f46c71583d29d0cf76f", default-features = false }
 bevy_ggrs = { git = "https://github.com/goudanough/bevy_ggrs", rev = "b9ef8772fc39f1bc166df7588b69b0760fc3437f" }
 bytemuck = { version = "1.14.1", features=["derive"]}
+
 cpal = "0.15.2"
 crossbeam = "0.8.4"
 vosk = "0.2.0"
