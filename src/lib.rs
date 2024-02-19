@@ -69,6 +69,7 @@ enum PhysLayer {
     PlayerProjectile,
     Boss,
     BossProjectile,
+    Terrain,
 }
 
 #[bevy_main]

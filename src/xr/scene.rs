@@ -1,4 +1,4 @@
-use crate::oxr;
+use crate::{oxr, PhysLayer};
 use bevy_xpbd_3d::prelude::*;
 
 use bevy::{
@@ -41,6 +41,9 @@ enum SceneState {
     Done,
 }
 
+#[derive(Resource, Debug)]
+struct DbgMeshCentres(Vec<(Vec3, Vec3)>);
+
 pub struct QuestScene;
 
 impl Plugin for QuestScene {
@@ -56,6 +59,7 @@ impl Plugin for QuestScene {
                 Update,
                 wait_query_complete.run_if(in_state(SceneState::QueryingScene)),
             )
+            // .add_systems(Update, dbg_mesh_gizmos)
             .add_systems(OnEnter(SceneState::Done), init_world_mesh);
     }
 }
@@ -333,41 +337,47 @@ fn init_world_mesh(
         let indices = mesh::Indices::U32(indices);
         bevy_mesh.set_indices(Some(indices));
 
-        // commands
-        //     .spawn(PbrBundle {
-        //         mesh: meshes.add(bevy_mesh),
-        //         material: materials.add(Color::Rgba {
-        //             red: 0.25,
-        //             green: 0.88,
-        //             blue: 0.82,
-        //             alpha: 0.0,
-        //         }),
-        //         transform: Transform {
-        //             translation: Vec3 {
-        //                 x: translation.x,
-        //                 y: translation.y,
-        //                 z: translation.z,
-        //             },
-        //             rotation: Quat::from_array([
-        //                 -rotation.x,
-        //                 -rotation.z,
-        //                 -rotation.y,
-        //                 -rotation.w,
-        //             ]),
-        //             ..default()
-        //         },
-        //         // Transform {
-        //         //     translation: Vec3 {
-        //         //         x: -translation.x,
-        //         //         y: -translation.z,
-        //         //         z: translation.y,
-        //         //     },
-        //         //     rotation: Quat::from_array([rotation.x, rotation.z, rotation.y, -rotation.w]),
-        //         //     scale: Vec3::ONE,
-        //         // },
+        // let dbg_mesh = bevy_mesh.clone().transformed_by(Transform {
+        //     translation: Vec3 {
+        //         x: translation.x,
+        //         y: translation.y,
+        //         z: translation.z,
+        //     },
+        //     rotation: Quat::from_array([-rotation.x, -rotation.z, -rotation.y, -rotation.w]),
+        //     ..default()
+        // });
+        // let dbg_triangle_centers = {
+        //     let mut dbg_triangle_centers = Vec::new();
+        //     let verts = dbg_mesh
+        //         .attribute(Mesh::ATTRIBUTE_POSITION)
+        //         .unwrap()
+        //         .as_float3()
+        //         .unwrap()
+        //         .to_owned();
+        //     let tris: Vec<usize> = dbg_mesh.indices().unwrap().iter().collect();
+        //     for tri in tris.chunks(3) {
+        //         let (a_arr, b_arr, c_arr) = (verts[tri[0]], verts[tri[1]], verts[tri[2]]);
+        //         let a = Vec3::new(a_arr[0], a_arr[1], a_arr[2]);
+        //         let b = Vec3::new(b_arr[0], b_arr[1], b_arr[2]);
+        //         let c = Vec3::new(c_arr[0], c_arr[1], c_arr[2]);
+        //         let normal = (c - b).cross(a - b).normalize();
+        //         let centre = (a + b + c) / 3.0;
+        //         dbg_triangle_centers.push((centre, normal));
+        //     }
+        //     dbg_triangle_centers
+        // };
+        // commands.insert_resource(DbgMeshCentres(dbg_triangle_centers));
+        // commands.spawn((
+        //     AsyncCollider(ComputedCollider::TriMesh),
+        //     PbrBundle {
+        //         mesh: meshes.add(dbg_mesh),
+        //         material: materials.add(Color::rgba(0.0, 0.0, 0.0, 0.2)),
         //         ..default()
-        //     })
-        //     .insert(Wireframe);
+        //     },
+        //     CollisionLayers::all_masks::<PhysLayer>().add_group(PhysLayer::Terrain),
+        //     RigidBody::Static,
+        //     Wireframe,
+        // ));
 
         commands.spawn((
             AsyncCollider(ComputedCollider::TriMesh),
@@ -390,9 +400,20 @@ fn init_world_mesh(
                 },
                 ..default()
             },
+            CollisionLayers::all_masks::<PhysLayer>().add_group(PhysLayer::Terrain),
             RigidBody::Static,
+            // Wireframe,
         ));
     } else {
         todo!("Fall back to regular scene API when XR_META_spatial_entity_mesh not available")
+    }
+}
+
+fn dbg_mesh_gizmos(dbg_tri_centres: Option<Res<DbgMeshCentres>>, mut gizmos: Gizmos) {
+    if let Some(dbg_tri_centres) = dbg_tri_centres {
+        for (c, n) in dbg_tri_centres.0.iter() {
+            gizmos.circle(*c, Direction3d::new(*n).unwrap(), 0.05, Color::RED);
+            gizmos.ray(*c, *n * 0.05, Color::BLUE);
+        }
     }
 }
