@@ -112,6 +112,7 @@ fn detect_projectile_collisions(
     }
 }
 
+// TODO see previous TODO
 fn handle_projectile_collision(
     commands: &mut Commands,
     hit_effect: &ProjectileHitEffect,

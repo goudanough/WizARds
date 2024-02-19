@@ -4,7 +4,7 @@ mod boss_state;
 use bevy::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 
-use crate::{boss, player::Player, projectile::DamageMask, PhysLayer};
+use crate::{player::Player, projectile::DamageMask, PhysLayer};
 
 use self::{
     boss_attack::{boss_attack, AttackTimer},
@@ -142,11 +142,11 @@ fn init_phase2(mut boss_health: Query<&mut BossHealth>, mut current_phase: ResMu
     let Ok(mut health) = boss_health.get_single_mut() else {
         return;
     };
-    // This is dumb, but I don't have time to think of a better way to do this.
 
     health.current = current_phase.0.max_health();
     health.max = current_phase.0.max_health();
 
+    // TODO This is dumb, but I don't have time to think of a better way to do this, do better in future.
     current_phase.0 = BossPhase::Phase2;
 }
 
@@ -160,10 +160,11 @@ fn init_phase3(mut boss_health: Query<&mut BossHealth>, mut current_phase: ResMu
     health.max = current_phase.0.max_health();
     health.damage_mask = DamageMask::LIGHTNING;
 
-    // This is dumb, but I don't have time to think of a better way to do this.
+    // TODO This is dumb, but I don't have time to think of a better way to do this, do better in future.
     current_phase.0 = BossPhase::Phase3;
 }
 
+// TODO A phase that just goes back to the start of the current phase seems dumb, do it in a better way.
 fn reset_phase(current_phase: Res<CurrentPhase>, mut next_phase: ResMut<NextState<BossPhase>>) {
     println!("Resetting Phase.");
     next_phase.set(current_phase.0);

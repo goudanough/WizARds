@@ -38,7 +38,7 @@ pub fn boss_action(
         .distance(boss_transform.translation);
 
     // change boss state depend on distance
-    // this is bad, i should collpase boss state and boss phase behaviour together, but time.
+    // TODO this is bad, i should collpase boss state and boss phase behaviour together, but time.
     if distance > 10.0 {
         state.set(BossState::Idle);
     } else if distance > 7.0 {

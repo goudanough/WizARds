@@ -88,7 +88,7 @@ fn update_health_bar(
 
     let health = match health_query.get_single() {
         Ok(h) => h,
-        Err(e) => &BossHealth {
+        Err(_) => &BossHealth {
             max: 1.,
             current: 0.,
             damage_mask: DamageMask(0),
