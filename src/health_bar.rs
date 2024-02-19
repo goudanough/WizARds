@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
 
-use crate::boss::BossHealth;
+use crate::{boss::BossHealth, projectile::DamageMask};
 
 pub struct HealthBarPlugin;
 
@@ -86,7 +86,15 @@ fn update_health_bar(
     let head_pos = left_eye.translation.lerp(right_eye.translation, 0.5);
     let head_rot = left_eye.rotation;
 
-    let health = health_query.get_single().unwrap();
+    let health = match health_query.get_single() {
+        Ok(h) => h,
+        Err(e) => &BossHealth {
+            max: 1.,
+            current: 0.,
+            damage_mask: DamageMask(0),
+        },
+    };
+
     let mut health_bar_bg_transform = health_bar_bg_query.get_single_mut().unwrap();
 
     let yaw = head_rot.to_euler(EulerRot::XYZ).2;
