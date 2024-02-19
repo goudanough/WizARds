@@ -4,6 +4,7 @@ use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
+    boss::BossHealth,
     network::{debug_move_networked_player_objs, PlayerID},
     PhysLayer,
 };
@@ -26,9 +27,6 @@ impl Default for ProjectileHitEffect {
         ProjectileHitEffect::Damage(DamageMask::FIRE, 10.)
     }
 }
-
-#[derive(Component)]
-pub struct Health(pub DamageMask, pub f32);
 
 #[derive(Component, Debug, Default)]
 pub struct Projectile;
@@ -79,7 +77,7 @@ fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
     projectiles: Query<&ProjectileHitEffect>,
-    mut healths: Query<&mut Health>,
+    mut healths: Query<&mut BossHealth>,
 ) {
     for CollisionStarted(e1, e2) in collisions.read() {
         if let Ok(p) = projectiles.get(*e1) {
@@ -95,14 +93,14 @@ fn handle_projectile_collision(
     commands: &mut Commands,
     hit_effect: &ProjectileHitEffect,
     p_entity: &Entity,
-    health: Result<Mut<Health>, QueryEntityError>,
+    health: Result<Mut<BossHealth>, QueryEntityError>,
 ) {
     commands.entity(*p_entity).despawn();
     match &hit_effect {
         ProjectileHitEffect::Damage(m, a) => {
             if let Ok(mut h) = health {
-                if h.0.intersect(m) {
-                    h.1 -= a;
+                if h.damage_mask.intersect(m) {
+                    h.current -= a;
                 }
             }
         }
@@ -126,7 +124,7 @@ pub fn spawn_projectile(
                     transform: spell_transform.with_scale(0.3 * Vec3::ONE),
                     ..Default::default()
                 },
-                LinearMovement(5.0),
+                LinearMovement(3.0),
                 ProjectileHitEffect::Damage(DamageMask::FIRE, 10.0),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
@@ -144,7 +142,7 @@ pub fn spawn_projectile(
                     transform: spell_transform.with_scale(0.3 * Vec3::ONE),
                     ..Default::default()
                 },
-                LinearMovement(5.0),
+                LinearMovement(6.0),
                 ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10.0),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)

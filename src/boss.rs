@@ -3,11 +3,7 @@ mod boss_state;
 use bevy::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 
-use crate::{
-    player::Player,
-    projectile::{DamageMask, Health},
-    PhysLayer,
-};
+use crate::{player::Player, projectile::DamageMask, PhysLayer};
 
 use self::{
     boss_attack::{boss_attack, AttackTimer},
@@ -15,6 +11,22 @@ use self::{
 };
 
 const BOSS_MAX_HEALTH: f32 = 100.0;
+
+#[derive(Component)]
+pub struct BossHealth {
+    pub max: f32,
+    pub current: f32,
+    pub damage_mask: DamageMask,
+}
+
+impl BossHealth {
+    pub fn normalized_value(&self) -> f32 {
+        self.current / self.max
+    }
+}
+
+#[derive(Component)]
+struct Boss;
 
 pub struct BossPlugin;
 
@@ -35,13 +47,10 @@ impl Plugin for BossPlugin {
     }
 }
 
-#[derive(Component)]
-struct Boss;
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let model = asset_server.load("white bear.glb#Scene0");
 
-    let initial_mask: u8 = DamageMask::FIRE.0 | DamageMask::LIGHTNING.0;
+    let initial_mask: DamageMask = DamageMask(DamageMask::FIRE.0 | DamageMask::LIGHTNING.0);
 
     commands.spawn((
         SceneBundle {
@@ -56,15 +65,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .add_group(PhysLayer::Boss)
             .remove_mask(PhysLayer::BossProjectile),
         Boss,
-        Health(DamageMask(initial_mask), BOSS_MAX_HEALTH),
+        BossHealth {
+            max: BOSS_MAX_HEALTH,
+            current: BOSS_MAX_HEALTH,
+            damage_mask: initial_mask,
+        },
     ));
 }
 
 // boss look at player
 fn update_boss(
-    mut query: Query<(&mut Transform), (With<Boss>, Without<Player>)>,
+    mut query: Query<&mut Transform, (With<Boss>, Without<Player>)>,
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
-    boss_health: Query<&Health, With<Boss>>,
 ) {
     if let Some(player_transform) = player_query.iter().next() {
         let mut boss_transform = query.single_mut();

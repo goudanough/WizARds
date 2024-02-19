@@ -3,6 +3,7 @@
 
 mod assets;
 mod boss;
+mod health_bar;
 mod network;
 mod player;
 mod projectile;
@@ -33,6 +34,7 @@ use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker}
 use bevy_oxr::DefaultXrPlugins;
 use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
+use health_bar::HealthBarPlugin;
 use network::NetworkPlugin;
 use projectile::ProjectilePlugin;
 use spells::SpellsPlugin;
@@ -70,14 +72,14 @@ pub fn main() {
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(NetworkPlugin)
-        // boss and player plugins(not use)
         .add_plugins(boss::BossPlugin)
         .add_plugins(PhysicsPlugins::default())
         .add_plugins(ProjectilePlugin)
         .add_plugins(SpeechPlugin)
         .add_plugins(SpellControlPlugin)
         .add_plugins(SpellsPlugin)
-        .add_plugins(AssetHandlesPlugin);
+        .add_plugins(AssetHandlesPlugin)
+        .add_plugins(HealthBarPlugin);
 
     #[cfg(target_os = "android")]
     {
@@ -154,9 +156,8 @@ fn setup(
             transform: Transform::from_xyz(2.0, 0.5, 4.0),
             ..default()
         },
-        RigidBody::Dynamic,
+        RigidBody::Static,
         Collider::cuboid(0.5, 0.5, 0.5),
-        ColliderDensity(100.0),
     ));
     // cube
     commands.spawn((
@@ -166,9 +167,8 @@ fn setup(
             transform: Transform::from_xyz(3.0, 0.5, 1.0),
             ..default()
         },
-        RigidBody::Dynamic,
+        RigidBody::Static,
         Collider::cuboid(0.5, 0.5, 0.5),
-        ColliderDensity(100.0),
     ));
     // light
     commands.spawn(PointLightBundle {

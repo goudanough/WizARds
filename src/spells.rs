@@ -1,12 +1,13 @@
 use ::bevy::prelude::*;
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_oxr::xr_input::hands::common::HandsResource;
+use bevy_xpbd_3d::plugins::spatial_query::{SpatialQuery, SpatialQueryFilter};
 
 use crate::assets::{AssetHandles, MatName, MeshName};
 use crate::network::{debug_move_networked_player_objs, PlayerID};
 use crate::projectile::{spawn_projectile, update_linear_movement, ProjectileType};
 use crate::spell_control::{SelectedSpell, Spell};
-use crate::PlayerInput;
+use crate::{PhysLayer, PlayerInput};
 
 pub struct SpellsPlugin;
 
@@ -17,6 +18,9 @@ pub struct SpellIndicator;
 pub struct TrajectoryIndicator {
     pub despawn_on_fire: bool,
 }
+
+#[derive(Component)]
+pub struct StraightLaserTrajInd;
 
 #[derive(Component)]
 pub struct SpellObj;
@@ -35,7 +39,8 @@ impl Plugin for SpellsPlugin {
                 .chain()
                 .before(update_linear_movement)
                 .after(debug_move_networked_player_objs),
-        );
+        )
+        .add_systems(Update, handle_straight_laser_traj_ind);
     }
 }
 
@@ -55,7 +60,7 @@ pub fn spawn_spell(commands: &mut Commands, input: PlayerInput, p_id: usize) {
                 SpatialBundle {
                     transform: Transform::from_translation(
                         right_palm_transform.translation
-                            - 0.1 * Vec3::from(right_palm_transform.local_y()),
+                            - 0.1 * Vec3::from(right_palm_transform.local_z()),
                     )
                     .with_rotation(input.right_hand_rot), // TODO currently incorrect direction, needs integrating with a proper aiming system
                     ..Default::default()
@@ -70,7 +75,7 @@ pub fn spawn_spell(commands: &mut Commands, input: PlayerInput, p_id: usize) {
                 SpatialBundle {
                     transform: Transform::from_translation(
                         right_palm_transform.translation
-                            - 0.1 * Vec3::from(right_palm_transform.local_y()),
+                            - 0.1 * Vec3::from(right_palm_transform.local_z()),
                     )
                     .with_rotation(input.right_hand_rot), // TODO currently incorrect direction, needs integrating with a proper aiming system
                     ..Default::default()
@@ -145,26 +150,65 @@ pub fn spawn_spell_indicator(
 pub fn spawn_trajectory_indicator(
     mut commands: Commands,
     hands_resource: Res<HandsResource>,
-    asset_handles: Res<AssetHandles>,
     selected_spell: Res<SelectedSpell>,
 ) {
-    let spell_ind_id = match selected_spell.0.unwrap() {
-        Spell::Fireball => commands.spawn((
-            TrajectoryIndicator {
-                despawn_on_fire: true,
-            },
-            // TODO finish implementing these objects
-        )),
-        Spell::Lightning => commands.spawn((
-            TrajectoryIndicator {
-                despawn_on_fire: true,
-            },
-            // TODO finish implementing these objects
-        )),
+    match selected_spell.0.unwrap() {
+        Spell::Fireball => {
+            let id = commands
+                .spawn((
+                    TrajectoryIndicator {
+                        despawn_on_fire: true,
+                    },
+                    StraightLaserTrajInd,
+                    SpatialBundle::default(),
+                ))
+                .id();
+            commands
+                .get_entity(hands_resource.right.palm)
+                .unwrap()
+                .push_children(&[id]);
+        }
+        Spell::Lightning => {
+            let id = commands
+                .spawn((
+                    TrajectoryIndicator {
+                        despawn_on_fire: true,
+                    },
+                    StraightLaserTrajInd,
+                    SpatialBundle::default(),
+                ))
+                .id();
+            commands
+                .get_entity(hands_resource.right.palm)
+                .unwrap()
+                .push_children(&[id]);
+        }
     }
-    .id();
-    commands
-        .get_entity(hands_resource.right.palm)
-        .unwrap()
-        .push_children(&[spell_ind_id]);
+}
+
+fn handle_straight_laser_traj_ind(
+    traj_ind: Query<&GlobalTransform, With<StraightLaserTrajInd>>,
+    spatial_query: SpatialQuery,
+    mut gizmos: Gizmos,
+) {
+    let t = match traj_ind.get_single() {
+        Ok(t) => t,
+        _ => return,
+    };
+    let max_travel = 50.0;
+    let ray_travel = match spatial_query.cast_ray(
+        t.translation(),
+        t.forward(),
+        max_travel,
+        true,
+        SpatialQueryFilter::new().with_masks(&[PhysLayer::PlayerProjectile]),
+    ) {
+        Some(ray_hit) => ray_hit.time_of_impact,
+        None => max_travel,
+    };
+    gizmos.line(
+        t.translation(),
+        t.translation() + (t.forward() * ray_travel),
+        Color::RED,
+    ); // TODO don't use gizmos for line drawing
 }

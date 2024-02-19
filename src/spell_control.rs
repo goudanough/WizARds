@@ -1,7 +1,10 @@
 use crate::{
     network::{LocalPlayerID, PlayerHead, PlayerID},
     speech::{collect_voice, recognise_voice, start_voice},
-    spells::{spawn_spell, spawn_spell_indicator, SpellIndicator, SpellObj, TrajectoryIndicator},
+    spells::{
+        spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
+        TrajectoryIndicator,
+    },
 };
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, PlayerInputs};
@@ -83,6 +86,7 @@ impl Plugin for SpellControlPlugin {
                 check_if_done_firing.run_if(in_state(SpellStatus::Fire)),
             )
             .add_systems(OnEnter(SpellStatus::Armed), spawn_spell_indicator)
+            .add_systems(OnEnter(SpellStatus::Armed), spawn_trajectory_indicator)
             .add_systems(OnExit(SpellStatus::Armed), despawn_spell_indicator)
             .add_systems(OnExit(SpellStatus::Armed), despawn_trajectory_indictaor)
             .add_systems(OnEnter(SpellStatus::Fire), queue_new_spell)
@@ -124,11 +128,8 @@ fn check_spell_fire_input(
     }
 }
 
-fn despawn_spell_indicator(
-    mut commands: Commands,
-    indicator_query: Query<Entity, With<SpellIndicator>>,
-) {
-    for indicator in indicator_query.iter() {
+fn despawn_spell_indicator(mut commands: Commands, spell_ind: Query<Entity, With<SpellIndicator>>) {
+    if let Ok(indicator) = spell_ind.get_single() {
         commands.entity(indicator).despawn_recursive();
     }
 }
@@ -139,12 +140,12 @@ fn queue_new_spell(mut spell_queue: ResMut<QueuedSpell>, selected_spell: Res<Sel
 
 fn despawn_trajectory_indictaor(
     mut commands: Commands,
-    indicator_query: Query<(Entity, &TrajectoryIndicator), With<SpellIndicator>>,
+    traj_ind: Query<(Entity, &TrajectoryIndicator)>,
     spell_state: Res<State<SpellStatus>>,
 ) {
-    for (indicator_e, indicator_comp) in indicator_query.iter() {
+    if let Ok((indicator_e, indicator_comp)) = traj_ind.get_single() {
         if *spell_state.get() == SpellStatus::Fire && !indicator_comp.despawn_on_fire {
-            continue;
+            return;
         }
         commands.entity(indicator_e).despawn_recursive();
     }
