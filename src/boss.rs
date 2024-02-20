@@ -1,5 +1,6 @@
 mod boss_attack;
 mod boss_state;
+
 use bevy::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 
@@ -10,14 +11,48 @@ use self::{
     boss_state::{boss_action, boss_move, BossState},
 };
 
-const BOSS_MAX_HEALTH: f32 = 100.0;
-
 #[derive(Component)]
 pub struct BossHealth {
     pub max: f32,
     pub current: f32,
     pub damage_mask: DamageMask,
 }
+
+// This implementation of phases is gross.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default, Copy)]
+pub enum BossPhase {
+    #[default]
+    Phase1,
+    Phase3,
+    Phase2,
+    Dead,
+    Reset,
+}
+
+impl BossPhase {
+    pub fn max_health(self) -> f32 {
+        match self {
+            Self::Phase1 => 50.,
+            Self::Phase2 => 50.,
+            Self::Phase3 => 50.,
+            Self::Dead => 0.,
+            Self::Reset => 0.,
+        }
+    }
+
+    pub fn next_phase(self) -> Self {
+        match self {
+            BossPhase::Phase1 => Self::Phase2,
+            BossPhase::Phase2 => Self::Phase3,
+            BossPhase::Phase3 => Self::Dead,
+            BossPhase::Dead => Self::Dead,
+            BossPhase::Reset => Self::Reset,
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct CurrentPhase(pub BossPhase);
 
 impl BossHealth {
     pub fn normalized_value(&self) -> f32 {
@@ -33,6 +68,8 @@ pub struct BossPlugin;
 impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<BossState>()
+            .init_state::<BossPhase>()
+            .insert_resource(CurrentPhase(BossPhase::Phase1))
             .add_systems(Startup, setup)
             .insert_resource(AttackTimer(Timer::from_seconds(5.0, TimerMode::Repeating)))
             .add_systems(
@@ -43,7 +80,11 @@ impl Plugin for BossPlugin {
                     boss_attack.run_if(in_state(BossState::Attack)),
                     boss_move.run_if(in_state(BossState::MoveTowardsPlayer)),
                 ),
-            );
+            )
+            .add_systems(OnEnter(BossPhase::Phase2), init_phase2)
+            .add_systems(OnEnter(BossPhase::Phase3), init_phase3)
+            .add_systems(OnEnter(BossPhase::Reset), reset_phase)
+            .add_systems(OnEnter(BossPhase::Dead), despawn_boss);
     }
 }
 
@@ -55,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SceneBundle {
             scene: model,
-            transform: Transform::from_xyz(0.0, 1.0, 9.0).with_scale(Vec3::new(2.0, 2.0, 2.0)),
+            transform: Transform::from_xyz(0.0, 1.0, -9.0).with_scale(Vec3::new(2.0, 2.0, 2.0)),
 
             ..default()
         },
@@ -66,8 +107,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .remove_mask(PhysLayer::BossProjectile),
         Boss,
         BossHealth {
-            max: BOSS_MAX_HEALTH,
-            current: BOSS_MAX_HEALTH,
+            max: BossPhase::Phase1.max_health(),
+            current: BossPhase::Phase1.max_health(),
             damage_mask: initial_mask,
         },
     ));
@@ -79,7 +120,9 @@ fn update_boss(
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
 ) {
     if let Some(player_transform) = player_query.iter().next() {
-        let mut boss_transform = query.single_mut();
+        let Ok(mut boss_transform) = query.get_single_mut() else {
+            return;
+        };
         let mut player_pos_flat = player_transform.translation;
         player_pos_flat.y = boss_transform.translation.y;
 
@@ -92,4 +135,44 @@ fn update_boss(
             boss_transform.rotation = look_rotation * left_rotation;
         }
     }
+}
+
+fn init_phase2(mut boss_health: Query<&mut BossHealth>, mut current_phase: ResMut<CurrentPhase>) {
+    println!("Enter Phase 2.");
+    let Ok(mut health) = boss_health.get_single_mut() else {
+        return;
+    };
+
+    health.current = current_phase.0.max_health();
+    health.max = current_phase.0.max_health();
+
+    // TODO This is dumb, but I don't have time to think of a better way to do this, do better in future.
+    current_phase.0 = BossPhase::Phase2;
+}
+
+fn init_phase3(mut boss_health: Query<&mut BossHealth>, mut current_phase: ResMut<CurrentPhase>) {
+    println!("Enter Phase 3.");
+    let Ok(mut health) = boss_health.get_single_mut() else {
+        return;
+    };
+
+    health.current = current_phase.0.max_health();
+    health.max = current_phase.0.max_health();
+    health.damage_mask = DamageMask::LIGHTNING;
+
+    // TODO This is dumb, but I don't have time to think of a better way to do this, do better in future.
+    current_phase.0 = BossPhase::Phase3;
+}
+
+// TODO A phase that just goes back to the start of the current phase seems dumb, do it in a better way.
+fn reset_phase(current_phase: Res<CurrentPhase>, mut next_phase: ResMut<NextState<BossPhase>>) {
+    println!("Resetting Phase.");
+    next_phase.set(current_phase.0);
+}
+
+fn despawn_boss(mut commands: Commands, mut boss: Query<Entity, With<Boss>>) {
+    let Ok(boss_e) = boss.get_single_mut() else {
+        return;
+    };
+    commands.entity(boss_e).despawn_recursive();
 }
