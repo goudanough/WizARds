@@ -121,7 +121,7 @@ pub fn spawn_projectile(
                 PbrBundle {
                     mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
                     material: asset_handles.mats[MatName::Red as usize].clone(),
-                    transform: spell_transform.with_scale(0.3 * Vec3::ONE),
+                    transform: *spell_transform,
                     ..Default::default()
                 },
                 LinearMovement(3.0),
@@ -129,7 +129,7 @@ pub fn spawn_projectile(
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
                     .remove_mask(PhysLayer::Player),
-                Collider::ball(0.03),
+                Collider::ball(0.1),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
@@ -139,7 +139,7 @@ pub fn spawn_projectile(
                 PbrBundle {
                     mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
                     material: asset_handles.mats[MatName::Blue as usize].clone(),
-                    transform: spell_transform.with_scale(0.3 * Vec3::ONE),
+                    transform: *spell_transform,
                     ..Default::default()
                 },
                 LinearMovement(6.0),
@@ -147,7 +147,7 @@ pub fn spawn_projectile(
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
                     .remove_mask(PhysLayer::Player),
-                Collider::ball(0.03),
+                Collider::ball(0.1),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
