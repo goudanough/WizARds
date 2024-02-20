@@ -19,7 +19,7 @@ impl Plugin for TextPlugin {
             (
                 setup_new_texts,
                 update_texts.after(setup_new_texts),
-                point_text_at_player,
+                despawn_timed_text, /*point_text_at_player,*/
             ),
         );
     }
@@ -31,6 +31,9 @@ pub struct Text {
     ui_node: Entity,
     text_node: Entity,
 }
+
+#[derive(Component)]
+pub struct TextTimer(pub Timer);
 
 impl Text {
     pub fn new(text: String) -> Self {
@@ -149,6 +152,19 @@ fn update_texts(ts: Query<&Text, Changed<Text>>, mut text_nodes: Query<&mut bevy
     }
 }
 
+fn despawn_timed_text(
+    mut commands: Commands,
+    mut ts: Query<(&mut TextTimer, Entity)>,
+    time: Res<Time>,
+) {
+    for (mut t, e) in ts.iter_mut() {
+        if t.0.tick(time.delta()).just_finished() {
+            commands.add(RemoveText(e));
+            commands.entity(e).despawn();
+        }
+    }
+}
+
 fn point_text_at_player(
     mut ts: Query<
         (&mut Transform, &GlobalTransform),
@@ -166,7 +182,7 @@ fn point_text_at_player(
     }
 }
 
-pub struct RemoveText(Entity);
+pub struct RemoveText(pub Entity);
 impl Command for RemoveText {
     fn apply(self, w: &mut World) {
         let mut q = w.query::<&mut Text>();
