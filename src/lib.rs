@@ -18,7 +18,6 @@ mod xr;
 
 use crate::xr::scene::QuestScene;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy::render::settings::{RenderCreation, WgpuFeatures, WgpuSettings};
 use bevy::render::RenderPlugin;
@@ -131,12 +130,6 @@ pub fn main() {
         .add_systems(Startup, spoof_xr_components);
     }
 
-    app.add_plugins(WireframePlugin)
-        .insert_resource(WireframeConfig {
-            global: false,
-            default_color: Color::TURQUOISE,
-        });
-
     app.run();
 }
 
@@ -167,17 +160,6 @@ fn setup(
         alpha: 0.0,
     };
 
-    // plane
-    // let plane_mesh = Mesh::from(shape::Plane::from_size(128.0));
-    // commands.spawn((
-    //     Collider::trimesh_from_mesh(&plane_mesh).unwrap(),
-    //     RigidBody::Static,
-    //     PbrBundle {
-    //         mesh: meshes.add(plane_mesh),
-    //         material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
-    //         ..default()
-    //     },
-    // ));
     // cube
     commands.spawn((
         PbrBundle {
