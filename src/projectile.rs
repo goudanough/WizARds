@@ -4,8 +4,9 @@ use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
-    boss::BossHealth,
+    boss::{BossHealth, BossPhase, CurrentPhase},
     network::{debug_move_networked_player_objs, PlayerID},
+    player::Player,
     PhysLayer,
 };
 
@@ -21,6 +22,7 @@ pub struct LinearMovement(f32);
 #[derive(Debug, Component)]
 enum ProjectileHitEffect {
     Damage(DamageMask, f32),
+    ResetPhase,
 }
 impl Default for ProjectileHitEffect {
     fn default() -> Self {
@@ -73,27 +75,52 @@ pub fn update_linear_movement(
     }
 }
 
+// TODO Make this better - function signature changes as we add more types of projectile which is bad.
+// instead of this we should create an bundle representing each collision and have these be processed by different systems.
 fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
     projectiles: Query<&ProjectileHitEffect>,
     mut healths: Query<&mut BossHealth>,
+    players: Query<&Player>,
+    mut next_phase: ResMut<NextState<BossPhase>>,
+    current_phase: Res<CurrentPhase>,
 ) {
     for CollisionStarted(e1, e2) in collisions.read() {
         if let Ok(p) = projectiles.get(*e1) {
-            handle_projectile_collision(&mut commands, p, e1, healths.get_mut(*e2));
+            handle_projectile_collision(
+                &mut commands,
+                p,
+                e1,
+                healths.get_mut(*e2),
+                players.get(*e2),
+                &mut next_phase,
+                &current_phase,
+            );
         }
         if let Ok(p) = projectiles.get(*e2) {
-            handle_projectile_collision(&mut commands, p, e2, healths.get_mut(*e1));
+            handle_projectile_collision(
+                &mut commands,
+                p,
+                e2,
+                healths.get_mut(*e1),
+                players.get(*e1),
+                &mut next_phase,
+                &current_phase,
+            );
         }
     }
 }
 
+// TODO see previous TODO
 fn handle_projectile_collision(
     commands: &mut Commands,
     hit_effect: &ProjectileHitEffect,
     p_entity: &Entity,
     health: Result<Mut<BossHealth>, QueryEntityError>,
+    player: Result<&Player, QueryEntityError>,
+    next_phase: &mut ResMut<NextState<BossPhase>>,
+    current_phase: &Res<CurrentPhase>,
 ) {
     commands.entity(*p_entity).despawn();
     match &hit_effect {
@@ -101,10 +128,19 @@ fn handle_projectile_collision(
             if let Ok(mut h) = health {
                 if h.damage_mask.intersect(m) {
                     h.current -= a;
+                    if h.current <= 0.0 {
+                        println!("Change phase");
+                        next_phase.set(current_phase.0.next_phase());
+                    }
                 }
             }
         }
-        _ => unreachable!(),
+        ProjectileHitEffect::ResetPhase => {
+            if player.is_ok() {
+                println!("Reset phase");
+                next_phase.set(BossPhase::Reset);
+            }
+        }
     }
 }
 
@@ -125,10 +161,11 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(3.0),
-                ProjectileHitEffect::Damage(DamageMask::FIRE, 10.0),
+                ProjectileHitEffect::Damage(DamageMask::FIRE, 25.0),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
-                    .remove_mask(PhysLayer::Player),
+                    .remove_mask(PhysLayer::Player)
+                    .remove_mask(PhysLayer::BossProjectile),
                 Collider::ball(0.03),
                 RigidBody::Kinematic,
             ))
@@ -143,10 +180,11 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(6.0),
-                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 10.0),
+                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 25.0),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
-                    .remove_mask(PhysLayer::Player),
+                    .remove_mask(PhysLayer::Player)
+                    .remove_mask(PhysLayer::BossProjectile),
                 Collider::ball(0.03),
                 RigidBody::Kinematic,
             ))
@@ -161,10 +199,11 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(5.0),
-                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 0.0),
+                ProjectileHitEffect::ResetPhase,
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::BossProjectile)
-                    .remove_mask(PhysLayer::Boss),
+                    .remove_mask(PhysLayer::Boss)
+                    .remove_mask(PhysLayer::PlayerProjectile),
                 Collider::ball(0.2),
                 RigidBody::Kinematic,
             ))

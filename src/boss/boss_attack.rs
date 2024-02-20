@@ -20,7 +20,9 @@ pub fn boss_attack(
     time: Res<Time>,
 ) {
     if timer.0.tick(time.delta()).just_finished() {
-        let boss_transform = boss_query.single();
+        let Ok(boss_transform) = boss_query.get_single() else {
+            return;
+        };
         let Some(player_transform) = player_query.iter().next() else {
             return;
         };
