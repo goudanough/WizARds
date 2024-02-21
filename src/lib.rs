@@ -10,6 +10,7 @@ mod projectile;
 mod speech;
 mod spell_control;
 mod spells;
+mod text;
 
 use crate::speech::SpeechPlugin;
 use crate::spell_control::SpellControlPlugin;
@@ -43,6 +44,7 @@ use health_bar::HealthBarPlugin;
 use network::NetworkPlugin;
 use projectile::ProjectilePlugin;
 use spells::SpellsPlugin;
+use text::TextPlugin;
 
 const FPS: usize = 72;
 
@@ -85,7 +87,8 @@ pub fn main() {
         .add_plugins(SpellControlPlugin)
         .add_plugins(SpellsPlugin)
         .add_plugins(AssetHandlesPlugin)
-        .add_plugins(HealthBarPlugin);
+        .add_plugins(HealthBarPlugin)
+        .add_plugins(TextPlugin);
 
     #[cfg(target_os = "android")]
     {
@@ -181,6 +184,7 @@ fn setup(
         },
         RigidBody::Static,
         Collider::cuboid(0.5, 0.5, 0.5),
+        text::Text::new("WizARds sucks".to_owned()),
     ));
     // light
     commands.spawn(PointLightBundle {

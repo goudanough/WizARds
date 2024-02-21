@@ -1,12 +1,13 @@
-use bevy::{ecs::query::QueryEntityError, prelude::*};
+use bevy::{ecs::query::QueryEntityError, prelude::*, scene::ron::de};
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
-use bevy_xpbd_3d::prelude::*;
+use bevy_xpbd_3d::{math::PI, prelude::*};
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
     boss::{BossHealth, BossPhase, CurrentPhase},
     network::{debug_move_networked_player_objs, PlayerID},
     player::Player,
+    text::{Text, TextTimer},
     PhysLayer,
 };
 
@@ -80,29 +81,31 @@ pub fn update_linear_movement(
 fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
-    projectiles: Query<&ProjectileHitEffect>,
+    projectiles: Query<(&ProjectileHitEffect, &Transform)>,
     mut healths: Query<&mut BossHealth>,
-    players: Query<&Player>,
+    players: Query<&PlayerID>,
     mut next_phase: ResMut<NextState<BossPhase>>,
     current_phase: Res<CurrentPhase>,
 ) {
     for CollisionStarted(e1, e2) in collisions.read() {
-        if let Ok(p) = projectiles.get(*e1) {
+        if let Ok((p, t)) = projectiles.get(*e1) {
             handle_projectile_collision(
                 &mut commands,
                 p,
                 e1,
+                t.translation,
                 healths.get_mut(*e2),
                 players.get(*e2),
                 &mut next_phase,
                 &current_phase,
             );
         }
-        if let Ok(p) = projectiles.get(*e2) {
+        if let Ok((p, t)) = projectiles.get(*e2) {
             handle_projectile_collision(
                 &mut commands,
                 p,
                 e2,
+                t.translation,
                 healths.get_mut(*e1),
                 players.get(*e1),
                 &mut next_phase,
@@ -117,8 +120,9 @@ fn handle_projectile_collision(
     commands: &mut Commands,
     hit_effect: &ProjectileHitEffect,
     p_entity: &Entity,
+    hit_location: Vec3,
     health: Result<Mut<BossHealth>, QueryEntityError>,
-    player: Result<&Player, QueryEntityError>,
+    player: Result<&PlayerID, QueryEntityError>,
     next_phase: &mut ResMut<NextState<BossPhase>>,
     current_phase: &Res<CurrentPhase>,
 ) {
@@ -127,11 +131,38 @@ fn handle_projectile_collision(
         ProjectileHitEffect::Damage(m, a) => {
             if let Ok(mut h) = health {
                 if h.damage_mask.intersect(m) {
+                    // TODO Add text to this.
+                    commands.spawn((
+                        TransformBundle {
+                            local: Transform {
+                                translation: hit_location,
+                                rotation: Quat::from_axis_angle(Vec3::Y, PI),
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        Text::new(format!("-{}", a).to_owned()),
+                        TextTimer(Timer::from_seconds(1., TimerMode::Once)),
+                    ));
                     h.current -= a;
                     if h.current <= 0.0 {
                         println!("Change phase");
                         next_phase.set(current_phase.0.next_phase());
                     }
+                } else {
+                    // TODO Add text to this
+                    commands.spawn((
+                        TransformBundle {
+                            local: Transform {
+                                translation: hit_location,
+                                rotation: Quat::from_axis_angle(Vec3::Y, PI),
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        Text::new("RESISTED".to_owned()),
+                        TextTimer(Timer::from_seconds(1., TimerMode::Once)),
+                    ));
                 }
             }
         }
