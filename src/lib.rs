@@ -162,30 +162,6 @@ fn setup(
         blue: 0.0,
         alpha: 0.0,
     };
-
-    // cube
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6)),
-            transform: Transform::from_xyz(2.0, 0.5, 4.0),
-            ..default()
-        },
-        RigidBody::Static,
-        Collider::cuboid(0.5, 0.5, 0.5),
-    ));
-    // cube
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-            material: materials.add(Color::rgb(0.8, 0.0, 0.0)),
-            transform: Transform::from_xyz(3.0, 0.5, 1.0),
-            ..default()
-        },
-        RigidBody::Static,
-        Collider::cuboid(0.5, 0.5, 0.5),
-        text::Text::new("WizARds sucks".to_owned()),
-    ));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
