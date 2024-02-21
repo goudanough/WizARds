@@ -38,10 +38,10 @@ pub fn boss_attack(
             boss_transform.translation.z,
         );
         let projectile_direction = (player_pos - boss_pos).normalize();
-        let projectile_start = boss_transform.translation - boss_transform.right() * 2.0;
+        let projectile_start = boss_transform.translation;
 
         let transform = Transform {
-            translation: projectile_start,
+            translation: projectile_start + Vec3::new(0., 1., 0.),
             rotation: Quat::from_rotation_arc(-Vec3::Z, projectile_direction),
             ..default()
         };

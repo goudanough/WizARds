@@ -105,12 +105,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             SceneBundle {
                 scene: model,
-                transform: Transform::from_xyz(0.0, 1.0, -9.0).with_scale(Vec3::new(2.0, 2.0, 2.0)),
-
+                transform: Transform::from_xyz(0.0, 0.5, 0.0).with_scale(Vec3::new(0.5, 0.5, 0.5)),
                 ..default()
             },
             RigidBody::Kinematic,
-            Collider::cuboid(1.0, 1.0, 1.0),
+            Collider::cuboid(0.25, 0.25, 0.25),
             CollisionLayers::all_masks::<PhysLayer>()
                 .add_group(PhysLayer::Boss)
                 .remove_mask(PhysLayer::BossProjectile),

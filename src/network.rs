@@ -191,11 +191,7 @@ fn debug_spawn_networked_player_objs(
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::Player)
                     .remove_mask(PhysLayer::PlayerProjectile),
-                PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-                    material: materials.add(Color::WHITE),
-                    ..Default::default()
-                },
+                TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerHead,
                 player::Player,
@@ -208,11 +204,7 @@ fn debug_spawn_networked_player_objs(
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::Player)
                     .remove_mask(PhysLayer::PlayerProjectile),
-                PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::WHITE),
-                    ..Default::default()
-                },
+                TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerLeftPalm,
             ))
@@ -224,11 +216,7 @@ fn debug_spawn_networked_player_objs(
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::Player)
                     .remove_mask(PhysLayer::PlayerProjectile),
-                PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                    material: materials.add(Color::WHITE),
-                    ..Default::default()
-                },
+                TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerRightPalm,
             ))

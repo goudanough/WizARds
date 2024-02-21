@@ -5,7 +5,7 @@ use crate::{boss::BossHealth, projectile::DamageMask};
 
 pub struct HealthBarPlugin;
 
-const HEALTHBAR_HEIGHT: f32 = 0.2; // TODO have these consts be decided at runtime
+const HEALTHBAR_HEIGHT: f32 = 0.3; // TODO have these consts be decided at runtime
 const HEALTHBAR_DISTANCE: f32 = 0.5;
 const HEALTHBAR_WIDTH: f32 = 1.0;
 

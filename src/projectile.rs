@@ -135,7 +135,7 @@ fn handle_projectile_collision(
                     commands.spawn((
                         TransformBundle {
                             local: Transform {
-                                translation: hit_location,
+                                translation: hit_location + Vec3::new(0.0, 0.4, 0.0),
                                 rotation: Quat::from_axis_angle(Vec3::Y, PI),
                                 ..default()
                             },
@@ -154,7 +154,7 @@ fn handle_projectile_collision(
                     commands.spawn((
                         TransformBundle {
                             local: Transform {
-                                translation: hit_location,
+                                translation: hit_location + Vec3::new(0.0, 0.4, 0.0),
                                 rotation: Quat::from_axis_angle(Vec3::Y, PI),
                                 ..default()
                             },
@@ -226,10 +226,10 @@ pub fn spawn_projectile(
                 PbrBundle {
                     mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
                     material: asset_handles.mats[MatName::Purple as usize].clone(),
-                    transform: spell_transform.with_scale(2.0 * Vec3::ONE),
+                    transform: spell_transform.with_scale(1.2 * Vec3::ONE),
                     ..Default::default()
                 },
-                LinearMovement(5.0),
+                LinearMovement(1.0),
                 ProjectileHitEffect::ResetPhase,
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::BossProjectile)
