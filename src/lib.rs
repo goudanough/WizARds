@@ -14,8 +14,13 @@ mod spells;
 use crate::speech::SpeechPlugin;
 use crate::spell_control::SpellControlPlugin;
 use assets::AssetHandlesPlugin;
+mod xr;
+
+use crate::xr::scene::QuestScene;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+use bevy::render::settings::{RenderCreation, WgpuFeatures, WgpuSettings};
+use bevy::render::RenderPlugin;
 use bevy::transform::components::Transform;
 use bevy_ggrs::GgrsConfig;
 #[cfg(target_os = "android")]
@@ -63,6 +68,7 @@ enum PhysLayer {
     PlayerProjectile,
     Boss,
     BossProjectile,
+    Terrain,
 }
 
 #[bevy_main]
@@ -88,6 +94,16 @@ pub fn main() {
             .enable_fb_passthrough()
             .enable_hand_tracking();
 
+        reqeusted_extensions.raw_mut().fb_scene = true;
+        reqeusted_extensions.raw_mut().fb_scene_capture = true;
+        reqeusted_extensions.raw_mut().fb_spatial_entity = true;
+        reqeusted_extensions.raw_mut().fb_spatial_entity_query = true;
+        reqeusted_extensions.raw_mut().fb_spatial_entity_storage = true;
+        reqeusted_extensions.raw_mut().fb_spatial_entity_container = true;
+        reqeusted_extensions.raw_mut().meta_spatial_entity_mesh = true;
+        reqeusted_extensions.raw_mut().fb_triangle_mesh = true;
+        reqeusted_extensions.raw_mut().khr_convert_timespec_time = true;
+
         app.add_plugins(DefaultXrPlugins {
             reqeusted_extensions,
             prefered_blend_mode: XrPreferdBlendMode::AlphaBlend,
@@ -97,17 +113,24 @@ pub fn main() {
         })
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)
-        .add_plugins(HandInputDebugRenderer);
+        .add_plugins(HandInputDebugRenderer)
+        .add_plugins(QuestScene);
     }
 
     #[cfg(not(target_os = "android"))]
     {
-        app.add_plugins(DefaultPlugins)
-            .add_systems(Startup, spawn_camera)
-            .add_systems(Startup, spoof_xr_components);
+        app.add_plugins(DefaultPlugins.set(RenderPlugin {
+            render_creation: RenderCreation::Automatic(WgpuSettings {
+                // WARN this is a native only feature. It will not work with webgl or webgpu
+                features: WgpuFeatures::POLYGON_MODE_LINE,
+                ..default()
+            }),
+        }))
+        .add_systems(Startup, spawn_camera)
+        .add_systems(Startup, spoof_xr_components);
     }
 
-    app.run()
+    app.run();
 }
 
 #[derive(Component)]
@@ -137,17 +160,6 @@ fn setup(
         alpha: 0.0,
     };
 
-    // plane
-    let plane_mesh = Mesh::from(shape::Plane::from_size(128.0));
-    commands.spawn((
-        Collider::trimesh_from_mesh(&plane_mesh).unwrap(),
-        RigidBody::Static,
-        PbrBundle {
-            mesh: meshes.add(plane_mesh),
-            material: materials.add(Color::rgb(0.3, 0.5, 0.3)),
-            ..default()
-        },
-    ));
     // cube
     commands.spawn((
         PbrBundle {

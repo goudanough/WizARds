@@ -201,7 +201,7 @@ fn handle_straight_laser_traj_ind(
         t.forward(),
         max_travel,
         true,
-        SpatialQueryFilter::new().with_masks(&[PhysLayer::PlayerProjectile]),
+        SpatialQueryFilter::new().with_masks(&[PhysLayer::Terrain, PhysLayer::Boss]),
     ) {
         Some(ray_hit) => ray_hit.time_of_impact,
         None => max_travel,
