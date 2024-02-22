@@ -61,12 +61,9 @@ impl Plugin for NetworkPlugin {
                 client_wait.run_if(in_state(NetworkingState::ClientWaiting)),
             )
             .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)
-            .add_systems(
-                OnEnter(NetworkingState::Done),
-                debug_spawn_networked_player_objs,
-            )
+            .add_systems(OnEnter(NetworkingState::Done), spawn_networked_player_objs)
             .add_systems(ReadInputs, read_local_inputs)
-            .add_systems(GgrsSchedule, debug_move_networked_player_objs);
+            .add_systems(GgrsSchedule, move_networked_player_objs);
     }
 }
 
@@ -176,7 +173,7 @@ pub fn read_local_inputs(
     queued_spell.0 = None;
 }
 
-fn debug_spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>) {
+fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>) {
     // Add one cube on each player's head
     for i in 0..args.players.len() {
         commands
@@ -219,7 +216,7 @@ fn debug_spawn_networked_player_objs(mut commands: Commands, args: Res<Connectio
     }
 }
 
-pub fn debug_move_networked_player_objs(
+pub fn move_networked_player_objs(
     mut player_heads: Query<
         (&mut Transform, &PlayerID),
         (
