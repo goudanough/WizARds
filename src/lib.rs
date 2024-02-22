@@ -17,7 +17,6 @@ use crate::spell_control::SpellControlPlugin;
 use assets::AssetHandlesPlugin;
 mod xr;
 
-use crate::xr::scene::QuestScene;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::render::settings::{RenderCreation, WgpuFeatures, WgpuSettings};
@@ -155,12 +154,7 @@ fn spawn_camera(mut commands: Commands) {
 }
 
 /// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut clear_color: ResMut<ClearColor>,
-) {
+fn setup(mut commands: Commands, mut clear_color: ResMut<ClearColor>) {
     clear_color.0 = Color::Rgba {
         red: 0.0,
         green: 0.0,

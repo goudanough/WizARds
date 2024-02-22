@@ -1,7 +1,7 @@
 mod boss_attack;
 mod boss_state;
 
-use bevy::{ecs::system::Command, prelude::*};
+use bevy::prelude::*;
 use bevy_xpbd_3d::{math::PI, prelude::*};
 
 use crate::{
@@ -160,7 +160,7 @@ fn update_boss(
 }
 
 fn init_phase2(
-    mut boss_health: Query<(&mut BossHealth)>,
+    mut boss_health: Query<&mut BossHealth>,
     mut current_phase: ResMut<CurrentPhase>,
     mut phase_indicator: Query<&mut Text, With<PhaseIndicator>>,
 ) {
@@ -185,7 +185,7 @@ fn init_phase2(
 }
 
 fn init_phase3(
-    mut boss_health: Query<(&mut BossHealth)>,
+    mut boss_health: Query<&mut BossHealth>,
     mut current_phase: ResMut<CurrentPhase>,
     mut phase_indicator: Query<&mut Text, With<PhaseIndicator>>,
 ) {
@@ -216,7 +216,7 @@ fn reset_phase(
     mut commands: Commands,
     current_phase: Res<CurrentPhase>,
     mut next_phase: ResMut<NextState<BossPhase>>,
-    mut boss: Query<(Entity), With<Boss>>,
+    mut boss: Query<Entity, With<Boss>>,
 ) {
     println!("Resetting Phase.");
     let Ok(e) = boss.get_single_mut() else {

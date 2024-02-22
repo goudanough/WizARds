@@ -176,12 +176,7 @@ pub fn read_local_inputs(
     queued_spell.0 = None;
 }
 
-fn debug_spawn_networked_player_objs(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    args: Res<ConnectionArgs>,
-) {
+fn debug_spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>) {
     // Add one cube on each player's head
     for i in 0..args.players.len() {
         commands

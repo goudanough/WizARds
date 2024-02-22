@@ -19,7 +19,8 @@ impl Plugin for TextPlugin {
             (
                 setup_new_texts,
                 update_texts.after(setup_new_texts),
-                despawn_timed_text, /*point_text_at_player,*/
+                despawn_timed_text,
+                point_text_at_player,
             ),
         );
     }
