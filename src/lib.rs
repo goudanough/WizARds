@@ -10,7 +10,6 @@ mod projectile;
 mod speech;
 mod spell_control;
 mod spells;
-mod text;
 mod xr;
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -77,8 +76,7 @@ pub fn main() {
         .add_plugins(speech::SpeechPlugin)
         .add_plugins(spell_control::SpellControlPlugin)
         .add_plugins(spells::SpellsPlugin)
-        .add_plugins(health_bar::HealthBarPlugin)
-        .add_plugins(text::TextPlugin);
+        .add_plugins(health_bar::HealthBarPlugin);
 
     #[cfg(target_os = "android")]
     {
