@@ -1,6 +1,8 @@
+use std::f32::consts::PI;
+
 use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
-use bevy_xpbd_3d::{math::PI, prelude::*};
+use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},

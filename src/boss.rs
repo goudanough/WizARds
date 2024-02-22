@@ -1,8 +1,10 @@
 mod boss_attack;
 mod boss_state;
 
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
-use bevy_xpbd_3d::{math::PI, prelude::*};
+use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     player::Player,
