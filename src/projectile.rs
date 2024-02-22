@@ -1,4 +1,4 @@
-use bevy::{ecs::query::QueryEntityError, prelude::*, scene::ron::de};
+use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_xpbd_3d::{math::PI, prelude::*};
 
@@ -6,7 +6,6 @@ use crate::{
     assets::{AssetHandles, MatName, MeshName},
     boss::{BossHealth, BossPhase, CurrentPhase},
     network::{debug_move_networked_player_objs, PlayerID},
-    player::Player,
     text::{Text, TextTimer},
     PhysLayer,
 };
