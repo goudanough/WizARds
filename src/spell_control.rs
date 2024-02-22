@@ -18,6 +18,7 @@ pub struct SpellControlPlugin;
 
 #[derive(Copy, Clone)]
 pub enum Spell {
+    // don't use 0! it's used to represent no spell in the player inputs
     Fireball = 1,
     Lightning = 2,
 }
@@ -50,15 +51,6 @@ pub struct SelectedSpell(pub Option<Spell>);
 
 #[derive(Resource, Clone)]
 pub struct QueuedSpell(pub Option<Spell>);
-
-impl Into<u32> for QueuedSpell {
-    fn into(self) -> u32 {
-        match self.0 {
-            Some(s) => s as u32,
-            None => 0,
-        }
-    }
-}
 
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
