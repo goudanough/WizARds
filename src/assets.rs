@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{math::primitives, prelude::*};
 pub struct AssetHandlesPlugin;
 
 pub enum MeshName {
@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     asset_handles.meshes.insert(
         MeshName::Sphere as usize,
         asset_server.add::<Mesh>(
-            shape::UVSphere {
+            primitives::Sphere {
                 radius: 0.1,
                 ..default()
             }
