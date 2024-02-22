@@ -10,12 +10,7 @@ use self::{
     boss_attack::{boss_attack, AttackTimer},
     boss_state::{boss_action, boss_move, BossState},
 };
-use crate::{
-    player::Player,
-    projectile::DamageMask,
-    text::{RemoveText, Text, TextTimer},
-    PhysLayer,
-};
+use crate::{player::Player, projectile::DamageMask, PhysLayer};
 
 #[derive(Component)]
 pub struct BossHealth {
@@ -23,9 +18,6 @@ pub struct BossHealth {
     pub current: f32,
     pub damage_mask: DamageMask,
 }
-
-#[derive(Component)]
-struct PhaseIndicator;
 
 // This implementation of phases is gross.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default, Copy)]
@@ -102,39 +94,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let initial_mask: DamageMask = DamageMask(DamageMask::FIRE.0 | DamageMask::LIGHTNING.0);
 
-    commands
-        .spawn((
-            SceneBundle {
-                scene: model,
-                transform: Transform::from_xyz(0.0, 0.4, 0.0).with_scale(Vec3::new(1.0, 2.5, 1.0)),
-                ..default()
-            },
-            RigidBody::Kinematic,
-            Collider::cuboid(0.25, 0.25, 0.25),
-            CollisionLayers::all_masks::<PhysLayer>()
-                .add_group(PhysLayer::Boss)
-                .remove_mask(PhysLayer::BossProjectile),
-            Boss,
-            BossHealth {
-                max: BossPhase::Phase1.max_health(),
-                current: BossPhase::Phase1.max_health(),
-                damage_mask: initial_mask,
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                PhaseIndicator,
-                Text::new("Phase 1".to_owned()),
-                SpatialBundle {
-                    transform: Transform {
-                        translation: Vec3::new(0., 0.6, 0.),
-                        rotation: Quat::from_axis_angle(Vec3::Y, (3.0 * PI) / 2.0),
-                        ..default()
-                    },
-                    ..default()
-                },
-            ));
-        });
+    commands.spawn((
+        SceneBundle {
+            scene: model,
+            transform: Transform::from_xyz(0.0, 0.4, 0.0).with_scale(Vec3::new(1.0, 2.5, 1.0)),
+            ..default()
+        },
+        RigidBody::Kinematic,
+        Collider::cuboid(0.25, 0.25, 0.25),
+        CollisionLayers::all_masks::<PhysLayer>()
+            .add_group(PhysLayer::Boss)
+            .remove_mask(PhysLayer::BossProjectile),
+        Boss,
+        BossHealth {
+            max: BossPhase::Phase1.max_health(),
+            current: BossPhase::Phase1.max_health(),
+            damage_mask: initial_mask,
+        },
+    ));
 }
 
 // boss look at player
@@ -160,23 +137,11 @@ fn update_boss(
     }
 }
 
-fn init_phase2(
-    mut boss_health: Query<&mut BossHealth>,
-    mut current_phase: ResMut<CurrentPhase>,
-    mut phase_indicator: Query<&mut Text, With<PhaseIndicator>>,
-) {
+fn init_phase2(mut boss_health: Query<&mut BossHealth>, mut current_phase: ResMut<CurrentPhase>) {
     println!("Enter Phase 2.");
     let Ok(mut health) = boss_health.get_single_mut() else {
         return;
     };
-
-    if current_phase.0 != BossPhase::Phase2 {
-        // TODO Add text to this.
-        let Ok(mut text) = phase_indicator.get_single_mut() else {
-            return;
-        };
-        text.set_text("Phase 2".to_owned());
-    }
 
     health.current = current_phase.0.max_health();
     health.max = current_phase.0.max_health();
@@ -185,23 +150,11 @@ fn init_phase2(
     current_phase.0 = BossPhase::Phase2;
 }
 
-fn init_phase3(
-    mut boss_health: Query<&mut BossHealth>,
-    mut current_phase: ResMut<CurrentPhase>,
-    mut phase_indicator: Query<&mut Text, With<PhaseIndicator>>,
-) {
+fn init_phase3(mut boss_health: Query<&mut BossHealth>, mut current_phase: ResMut<CurrentPhase>) {
     println!("Enter Phase 3.");
     let Ok(mut health) = boss_health.get_single_mut() else {
         return;
     };
-
-    if current_phase.0 != BossPhase::Phase3 {
-        // TODO Add text to this.
-        let Ok(mut text) = phase_indicator.get_single_mut() else {
-            return;
-        };
-        text.set_text("Phase 3".to_owned());
-    }
 
     current_phase.0 = BossPhase::Phase3;
 
@@ -213,60 +166,20 @@ fn init_phase3(
 }
 
 // TODO A phase that just goes back to the start of the current phase seems dumb, do it in a better way.
-fn reset_phase(
-    mut commands: Commands,
-    current_phase: Res<CurrentPhase>,
-    mut next_phase: ResMut<NextState<BossPhase>>,
-    mut boss: Query<Entity, With<Boss>>,
-) {
+fn reset_phase(current_phase: Res<CurrentPhase>, mut next_phase: ResMut<NextState<BossPhase>>) {
     println!("Resetting Phase.");
-    let Ok(e) = boss.get_single_mut() else {
-        return;
-    };
-
-    // TODO add text to this.
-    let text_id = commands
-        .spawn((
-            TransformBundle {
-                local: Transform {
-                    translation: Vec3::new(0., 0.8, 0.),
-                    rotation: Quat::from_axis_angle(Vec3::Y, (3.0 * PI) / 2.0),
-                    ..default()
-                },
-                ..default()
-            },
-            Text::new("Reset Phase.".to_owned()),
-            TextTimer(Timer::from_seconds(1., TimerMode::Once)),
-        ))
-        .id();
-
-    commands.entity(e).add_child(text_id);
     next_phase.set(current_phase.0);
 }
 
-fn despawn_boss(
-    mut commands: Commands,
-    mut boss: Query<(Entity, &Transform), With<Boss>>,
-    phase_indicator: Query<Entity, With<PhaseIndicator>>,
-) {
+fn despawn_boss(mut commands: Commands, mut boss: Query<(Entity, &Transform), With<Boss>>) {
     let Ok((boss_e, t)) = boss.get_single_mut() else {
         return;
     };
 
-    // TODO Add text to this.
-    commands.spawn((
-        TransformBundle {
-            local: Transform::clone(t)
-                .with_rotation(Quat::from_axis_angle(Vec3::Y, (2.0 * PI) / 2.0)),
-            ..default()
-        },
-        Text::new("Boss Dead.".to_owned()),
-    ));
+    commands.spawn(TransformBundle {
+        local: Transform::clone(t).with_rotation(Quat::from_axis_angle(Vec3::Y, (2.0 * PI) / 2.0)),
+        ..default()
+    });
 
-    let Ok(phase) = phase_indicator.get_single() else {
-        return;
-    };
-
-    commands.add(RemoveText(phase));
     commands.entity(boss_e).despawn_recursive();
 }
