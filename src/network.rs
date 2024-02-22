@@ -167,7 +167,7 @@ pub fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
-            spell: queued_spell.to_owned().into(),
+            spell: queued_spell.0.map(|s| s as u32).unwrap_or(0),
             ..Default::default()
         },
     );
