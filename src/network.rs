@@ -1,4 +1,5 @@
-use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
+use std::net::SocketAddr;
+
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
 use bevy_oxr::xr_input::{
@@ -6,7 +7,8 @@ use bevy_oxr::xr_input::{
     trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
 use bevy_xpbd_3d::prelude::*;
-use std::net::SocketAddr;
+
+use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {

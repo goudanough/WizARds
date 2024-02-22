@@ -1,5 +1,4 @@
-use crate::{oxr, PhysLayer};
-use bevy_xpbd_3d::prelude::*;
+use std::ptr::{null, null_mut};
 
 use bevy::{
     prelude::*,
@@ -19,7 +18,9 @@ use bevy_oxr::{
     },
     XrEvents,
 };
-use std::ptr::{null, null_mut};
+use bevy_xpbd_3d::prelude::*;
+
+use crate::{oxr, PhysLayer};
 
 #[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
 enum SceneState {

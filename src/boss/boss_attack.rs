@@ -1,12 +1,11 @@
 use bevy::prelude::*;
 
+use super::Boss;
 use crate::{
     assets::AssetHandles,
     player::Player,
     projectile::{spawn_projectile, ProjectileType},
 };
-
-use super::Boss;
 
 #[derive(Resource)]
 pub struct AttackTimer(pub Timer);

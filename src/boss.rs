@@ -6,16 +6,15 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 use bevy_xpbd_3d::prelude::*;
 
+use self::{
+    boss_attack::{boss_attack, AttackTimer},
+    boss_state::{boss_action, boss_move, BossState},
+};
 use crate::{
     player::Player,
     projectile::DamageMask,
     text::{RemoveText, Text, TextTimer},
     PhysLayer,
-};
-
-use self::{
-    boss_attack::{boss_attack, AttackTimer},
-    boss_state::{boss_action, boss_move, BossState},
 };
 
 #[derive(Component)]

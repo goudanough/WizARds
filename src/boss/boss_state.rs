@@ -8,9 +8,8 @@ use bevy::{
     transform::components::Transform,
 };
 
-use crate::player::Player;
-
 use super::{Boss, BossPhase, CurrentPhase};
+use crate::player::Player;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
 pub enum BossState {
