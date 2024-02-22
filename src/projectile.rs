@@ -5,7 +5,7 @@ use bevy_xpbd_3d::{math::PI, prelude::*};
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
     boss::{BossHealth, BossPhase, CurrentPhase},
-    network::{debug_move_networked_player_objs, PlayerID},
+    network::{move_networked_player_objs, PlayerID},
     text::{Text, TextTimer},
     PhysLayer,
 };
@@ -57,7 +57,7 @@ impl Plugin for ProjectilePlugin {
         app.add_systems(
             GgrsSchedule,
             (
-                update_linear_movement.ambiguous_with(debug_move_networked_player_objs), // TODO this might be a hack, but also might be how bevy_ggrs works
+                update_linear_movement.ambiguous_with(move_networked_player_objs), // TODO this might be a hack, but also might be how bevy_ggrs works
                 detect_projectile_collisions,
             )
                 .chain(),
