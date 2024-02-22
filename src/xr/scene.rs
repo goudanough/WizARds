@@ -19,10 +19,7 @@ use bevy_oxr::{
     },
     XrEvents,
 };
-use std::{
-    mem::MaybeUninit,
-    ptr::{null, null_mut},
-};
+use std::ptr::{null, null_mut};
 
 #[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
 enum SceneState {
@@ -76,11 +73,11 @@ fn capture_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
         request_byte_count: 0,
         request: null(),
     };
-    let mut request: MaybeUninit<sys::AsyncRequestIdFB> = MaybeUninit::uninit();
+    let mut request = sys::AsyncRequestIdFB::default();
     oxr!((vtable.request_scene_capture)(
         session.as_raw(),
         &info,
-        request.as_mut_ptr()
+        &mut request
     ));
 }
 
@@ -118,12 +115,12 @@ fn query_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
     }));
 
     let vtable = instance.exts().fb_spatial_entity_query.unwrap();
-    let mut request: MaybeUninit<sys::AsyncRequestIdFB> = MaybeUninit::uninit();
+    let mut request = sys::AsyncRequestIdFB::default();
 
     oxr!((vtable.query_spaces)(
         session.as_raw(),
         query as *const _ as *const _,
-        request.as_mut_ptr(),
+        &mut request
     ));
 }
 
@@ -271,12 +268,12 @@ fn wait_query_complete(
                         enabled: true.into(),
                         timeout: Duration::NONE,
                     };
-                    let mut request: MaybeUninit<sys::AsyncRequestIdFB> = MaybeUninit::uninit();
+                    let mut request = sys::AsyncRequestIdFB::default();
                     // TODO: Actually handle this async request.
                     oxr!((vtable.set_space_component_status)(
                         space,
                         &mut status,
-                        request.as_mut_ptr()
+                        &mut request
                     ));
 
                     info!("Setting {space:?} as XrHandle for scene mesh");
