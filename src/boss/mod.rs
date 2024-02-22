@@ -102,9 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         RigidBody::Kinematic,
         Collider::cuboid(0.25, 0.25, 0.25),
-        CollisionLayers::all_masks::<PhysLayer>()
-            .add_group(PhysLayer::Boss)
-            .remove_mask(PhysLayer::BossProjectile),
+        CollisionLayers::new(PhysLayer::Boss, LayerMask::ALL ^ PhysLayer::BossProjectile),
         Boss,
         BossHealth {
             max: BossPhase::Phase1.max_health(),
