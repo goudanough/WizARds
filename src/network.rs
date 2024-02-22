@@ -33,6 +33,8 @@ pub struct PlayerHead;
 pub struct PlayerLeftPalm;
 #[derive(Component)]
 pub struct PlayerRightPalm;
+#[derive(Component)]
+pub struct PlayerBody;
 
 #[derive(Resource)]
 struct ConnectionArgs {
@@ -168,6 +170,8 @@ pub fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
+            body_pos: Vec3::new(left_eye.translation.lerp(right_eye.translation, 0.5).x,(left_eye.translation.lerp(right_eye.translation, 0.5).y)/2.0,left_eye.translation.lerp(right_eye.translation, 0.5).z),
+            body_rot: left_eye.rotation,
             spell: queued_spell.to_owned().into(),
             ..Default::default()
         },
@@ -221,6 +225,19 @@ fn debug_spawn_networked_player_objs(
                 PlayerRightPalm,
             ))
             .add_rollback();
+        // add body
+        commands
+            .spawn((
+                RigidBody::Kinematic,
+                Collider::capsule(2.0, 0.5),
+                CollisionLayers::all_masks::<PhysLayer>()
+                    .add_group(PhysLayer::Player)
+                    .remove_mask(PhysLayer::PlayerProjectile),
+                TransformBundle { ..default() },
+                PlayerID { handle: i },
+                PlayerBody,
+            ))
+            .add_rollback();
     }
 }
 
@@ -231,6 +248,7 @@ pub fn debug_move_networked_player_objs(
             With<PlayerHead>,
             Without<PlayerLeftPalm>,
             Without<PlayerRightPalm>,
+            Without<PlayerBody>,
             With<Rollback>,
         ),
     >,
@@ -240,6 +258,7 @@ pub fn debug_move_networked_player_objs(
             Without<PlayerHead>,
             With<PlayerLeftPalm>,
             Without<PlayerRightPalm>,
+            Without<PlayerBody>,
             With<Rollback>,
         ),
     >,
@@ -249,8 +268,19 @@ pub fn debug_move_networked_player_objs(
             Without<PlayerHead>,
             Without<PlayerLeftPalm>,
             With<PlayerRightPalm>,
+            Without<PlayerBody>,
             With<Rollback>,
         ),
+    >,
+    mut player_bodys: Query<
+    (&mut Transform, &PlayerID),
+    (
+        Without<PlayerHead>,
+        Without<PlayerLeftPalm>,
+        Without<PlayerRightPalm>,
+        With<PlayerBody>,
+        With<Rollback>,
+    ),
     >,
     inputs: Res<PlayerInputs<WizGgrsConfig>>,
 ) {
@@ -269,4 +299,10 @@ pub fn debug_move_networked_player_objs(
         t.translation = input.right_hand_pos;
         t.rotation = input.right_hand_rot;
     }
+    for (mut t, p) in player_bodys.iter_mut() {
+        let input = inputs[p.handle].0;
+        t.translation = input.body_pos;
+        t.rotation = input.body_rot;
+    }
+    
 }
