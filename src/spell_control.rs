@@ -1,3 +1,9 @@
+use bevy::prelude::*;
+use bevy_ggrs::{GgrsSchedule, PlayerInputs};
+use bevy_oxr::xr_input::hands::common::HandsResource;
+use bevy_oxr::xr_input::hands::HandBone;
+use bevy_oxr::xr_input::trackers::OpenXRTracker;
+
 use crate::{
     network::{LocalPlayerID, PlayerHead, PlayerID},
     speech::{collect_voice, recognise_voice, start_voice},
@@ -5,14 +11,10 @@ use crate::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
         TrajectoryIndicator,
     },
+    WizGgrsConfig,
 };
-use bevy::prelude::*;
-use bevy_ggrs::{GgrsSchedule, PlayerInputs};
-use bevy_oxr::xr_input::hands::common::HandsResource;
-use bevy_oxr::xr_input::hands::HandBone;
-use bevy_oxr::xr_input::trackers::OpenXRTracker;
+
 pub struct SpellControlPlugin;
-use crate::WizGgrsConfig;
 
 #[derive(Copy, Clone)]
 pub enum Spell {

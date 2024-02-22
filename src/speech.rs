@@ -1,7 +1,6 @@
+use std::sync::Arc;
 #[cfg(target_os = "android")]
-use std::ffi::CString;
-#[cfg(target_os = "android")]
-use std::path::Path;
+use std::{ffi::CString, path::Path};
 
 use bevy::prelude::*;
 use cpal::{
@@ -9,7 +8,6 @@ use cpal::{
     SampleFormat,
 };
 use crossbeam::queue::ArrayQueue;
-use std::sync::Arc;
 use vosk::*;
 
 use crate::spell_control::{SelectedSpell, Spell, SpellStatus};

@@ -11,10 +11,6 @@ mod speech;
 mod spell_control;
 mod spells;
 mod text;
-
-use crate::speech::SpeechPlugin;
-use crate::spell_control::SpellControlPlugin;
-use assets::AssetHandlesPlugin;
 mod xr;
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -39,11 +35,6 @@ use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker}
 use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
 use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use health_bar::HealthBarPlugin;
-use network::NetworkPlugin;
-use projectile::ProjectilePlugin;
-use spells::SpellsPlugin;
-use text::TextPlugin;
 
 const FPS: usize = 72;
 
@@ -78,16 +69,16 @@ pub fn main() {
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_plugins(NetworkPlugin)
-        .add_plugins(boss::BossPlugin)
         .add_plugins(PhysicsPlugins::default())
-        .add_plugins(ProjectilePlugin)
-        .add_plugins(SpeechPlugin)
-        .add_plugins(SpellControlPlugin)
-        .add_plugins(SpellsPlugin)
-        .add_plugins(AssetHandlesPlugin)
-        .add_plugins(HealthBarPlugin)
-        .add_plugins(TextPlugin);
+        .add_plugins(assets::AssetHandlesPlugin)
+        .add_plugins(boss::BossPlugin)
+        .add_plugins(network::NetworkPlugin)
+        .add_plugins(projectile::ProjectilePlugin)
+        .add_plugins(speech::SpeechPlugin)
+        .add_plugins(spell_control::SpellControlPlugin)
+        .add_plugins(spells::SpellsPlugin)
+        .add_plugins(health_bar::HealthBarPlugin)
+        .add_plugins(text::TextPlugin);
 
     #[cfg(target_os = "android")]
     {
