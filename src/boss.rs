@@ -32,8 +32,8 @@ struct PhaseIndicator;
 pub enum BossPhase {
     #[default]
     Phase1,
-    Phase3,
     Phase2,
+    Phase3,
     Dead,
     Reset,
 }
