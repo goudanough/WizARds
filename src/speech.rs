@@ -98,7 +98,8 @@ fn fetch_recogniser() -> Recognizer {
                 .unwrap();
             zip::ZipArchive::new(model_zip)
                 .unwrap()
-                .extract("/storage/emulated/0/Android/data/org.goudanough.wizARds/files");
+                .extract("/storage/emulated/0/Android/data/org.goudanough.wizARds/files")
+                .unwrap();
         }
     }
 
