@@ -170,7 +170,7 @@ pub fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
-            body_pos: Vec3::new(left_eye.translation.lerp(right_eye.translation, 0.5).x,(left_eye.translation.lerp(right_eye.translation, 0.5).y)/2.0,left_eye.translation.lerp(right_eye.translation, 0.5).z),
+            body_pos: Vec3::new(left_eye.translation.lerp(right_eye.translation, 0.5).x, left_eye.translation.lerp(right_eye.translation, 0.5).y/2.0, left_eye.translation.lerp(right_eye.translation, 0.5).z),
             body_rot: left_eye.rotation,
             spell: queued_spell.to_owned().into(),
             ..Default::default()
@@ -225,11 +225,11 @@ fn debug_spawn_networked_player_objs(
                 PlayerRightPalm,
             ))
             .add_rollback();
-        // add body
-        commands
+           //body
+            commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::capsule(2.0, 0.5),
+                Collider::capsule(0.05, 0.05),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::Player)
                     .remove_mask(PhysLayer::PlayerProjectile),
@@ -273,14 +273,14 @@ pub fn debug_move_networked_player_objs(
         ),
     >,
     mut player_bodys: Query<
-    (&mut Transform, &PlayerID),
-    (
-        Without<PlayerHead>,
-        Without<PlayerLeftPalm>,
-        Without<PlayerRightPalm>,
-        With<PlayerBody>,
-        With<Rollback>,
-    ),
+        (&mut Transform, &PlayerID),
+        (
+            Without<PlayerHead>,
+            Without<PlayerLeftPalm>,
+            Without<PlayerRightPalm>,
+            With<PlayerBody>,
+            With<Rollback>,
+        ),
     >,
     inputs: Res<PlayerInputs<WizGgrsConfig>>,
 ) {
@@ -304,5 +304,4 @@ pub fn debug_move_networked_player_objs(
         t.translation = input.body_pos;
         t.rotation = input.body_rot;
     }
-    
 }

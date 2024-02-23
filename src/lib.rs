@@ -46,7 +46,6 @@ use projectile::ProjectilePlugin;
 use spells::SpellsPlugin;
 use text::TextPlugin;
 
-
 const FPS: usize = 72;
 
 pub type WizGgrsConfig = GgrsConfig<PlayerInput>;
@@ -63,8 +62,8 @@ pub struct PlayerInput {
     head_rot: Quat,
     left_hand_rot: Quat,
     right_hand_rot: Quat,
-    body_pos: Vec3,
-    _padding3: u32,
+    body_pos:Vec3,
+    _padding2: u32,
     body_rot: Quat,
 }
 
@@ -92,7 +91,8 @@ pub fn main() {
         .add_plugins(SpellsPlugin)
         .add_plugins(AssetHandlesPlugin)
         .add_plugins(HealthBarPlugin)
-        .add_plugins(TextPlugin);
+        .add_plugins(TextPlugin)
+        .add_systems(Update, print_collisions);
 
     #[cfg(target_os = "android")]
     {
@@ -164,7 +164,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut clear_color: ResMut<ClearColor>,
-    
 ) {
     clear_color.0 = Color::Rgba {
         red: 0.0,
@@ -182,7 +181,6 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-
 }
 
 fn spoof_xr_components(mut commands: Commands) {
@@ -280,4 +278,14 @@ fn spoof_xr_components(mut commands: Commands) {
     };
 
     commands.insert_resource(HandsResource { left, right });
+}
+
+fn print_collisions(mut collision_event_reader: EventReader<Collision>) {
+    for Collision(contacts) in collision_event_reader.read() {
+        println!(
+            "Entities {:?} and {:?} are colliding",
+            contacts.entity1,
+            contacts.entity2,
+        );
+    }
 }
