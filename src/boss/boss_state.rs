@@ -1,36 +1,25 @@
 use bevy::{
     ecs::{
-        query::{With, Without},
-        schedule::{NextState, States},
-        system::{Query, Res, ResMut},
+        entity::Entity, query::{With, Without}, 
+        schedule::{NextState, States}, 
+        system::{In, Query, Res, ResMut}
     },
     time::Time,
     transform::components::Transform,
 };
 
-use super::{Boss, BossPhase, CurrentPhase};
+use super::{Boss, BossPhase, CurrentPhase, Follow};
 use crate::player::Player;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
-pub enum BossState {
-    #[default]
-    Idle,
-    MoveTowardsPlayer,
-    Attack,
-}
 
 pub fn boss_action(
-    mut query: Query<&mut Transform, (With<Boss>, Without<Player>)>,
+    boss_query: Query<&Transform, (With<Boss>, Without<Player>)>,
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
-    mut state: ResMut<NextState<BossState>>,
     phase: Res<CurrentPhase>,
-) {
-    let Some(player_transform) = player_query.iter().next() else {
-        return;
-    };
-    let Ok(boss_transform) = query.get_single_mut() else {
-        return;
-    };
+)->Option<bool> {
+    let player_transform = player_query.iter().next()?;
+    
+    let boss_transform= boss_query.get_single().ok()?;
 
     let distance = player_transform
         .translation
@@ -39,19 +28,22 @@ pub fn boss_action(
     // change boss state depend on distance
     // TODO this is bad, i should collpase boss state and boss phase behaviour together, but time.
     if distance > 10.0 {
-        state.set(BossState::Idle);
+        None
     } else if distance > 7.0 {
         if phase.0 == BossPhase::Phase1 {
-            state.set(BossState::Idle);
+            None
         } else {
-            state.set(BossState::MoveTowardsPlayer);
+            Some(false)
         }
     } else if distance >= 0.0 {
         if phase.0 == BossPhase::Phase1 {
-            state.set(BossState::Idle);
+            None
         } else {
-            state.set(BossState::Attack);
+            Some(true)
         }
+    }else{
+        None
+    
     }
 }
 
@@ -59,16 +51,20 @@ pub fn boss_move(
     mut query: Query<&mut Transform, (With<Boss>, Without<Player>)>,
     player_query: Query<&Transform, (With<Player>, Without<Boss>)>,
     time: Res<Time>,
+    follow:Query<&Follow>,
 ) {
-    let Some(player_transform) = player_query.iter().next() else {
-        return;
-    };
-    let Ok(mut boss_transform) = query.get_single_mut() else {
-        return;
-    };
+    for _ in &follow{
+        let Some(player_transform) = player_query.iter().next() else {
+            return;
+        };
+        let Ok(mut boss_transform) = query.get_single_mut() else {
+            return;
+        };
+    
+        let direction = player_transform.translation - boss_transform.translation;
+        let direction = direction.normalize();
+    
+        boss_transform.translation += direction * 1.0 * time.delta_seconds();
+    }
 
-    let direction = player_transform.translation - boss_transform.translation;
-    let direction = direction.normalize();
-
-    boss_transform.translation += direction * 1.0 * time.delta_seconds();
 }

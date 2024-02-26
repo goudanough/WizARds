@@ -1,6 +1,26 @@
 mod boss_attack;
 mod boss_state;
 
+use seldom_state::prelude::*;
+
+// this is attack state
+#[derive(Clone, Component)]
+#[component(storage = "SparseSet")]
+pub struct Attack{
+
+}
+
+// this is follow state
+#[derive(Clone, Component)]
+#[component(storage = "SparseSet")]
+pub struct Follow{
+    speed:f32,
+}
+
+// this is idle
+#[derive(Clone,bevy::ecs::component::Component)]
+struct Idle;
+
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
@@ -8,7 +28,7 @@ use bevy_xpbd_3d::prelude::*;
 
 use self::{
     boss_attack::{boss_attack, AttackTimer},
-    boss_state::{boss_action, boss_move, BossState},
+    boss_state::{boss_action, boss_move},
 };
 use crate::{player::Player, projectile::DamageMask, PhysLayer};
 
@@ -68,7 +88,7 @@ pub struct BossPlugin;
 
 impl Plugin for BossPlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<BossState>()
+        app
             .init_state::<BossPhase>()
             .insert_resource(CurrentPhase(BossPhase::Phase1))
             .add_systems(Startup, setup)
@@ -77,9 +97,9 @@ impl Plugin for BossPlugin {
                 Update,
                 (
                     update_boss,
-                    boss_action,
-                    boss_attack.run_if(in_state(BossState::Attack)),
-                    boss_move.run_if(in_state(BossState::MoveTowardsPlayer)),
+
+                    boss_attack,
+                    boss_move,
                 ),
             )
             .add_systems(OnEnter(BossPhase::Phase2), init_phase2)
@@ -93,7 +113,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let model = asset_server.load("white bear.glb#Scene0");
 
     let initial_mask: DamageMask = DamageMask(DamageMask::FIRE.0 | DamageMask::LIGHTNING.0);
-
+    
     commands.spawn((
         SceneBundle {
             scene: model,
@@ -111,7 +131,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             current: BossPhase::Phase1.max_health(),
             damage_mask: initial_mask,
         },
+        Idle,
+        StateMachine::default().trans_builder(boss_action, |_,result|{
+            Some(match result{
+                Some(true) => Attack{},
+                Some(false) => Follow{speed:1.0},
+                None => Idle,
+            })
+        }),
     ));
+
+    
 }
 
 // boss look at player
