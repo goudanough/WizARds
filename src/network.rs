@@ -170,8 +170,8 @@ pub fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
-            body_pos: Vec3::new(left_eye.translation.lerp(right_eye.translation, 0.5).x, left_eye.translation.lerp(right_eye.translation, 0.5).y/2.0, left_eye.translation.lerp(right_eye.translation, 0.5).z),
-            body_rot: left_eye.rotation,
+            // body_pos: Vec3::new(left_eye.translation.lerp(right_eye.translation, 0.5).x, left_eye.translation.lerp(right_eye.translation, 0.5).y/2.0, left_eye.translation.lerp(right_eye.translation, 0.5).z),
+            // body_rot: left_eye.rotation,
             spell: queued_spell.to_owned().into(),
             ..Default::default()
         },
@@ -301,7 +301,6 @@ pub fn debug_move_networked_player_objs(
     }
     for (mut t, p) in player_bodys.iter_mut() {
         let input = inputs[p.handle].0;
-        t.translation = input.body_pos;
-        t.rotation = input.body_rot;
+        t.translation = Vec3::new(input.head_pos.x,input.head_pos.y/2.0,input.head_pos.z);
     }
 }

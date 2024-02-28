@@ -62,9 +62,6 @@ pub struct PlayerInput {
     head_rot: Quat,
     left_hand_rot: Quat,
     right_hand_rot: Quat,
-    body_pos:Vec3,
-    _padding2: u32,
-    body_rot: Quat,
 }
 
 #[derive(PhysicsLayer)]
