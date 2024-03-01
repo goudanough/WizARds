@@ -15,10 +15,18 @@ pub enum ProjectileType {
     BossAttack,
 }
 
+#[derive(Component)]
+struct ProjectileHit(Entity);
+
+#[derive(Component)]
+struct DamageHit;
+
+#[derive(Component)]
+struct BossHit;
 #[derive(Debug, Default, Component)]
 pub struct LinearMovement(f32);
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone)]
 enum ProjectileHitEffect {
     Damage(DamageMask, f32),
     ResetPhase,
@@ -32,7 +40,7 @@ impl Default for ProjectileHitEffect {
 #[derive(Component, Debug, Default)]
 pub struct Projectile;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DamageMask(pub u8);
 
 impl DamageMask {
@@ -58,6 +66,8 @@ impl Plugin for ProjectilePlugin {
             (
                 update_linear_movement.ambiguous_with(move_networked_player_objs), // TODO this might be a hack, but also might be how bevy_ggrs works
                 detect_projectile_collisions,
+                handle_damage_hits,
+                handle_boss_hits,
             )
                 .chain(),
         );
@@ -80,33 +90,56 @@ fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
     projectiles: Query<(&ProjectileHitEffect, &Transform)>,
-    mut healths: Query<&mut BossHealth>,
-    players: Query<&PlayerID>,
-    mut next_phase: ResMut<NextState<BossPhase>>,
-    current_phase: Res<CurrentPhase>,
 ) {
     for CollisionStarted(e1, e2) in collisions.read() {
-        if let Ok((p, _)) = projectiles.get(*e1) {
-            handle_projectile_collision(
-                &mut commands,
-                p,
-                e1,
-                healths.get_mut(*e2),
-                players.get(*e2),
-                &mut next_phase,
-                &current_phase,
-            );
+        if let Ok((p, t)) = projectiles.get(*e1) {
+            match p {
+                ProjectileHitEffect::Damage(_, _) => {
+                    commands
+                        .spawn((ProjectileHit(*e2), *t, p.clone(), DamageHit))
+                        .add_rollback();
+                }
+                ProjectileHitEffect::ResetPhase => {
+                    commands
+                        .spawn((ProjectileHit(*e2), *t, p.clone(), BossHit))
+                        .add_rollback();
+                }
+            }
+
+            commands.entity(*e1).despawn();
+            // handle_projectile_collision(
+            //     &mut commands,
+            //     p,
+            //     e1,
+            //     healths.get_mut(*e2),
+            //     players.get(*e2),
+            //     &mut next_phase,
+            //     &current_phase,
+            // );
         }
-        if let Ok((p, _)) = projectiles.get(*e2) {
-            handle_projectile_collision(
-                &mut commands,
-                p,
-                e2,
-                healths.get_mut(*e1),
-                players.get(*e1),
-                &mut next_phase,
-                &current_phase,
-            );
+        if let Ok((p, t)) = projectiles.get(*e2) {
+            match p {
+                ProjectileHitEffect::Damage(_, _) => {
+                    commands
+                        .spawn((ProjectileHit(*e1), *t, p.clone(), DamageHit))
+                        .add_rollback();
+                }
+                ProjectileHitEffect::ResetPhase => {
+                    commands
+                        .spawn((ProjectileHit(*e1), *t, p.clone(), BossHit))
+                        .add_rollback();
+                }
+            }
+            commands.entity(*e2).despawn();
+            // handle_projectile_collision(
+            //     &mut commands,
+            //     p,
+            //     e2,
+            //     healths.get_mut(*e1),
+            //     players.get(*e1),
+            //     &mut next_phase,
+            //     &current_phase,
+            // );
         }
     }
 }
@@ -208,4 +241,35 @@ pub fn spawn_projectile(
             ))
             .add_rollback(),
     };
+}
+
+fn handle_damage_hits(
+    mut commands: Commands,
+    hits: Query<(&ProjectileHitEffect, &Transform, &ProjectileHit, Entity), With<DamageHit>>,
+    mut boss_health: Query<&mut BossHealth>,
+) {
+    for (hit_effect, _transform, p_hit, e) in hits.iter() {
+        if let Ok(mut h) = boss_health.get_mut(p_hit.0) {
+            if let ProjectileHitEffect::Damage(m, d) = hit_effect {
+                if h.damage_mask.intersect(m) {
+                    h.current -= d;
+                }
+            }
+        }
+        commands.entity(e).despawn();
+    }
+}
+
+fn handle_boss_hits(
+    mut commands: Commands,
+    hits: Query<(&ProjectileHitEffect, &Transform, &ProjectileHit, Entity), With<BossHit>>,
+    mut next_phase: ResMut<NextState<BossPhase>>,
+    players: Query<&PlayerID>,
+) {
+    for (_, _transform, p_hit, e) in hits.iter() {
+        if let Ok(h) = players.get(p_hit.0) {
+            next_phase.set(BossPhase::Reset)
+        }
+        commands.entity(e).despawn();
+    }
 }
