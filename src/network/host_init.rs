@@ -175,7 +175,7 @@ pub(super) fn host_inform_clients(
             }
         }
 
-        conn.write(buf.as_bytes()).unwrap();
+        conn.write_all(buf.as_bytes()).unwrap();
     }
 
     // Drop all the open tcp streams

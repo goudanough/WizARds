@@ -31,6 +31,7 @@ ggrs = { git = "https://github.com/goudanough/ggrs", rev = "78b59934ac964c4fad47
 
 [target.'cfg(target_os = "android")'.dependencies]
 android-activity = "0.5.2"
+jni = "0.21.1"
 
 [profile.release]
 opt-level = 3

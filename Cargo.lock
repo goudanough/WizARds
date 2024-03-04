@@ -4724,6 +4724,7 @@ dependencies = [
  "bytemuck",
  "cpal",
  "crossbeam",
+ "jni 0.21.1",
  "vosk",
  "wgpu",
  "zip",

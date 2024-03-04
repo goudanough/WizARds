@@ -12,6 +12,9 @@ mod spell_control;
 mod spells;
 mod xr;
 
+#[cfg(target_os = "android")]
+mod ovr;
+
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ggrs::GgrsConfig;
@@ -101,7 +104,8 @@ pub fn main() {
         .add_plugins(OpenXrDebugRenderer)
         //.add_plugins(HandInputDebugRenderer)
         .add_plugins(speech::SpeechPlugin)
-        .add_plugins(xr::scene::QuestScene);
+        .add_plugins(xr::scene::QuestScene)
+        .add_plugins(ovr::OvrPlugin);
     }
 
     #[cfg(not(target_os = "android"))]

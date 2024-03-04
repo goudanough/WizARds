@@ -19,6 +19,8 @@ use bevy_oxr::{
     },
 };
 
+#[cfg(target_os = "android")]
+use crate::ovr::Ovr;
 use crate::{oxr, xr::SceneState};
 
 use super::{multicast::MulticastEmitter, NetworkingState, RemoteAddresses};
@@ -29,19 +31,22 @@ use super::{multicast::MulticastEmitter, NetworkingState, RemoteAddresses};
 pub(super) struct MulticastEmitterRes(MulticastEmitter);
 
 // Initialize the multicast emitter with our own SpaceUserFB ID
+#[cfg(target_os = "android")]
 pub(super) fn client_init(
     mut commands: Commands,
-    instance: Option<Res<XrInstance>>,
-    session: Option<Res<XrSession>>,
+    instance: Res<XrInstance>,
+    session: Res<XrSession>,
+    ovr: Res<Ovr>,
 ) {
-    let (Some(_instance), Some(_session)) = (instance, session) else {
-        let emitter = MulticastEmitter::new(SpaceUserFB::NULL);
-        commands.insert_resource(MulticastEmitterRes(emitter));
-        return;
-    };
-
     // TODO: figure out how to get FB ID
+    let id = ovr.get_logged_in_user_id();
+    panic!("User ID: {id}");
+    let emitter = MulticastEmitter::new(SpaceUserFB::from_raw(id));
+    commands.insert_resource(MulticastEmitterRes(emitter));
+}
 
+#[cfg(not(target_os = "android"))]
+pub(super) fn client_init(mut commands: Commands) {
     let emitter = MulticastEmitter::new(SpaceUserFB::NULL);
     commands.insert_resource(MulticastEmitterRes(emitter));
 }
