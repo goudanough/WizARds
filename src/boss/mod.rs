@@ -90,18 +90,16 @@ impl Plugin for BossPlugin {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let model = asset_server.load("white bear.glb#Scene0");
-
     let initial_mask: DamageMask = DamageMask(DamageMask::FIRE.0 | DamageMask::LIGHTNING.0);
 
     commands.spawn((
-        SceneBundle {
-            scene: model,
-            transform: Transform::from_xyz(0.0, 0.4, 0.0).with_scale(Vec3::new(1.0, 2.5, 1.0)),
+        PbrBundle {
+            mesh: asset_server.add(Cuboid::new(1.0, 1.0, 1.0).into()),
+            transform: Transform::from_xyz(0.0, 0.4, 0.0),
             ..default()
         },
         RigidBody::Kinematic,
-        Collider::cuboid(0.25, 0.25, 0.25),
+        Collider::cuboid(1.0, 1.0, 1.0),
         CollisionLayers::new(PhysLayer::Boss, LayerMask::ALL ^ PhysLayer::BossProjectile),
         Boss,
         BossHealth {

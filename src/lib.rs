@@ -12,6 +12,7 @@ mod spell_control;
 mod spells;
 mod xr;
 
+use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::render::settings::{RenderCreation, WgpuFeatures, WgpuSettings};
@@ -34,6 +35,8 @@ use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker}
 use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
 use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
+#[cfg(target_os = "android")]
+use xr::scene::QuestScene;
 
 const FPS: usize = 72;
 
@@ -53,7 +56,7 @@ pub struct PlayerInput {
     right_hand_rot: Quat,
 }
 
-#[derive(PhysicsLayer)]
+#[derive(PhysicsLayer, Debug, Copy, Clone)]
 enum PhysLayer {
     Player,
     PlayerProjectile,
@@ -77,6 +80,8 @@ pub fn main() {
         .add_plugins(spell_control::SpellControlPlugin)
         .add_plugins(spells::SpellsPlugin)
         .add_plugins(health_bar::HealthBarPlugin);
+
+    app.add_systems(Update, add_bloom);
 
     #[cfg(target_os = "android")]
     {
@@ -161,6 +166,16 @@ fn setup(mut commands: Commands, mut clear_color: ResMut<ClearColor>) {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
+}
+
+fn add_bloom(mut commands: Commands, mut cams_q: Query<(&mut Camera, Entity), Added<Camera>>) {
+    for (mut cam, ent) in cams_q.iter_mut() {
+        // cam.hdr = true;
+        // commands
+        //     .get_entity(ent)
+        //     .unwrap()
+        //     .insert(BloomSettings::default());
+    }
 }
 
 fn spoof_xr_components(mut commands: Commands) {
