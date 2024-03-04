@@ -88,7 +88,7 @@ fn fetch_recogniser() -> Recognizer {
 
     #[cfg(target_os = "android")]
     {
-        if !(Path::new("/storage/emulated/0/Android/data/org.goudanough.wizARds/files/vosk-model")
+        if !(Path::new("/storage/emulated/0/Android/data/com.github.goudanough.wizards/files/vosk-model")
             .exists())
         {
             let activity = bevy::winit::ANDROID_APP.get().unwrap();
@@ -98,14 +98,14 @@ fn fetch_recogniser() -> Recognizer {
                 .unwrap();
             zip::ZipArchive::new(model_zip)
                 .unwrap()
-                .extract("/storage/emulated/0/Android/data/org.goudanough.wizARds/files")
+                .extract("/storage/emulated/0/Android/data/com.github.goudanough.wizards/files")
                 .unwrap();
         }
     }
 
     // Attempt to fetch model, repeat until successful.
     let model: Model = loop {
-        match Model::new("/storage/emulated/0/Android/data/org.goudanough.wizARds/files/vosk-model")
+        match Model::new("/storage/emulated/0/Android/data/com.github.goudanough.wizards/files/vosk-model")
         {
             Some(model) => break model,
             None => println!("Failed to fetch vosk model, trying again."),

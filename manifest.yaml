@@ -5,9 +5,9 @@ android:
   runtime_libs:
     - "runtime_libs"
   manifest:
-    package: "org.goudanough.wizARds"
+    package: "com.github.goudanough.wizards"
     application:
-      label: "AR Wizard Game"
+      label: "WizARds"
       theme: "@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
       meta_data:
         - name: "com.oculus.intent.category.VR"
