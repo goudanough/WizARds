@@ -31,23 +31,19 @@ use super::{multicast::MulticastEmitter, NetworkingState, RemoteAddresses};
 pub(super) struct MulticastEmitterRes(MulticastEmitter);
 
 // Initialize the multicast emitter with our own SpaceUserFB ID
+#[cfg(not(target_os = "android"))]
+pub(super) fn client_init(mut commands: Commands) {
+    let emitter = MulticastEmitter::new(SpaceUserFB::NULL);
+    commands.insert_resource(MulticastEmitterRes(emitter));
+}
+
+// Initialize the multicast emitter with our own SpaceUserFB ID
 #[cfg(target_os = "android")]
-pub(super) fn client_init(
-    mut commands: Commands,
-    instance: Res<XrInstance>,
-    session: Res<XrSession>,
-    ovr: Res<Ovr>,
-) {
+pub(super) fn client_init(mut commands: Commands, ovr: Res<Ovr>) {
     // TODO: figure out how to get FB ID
     let id = ovr.get_logged_in_user_id();
     panic!("User ID: {id}");
     let emitter = MulticastEmitter::new(SpaceUserFB::from_raw(id));
-    commands.insert_resource(MulticastEmitterRes(emitter));
-}
-
-#[cfg(not(target_os = "android"))]
-pub(super) fn client_init(mut commands: Commands) {
-    let emitter = MulticastEmitter::new(SpaceUserFB::NULL);
     commands.insert_resource(MulticastEmitterRes(emitter));
 }
 
