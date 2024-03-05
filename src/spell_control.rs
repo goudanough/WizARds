@@ -5,7 +5,7 @@ use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::OpenXRTracker;
 
 use crate::{
-    network::{LocalPlayerID, PlayerHead, PlayerID},
+    network::{PlayerHead, PlayerID, LOCAL_PLAYER_HNDL},
     speech::{fetch_recogniser, get_recognized_words, RecordingStatus, VoiceClip},
     spells::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,

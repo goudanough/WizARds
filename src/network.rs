@@ -16,8 +16,11 @@ use std::{
 };
 
 use crate::{
-    player, spell_control::QueuedSpell, xr::scene::SceneState, PhysLayer, PlayerInput,
-    WizGgrsConfig, FPS,
+    player,
+    speech::{fetch_recogniser, get_recognized_words, RecordingStatus, VoiceClip},
+    spell_control::QueuedSpell,
+    xr::scene::SceneState,
+    PhysLayer, PlayerInput, WizGgrsConfig, FPS,
 };
 
 use self::multicast::{MulticastEmitter, MulticastListener};
@@ -28,7 +31,7 @@ mod multicast;
 #[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
     #[default]
-    Uninitialized,
+    HostClientMenu,
     HostWaiting,
     ClientEstablishConnection,
     ClientWaitForData,
@@ -78,6 +81,11 @@ const GGRS_PORT: u16 = 47511;
 #[derive(Resource)]
 struct RemoteAddresses(Vec<IpAddr>);
 
+#[derive(Resource)]
+pub struct MenuRecognizer(vosk::Recognizer);
+
+const MENU_GRAMMAR: [&str; 2] = ["host", "join"];
+
 pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
@@ -87,11 +95,13 @@ impl Plugin for NetworkPlugin {
             .set_rollback_schedule_fps(FPS)
             .rollback_component_with_clone::<Transform>()
             .insert_resource(RemoteAddresses(Vec::new()))
+            .insert_resource(MenuRecognizer(fetch_recogniser(&MENU_GRAMMAR)))
             .init_state::<NetworkingState>()
             .init_state::<AwaitingAnchor>()
             .init_state::<AwaitingIps>()
             // On startup we need to allow a user to choose whether they want to host or join
             .add_systems(Startup, init)
+            .add_systems(OnExit(RecordingStatus::Recording), menu_select)
             // If the player chooses to host, we need to scan the room and open a multicast listener
             .add_systems(OnEnter(NetworkingState::HostWaiting), host_init)
             // We loop, creating TCP streams to clients that want to join, and recording addresses
@@ -147,20 +157,33 @@ impl Plugin for NetworkPlugin {
     }
 }
 
-fn init(mut state: ResMut<NextState<NetworkingState>>) {
+fn init(mut commands: Commands, mut state: ResMut<NextState<NetworkingState>>) {
     // Here we'll need to create some prompt on startup
     // This will allow users to select whether they're going to be acting
     // as the host or a client that will be joining the game
     #[cfg(target_os = "android")]
-    {
-        state.0 = Some(NetworkingState::HostWaiting);
-    }
+    {}
 
     // Devices that aren't the quest 3 should *only* be able to act as clients
     #[cfg(not(target_os = "android"))]
     {
         state.0 = Some(NetworkingState::ClientEstablishConnection);
     }
+}
+
+fn menu_select(
+    mut clip: ResMut<VoiceClip>,
+    mut state: ResMut<NextState<NetworkingState>>,
+    mut recogniser: ResMut<MenuRecognizer>,
+) {
+    let words = get_recognized_words(&mut *clip, &mut recogniser.0);
+    let last_word = words.last().unwrap_or("");
+
+    match last_word {
+        "host" => state.set(NetworkingState::HostWaiting),
+        "join" => state.set(NetworkingState::ClientEstablishConnection),
+        _ => {}
+    };
 }
 
 // Used for listening to incoming multicast packets
