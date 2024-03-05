@@ -88,8 +88,8 @@ pub fn main() {
         .add_plugins(SpellsPlugin)
         .add_plugins(AssetHandlesPlugin)
         .add_plugins(HealthBarPlugin)
-        .add_plugins(TextPlugin)
-        .add_systems(Update, print_collisions);
+        .add_plugins(TextPlugin);
+        // .add_systems(Update, print_collisions);
 
     #[cfg(target_os = "android")]
     {
@@ -277,12 +277,12 @@ fn spoof_xr_components(mut commands: Commands) {
     commands.insert_resource(HandsResource { left, right });
 }
 
-fn print_collisions(mut collision_event_reader: EventReader<Collision>) {
-    for Collision(contacts) in collision_event_reader.read() {
-        println!(
-            "Entities {:?} and {:?} are colliding",
-            contacts.entity1,
-            contacts.entity2,
-        );
-    }
-}
+// fn print_collisions(mut collision_event_reader: EventReader<Collision>) {
+//     for Collision(contacts) in collision_event_reader.read() {
+//         println!(
+//             "Entities {:?} and {:?} are colliding",
+//             contacts.entity1,
+//             contacts.entity2,
+//         );
+//     }
+// }

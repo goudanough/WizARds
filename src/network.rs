@@ -8,6 +8,27 @@ use bevy_oxr::xr_input::{
 use bevy_xpbd_3d::prelude::*;
 use std::net::SocketAddr;
 
+// Define a component to keep information for the scaled object.
+// #[derive(Component)]
+// struct Scaling {
+//     scale_direction: Vec3,
+//     scale_speed: f32,
+//     max_element_size: f32,
+//     min_element_size: f32,
+// }
+
+// // Implement a simple initialization.
+// impl Scaling {
+//     fn new() -> Self {
+//         Scaling {
+//             scale_direction: Vec3::Y,
+//             scale_speed: 2.0,
+//             max_element_size: 5.0,
+//             min_element_size: 1.0,
+//         }
+//     }
+// }
+
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
     Uninitialized,
@@ -170,8 +191,6 @@ pub fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
-            // body_pos: Vec3::new(left_eye.translation.lerp(right_eye.translation, 0.5).x, left_eye.translation.lerp(right_eye.translation, 0.5).y/2.0, left_eye.translation.lerp(right_eye.translation, 0.5).z),
-            // body_rot: left_eye.rotation,
             spell: queued_spell.to_owned().into(),
             ..Default::default()
         },
@@ -228,14 +247,20 @@ fn debug_spawn_networked_player_objs(
            //body
             commands
             .spawn((
+                PbrBundle { 
+                    mesh: meshes.add(shape::Box::new(1.0,0.1,1.0)),
+                    material: materials.add(Color::WHITE),
+                    ..default()
+                },
                 RigidBody::Kinematic,
-                Collider::capsule(0.05, 0.05),
+                Collider::capsule(0.1,0.05),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::Player)
                     .remove_mask(PhysLayer::PlayerProjectile),
-                TransformBundle { ..default() },
+                // TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerBody,
+                // Scaling::new(),
             ))
             .add_rollback();
     }
@@ -301,6 +326,9 @@ pub fn debug_move_networked_player_objs(
     }
     for (mut t, p) in player_bodys.iter_mut() {
         let input = inputs[p.handle].0;
-        t.translation = Vec3::new(input.head_pos.x,input.head_pos.y/2.0,input.head_pos.z);
+        t.translation = Vec3::new(input.head_pos.x,0.0,input.head_pos.z);
+        info!(input.head_pos.y);
+        t.scale += Vec3::Y * ((input.head_pos.y-0.1)/0.1);
     }
 }
+    
