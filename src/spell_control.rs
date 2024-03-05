@@ -6,7 +6,7 @@ use bevy_oxr::xr_input::trackers::OpenXRTracker;
 
 use crate::{
     network::{LocalPlayerID, PlayerHead, PlayerID},
-    speech::{collect_voice, recognise_voice, start_voice},
+    speech::{fetch_recogniser, get_recognized_words, RecordingStatus, VoiceClip},
     spells::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
         TrajectoryIndicator,
@@ -22,6 +22,9 @@ pub enum Spell {
     Fireball = 1,
     Lightning = 2,
 }
+
+#[derive(Resource)]
+pub struct SpellRecognizer(vosk::Recognizer);
 
 #[derive(Debug)]
 pub struct SpellConvError;
@@ -40,8 +43,6 @@ impl TryFrom<u32> for Spell {
 pub enum SpellStatus {
     #[default]
     None,
-    VoiceRecording,
-    Determine,
     Armed,
     Fire,
 }
@@ -52,25 +53,15 @@ pub struct SelectedSpell(pub Option<Spell>);
 #[derive(Resource, Clone)]
 pub struct QueuedSpell(pub Option<Spell>);
 
+const SPELL_GRAMMAR: [&str; 2] = ["fireball", "lightning"];
+
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<SpellStatus>()
+            .insert_resource(SpellRecognizer(fetch_recogniser(&SPELL_GRAMMAR)))
             .insert_resource(SelectedSpell(None))
             .insert_resource(QueuedSpell(None))
-            .add_systems(
-                Update,
-                collect_voice.run_if(in_state(SpellStatus::VoiceRecording)),
-            )
-            .add_systems(OnEnter(SpellStatus::VoiceRecording), start_voice)
-            .add_systems(OnEnter(SpellStatus::Determine), recognise_voice)
-            .add_systems(
-                Update,
-                check_spell_select_input.run_if(
-                    in_state(SpellStatus::None)
-                        .or_else(in_state(SpellStatus::VoiceRecording))
-                        .or_else(in_state(SpellStatus::Armed)),
-                ),
-            )
+            .add_systems(OnExit(RecordingStatus::Recording), select_spell)
             .add_systems(
                 Update,
                 check_spell_fire_input.run_if(in_state(SpellStatus::Armed)),
@@ -86,25 +77,6 @@ impl Plugin for SpellControlPlugin {
             .add_systems(OnEnter(SpellStatus::Fire), queue_new_spell)
             .add_systems(OnExit(SpellStatus::Fire), despawn_trajectory_indictaor)
             .add_systems(GgrsSchedule, spawn_new_spell_entities);
-    }
-}
-
-fn check_spell_select_input(
-    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
-    hands_resource: Res<HandsResource>,
-    spell_state: Res<State<SpellStatus>>,
-    mut next_spell_state: ResMut<NextState<SpellStatus>>,
-) {
-    let thumb_tip = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
-    let index_tip = hand_bones.get(hands_resource.left.index.tip).unwrap();
-    let thumb_index_dist = (thumb_tip.translation - index_tip.translation).length();
-
-    if let SpellStatus::VoiceRecording = spell_state.get() {
-        if thumb_index_dist > 0.02 {
-            next_spell_state.set(SpellStatus::Determine);
-        }
-    } else if thumb_index_dist < 0.02 {
-        next_spell_state.set(SpellStatus::VoiceRecording);
     }
 }
 
@@ -171,4 +143,22 @@ fn spawn_new_spell_entities(
             spawn_spell(&mut commands, input, p.handle);
         }
     }
+}
+
+fn select_spell(
+    mut clip: ResMut<VoiceClip>,
+    mut recogniser: ResMut<SpellRecognizer>,
+    mut next_spell_state: ResMut<NextState<SpellStatus>>,
+    mut selected_spell: ResMut<SelectedSpell>,
+) {
+    let words = get_recognized_words(&mut *clip, &mut recogniser.0);
+    let last_word = words.last().unwrap_or("");
+
+    let (next_s, s_spell) = match last_word {
+        "fireball" => (SpellStatus::Armed, Some(Spell::Fireball)),
+        "lightning" => (SpellStatus::Armed, Some(Spell::Lightning)),
+        _ => (SpellStatus::None, None),
+    };
+    next_spell_state.set(next_s);
+    selected_spell.0 = s_spell;
 }
