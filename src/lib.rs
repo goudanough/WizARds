@@ -56,6 +56,11 @@ enum PhysLayer {
 
 #[bevy_main]
 pub fn main() {
+    std::env::set_var(
+        "TRACE_CHROME",
+        "/storage/emulated/0/Android/data/org.goudanough.wizARds/files/trace.json",
+    );
+
     let mut app = App::new();
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())

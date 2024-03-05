@@ -14,7 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 ash = "0.37.3"
-bevy = "0.13"
+bevy = { path = "../bevy", features = ["trace_chrome"] }
 bevy_xpbd_3d = "0.4.2"
 bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "13d3d1773e019886cd98824fd937527c1024543e", default-features = false }
 bevy_ggrs = "0.15.0"
@@ -27,6 +27,8 @@ wgpu = "0.19.1"
 zip = "0.6.6"
 
 [patch.crates-io]
+bevy = { path = "../bevy" }
+bevy_math = { path = "../bevy/crates/bevy_math" }
 ggrs = { git = "https://github.com/goudanough/ggrs", rev = "78b59934ac964c4fad47908e922f520b4a3228bf" }
 
 [target.'cfg(target_os = "android")'.dependencies]
