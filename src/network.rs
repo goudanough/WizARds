@@ -489,7 +489,7 @@ fn spawn_networked_player_objs(
                     PhysLayer::Player,
                     LayerMask::ALL ^ PhysLayer::PlayerProjectile,
                 ),
-                TransformBundle { ..default() },
+                // TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerHead,
                 player::Player,
