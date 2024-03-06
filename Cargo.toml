@@ -16,7 +16,8 @@ path = "src/main.rs"
 ash = "0.37.3"
 bevy = "0.13"
 bevy_xpbd_3d = "0.4.2"
-bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "13d3d1773e019886cd98824fd937527c1024543e", default-features = false }
+# bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "13d3d1773e019886cd98824fd937527c1024543e", default-features = false }
+bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", branch = "cant-stop-wont-stop", default-features = false }
 bevy_ggrs = "0.15.0"
 bytemuck = { version = "1.14.1", features = ["derive"] }
 
@@ -31,7 +32,6 @@ ggrs = { git = "https://github.com/goudanough/ggrs", rev = "78b59934ac964c4fad47
 
 [target.'cfg(target_os = "android")'.dependencies]
 android-activity = "0.5.2"
-bytemuck = { version = "1.14.1", features=["derive"]}
 
 [profile.release]
 opt-level = 3

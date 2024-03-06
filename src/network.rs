@@ -10,9 +10,7 @@ use bevy_oxr::{
 };
 use bevy_xpbd_3d::prelude::*;
 use std::{
-    io::{self, Read, Write},
-    net::{IpAddr, SocketAddr, TcpStream},
-    str::FromStr,
+    io::{self, Read, Write}, net::{IpAddr, SocketAddr, TcpStream}, str::FromStr
 };
 
 use crate::{
@@ -160,7 +158,7 @@ impl Plugin for NetworkPlugin {
     }
 }
 
-fn init(mut commands: Commands, mut state: ResMut<NextState<NetworkingState>>) {
+fn init(mut state: ResMut<NextState<NetworkingState>>) {
     // Here we'll need to create some prompt on startup
     // This will allow users to select whether they're going to be acting
     // as the host or a client that will be joining the game
@@ -175,16 +173,22 @@ fn init(mut commands: Commands, mut state: ResMut<NextState<NetworkingState>>) {
 }
 
 fn menu_select(
-    mut clip: ResMut<VoiceClip>,
+    clip: Res<VoiceClip>,
     mut state: ResMut<NextState<NetworkingState>>,
     mut recogniser: ResMut<MenuRecognizer>,
 ) {
-    let words = get_recognized_words(&mut *clip, &mut recogniser.0);
+    let words = get_recognized_words(&clip, &mut recogniser.0);
     let last_word = words.last().unwrap_or("");
 
     match last_word {
-        "host" => state.set(NetworkingState::HostWaiting),
-        "join" => state.set(NetworkingState::ClientEstablishConnection),
+        "host" => {
+            println!("Hosting session");
+            state.set(NetworkingState::HostWaiting)
+        },
+        "join" => {
+            println!("Joining session");
+            state.set(NetworkingState::ClientEstablishConnection)
+        }
         _ => {}
     };
 }
@@ -288,7 +292,7 @@ fn host_inform_clients(
             }
         }
 
-        conn.write(buf.as_bytes()).unwrap();
+        conn.write_all(buf.as_bytes()).unwrap();
     }
 
     // Drop all the open tcp streams
@@ -322,7 +326,6 @@ fn client_establish_tcp(
     if let Some((stream, _)) = emit.accept() {
         commands.insert_resource(HostConnection(stream));
         state.0 = Some(NetworkingState::ClientWaitForData);
-        return;
     } else {
         // If we there are no incoming requests then we emit a new multicast message
         // TODO: put this on a timer
@@ -384,10 +387,10 @@ fn client_await_ips(
             commands.remove_resource::<HostConnection>();
             state.0 = Some(AwaitingIps::Done);
         }
-        Err(err) if err.kind() == io::ErrorKind::WouldBlock => return,
-        Err(err) if err.kind() == io::ErrorKind::ConnectionReset => return,
+        Err(err) if err.kind() == io::ErrorKind::WouldBlock => (),
+        Err(err) if err.kind() == io::ErrorKind::ConnectionReset => (),
         Err(err) => panic!("{err:?} on {:?}", stream),
-    };
+    }
 }
 
 // Check if we've finished awaiting both anchors and IPs. If so, we move onto the InitGgrs state
@@ -491,7 +494,7 @@ fn spawn_networked_player_objs(
                 PlayerHead,
                 player::Player,
                 PbrBundle {
-                    mesh: meshes.add(shape::Box::new(0.2, 0.2, 0.2)),
+                    mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
                     material: materials.add(Color::SILVER),
                     ..default()
                 },

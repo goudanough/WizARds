@@ -124,7 +124,7 @@ pub(crate) fn fetch_recogniser(grammar: &[impl AsRef<str>]) -> Recognizer {
     };
     // Attempt to create recogniser, repeat until successful, and return.
     loop {
-        if let Some(mut r) = Recognizer::new_with_grammar(&model, 44100., &grammar) {
+        if let Some(mut r) = Recognizer::new_with_grammar(&model, 44100., grammar) {
             r.set_words(true);
             return r;
         } else {

@@ -143,12 +143,12 @@ fn spawn_new_spell_entities(
 }
 
 fn select_spell(
-    mut clip: ResMut<VoiceClip>,
+    clip: Res<VoiceClip>,
     mut recogniser: ResMut<SpellRecognizer>,
     mut next_spell_state: ResMut<NextState<SpellStatus>>,
     mut selected_spell: ResMut<SelectedSpell>,
 ) {
-    let words = get_recognized_words(&mut *clip, &mut recogniser.0);
+    let words = get_recognized_words(&clip, &mut recogniser.0);
     let last_word = words.last().unwrap_or("");
 
     let (next_s, s_spell) = match last_word {
