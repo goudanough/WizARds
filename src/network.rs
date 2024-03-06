@@ -101,7 +101,10 @@ impl Plugin for NetworkPlugin {
             .init_state::<AwaitingIps>()
             // On startup we need to allow a user to choose whether they want to host or join
             .add_systems(Startup, init)
-            .add_systems(OnExit(RecordingStatus::Recording), menu_select)
+            .add_systems(
+                OnExit(RecordingStatus::Recording),
+                menu_select.run_if(in_state(NetworkingState::HostClientMenu)),
+            )
             // If the player chooses to host, we need to scan the room and open a multicast listener
             .add_systems(OnEnter(NetworkingState::HostWaiting), host_init)
             // We loop, creating TCP streams to clients that want to join, and recording addresses

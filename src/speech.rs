@@ -152,6 +152,7 @@ fn collect_voice(voice: Res<VoiceBuffer>, mut clip: ResMut<VoiceClip>) {
 fn check_start_recording(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
+    mut clip: ResMut<VoiceClip>,
     mut next_spell_state: ResMut<NextState<RecordingStatus>>,
 ) {
     let thumb_tip = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
@@ -159,6 +160,7 @@ fn check_start_recording(
     let thumb_index_dist = (thumb_tip.translation - index_tip.translation).length();
 
     if thumb_index_dist < 0.02 {
+        clip.data.clear();
         next_spell_state.set(RecordingStatus::Recording);
     }
 }
@@ -178,14 +180,13 @@ fn check_stop_recording(
 }
 
 pub fn get_recognized_words<'a>(
-    clip: &mut VoiceClip,
+    clip: &VoiceClip,
     recogniser: &'a mut Recognizer,
 ) -> std::str::SplitWhitespace<'a> {
     let mut averaged_channel_data: Vec<i16> = Vec::with_capacity(clip.data.len() / 2);
     for index in (1..clip.data.len()).step_by(2) {
         averaged_channel_data.push((clip.data[index - 1] + clip.data[index]) / 2);
     }
-    clip.data.clear();
 
     recogniser.accept_waveform(&averaged_channel_data);
     let result = recogniser
