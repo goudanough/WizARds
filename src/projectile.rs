@@ -107,15 +107,6 @@ fn detect_projectile_collisions(
             }
 
             commands.entity(*e1).despawn();
-            // handle_projectile_collision(
-            //     &mut commands,
-            //     p,
-            //     e1,
-            //     healths.get_mut(*e2),
-            //     players.get(*e2),
-            //     &mut next_phase,
-            //     &current_phase,
-            // );
         }
         if let Ok((p, t)) = projectiles.get(*e2) {
             match p {
@@ -131,50 +122,9 @@ fn detect_projectile_collisions(
                 }
             }
             commands.entity(*e2).despawn();
-            // handle_projectile_collision(
-            //     &mut commands,
-            //     p,
-            //     e2,
-            //     healths.get_mut(*e1),
-            //     players.get(*e1),
-            //     &mut next_phase,
-            //     &current_phase,
-            // );
         }
     }
 }
-
-// // TODO see previous TODO
-// fn handle_projectile_collision(
-//     commands: &mut Commands,
-//     hit_effect: &ProjectileHitEffect,
-//     p_entity: &Entity,
-//     health: Result<Mut<BossHealth>, QueryEntityError>,
-//     player: Result<&PlayerID, QueryEntityError>,
-//     next_phase: &mut ResMut<NextState<BossPhase>>,
-//     current_phase: &Res<CurrentPhase>,
-// ) {
-//     commands.entity(*p_entity).despawn();
-//     match &hit_effect {
-//         ProjectileHitEffect::Damage(m, a) => {
-//             if let Ok(mut h) = health {
-//                 if h.damage_mask.intersect(m) {
-//                     h.current -= a;
-//                     if h.current <= 0.0 {
-//                         println!("Change phase");
-//                         next_phase.set(current_phase.0.next_phase());
-//                     }
-//                 }
-//             }
-//         }
-//         ProjectileHitEffect::ResetPhase => {
-//             if player.is_ok() {
-//                 println!("Reset phase");
-//                 next_phase.set(BossPhase::Reset);
-//             }
-//         }
-//     }
-// }
 
 fn handle_damage_hits(
     mut commands: Commands,
