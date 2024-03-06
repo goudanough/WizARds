@@ -15,7 +15,7 @@ mod xr;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
-use bevy_ggrs::GgrsConfig;
+use bevy_ggrs::{GgrsConfig, GgrsSchedule};
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode};
 #[cfg(target_os = "android")]
@@ -24,7 +24,7 @@ use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
 use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
 #[cfg(target_os = "android")]
 use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
-use bevy_xpbd_3d::prelude::*;
+use bevy_rapier3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
 const FPS: usize = 72;
@@ -45,13 +45,19 @@ pub struct PlayerInput {
     right_hand_rot: Quat,
 }
 
-#[derive(PhysicsLayer)]
+impl Into<Group> for PhysLayer {
+    fn into(self) -> Group {
+        Group::from_bits(self as u32).unwrap()
+    }
+}
+
+#[repr(u32)]
 enum PhysLayer {
-    Player,
-    PlayerProjectile,
-    Boss,
-    BossProjectile,
-    Terrain,
+    Player = 1 << 1,
+    PlayerProj = 1 << 2,
+    Boss = 1 << 3,
+    BossProj = 1 << 4,
+    Terrain = 1 << 5,
 }
 
 #[bevy_main]
@@ -65,7 +71,10 @@ pub fn main() {
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_plugins(PhysicsPlugins::default())
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::in_schedule(
+            RapierPhysicsPlugin::default(),
+            GgrsSchedule, // TODO WARN this is probably the wrong schedule
+        ))
         .add_plugins(assets::AssetHandlesPlugin)
         .add_plugins(boss::BossPlugin)
         .add_plugins(network::NetworkPlugin)

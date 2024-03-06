@@ -1,6 +1,6 @@
 use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
-use bevy_xpbd_3d::prelude::*;
+use bevy_rapier3d::{pipeline::CollisionEvent, prelude::*};
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
@@ -78,37 +78,43 @@ pub fn update_linear_movement(
 // instead of this we should create an bundle representing each collision and have these be processed by different systems.
 fn detect_projectile_collisions(
     mut commands: Commands,
-    mut collisions: EventReader<CollisionStarted>,
+    mut collisions: EventReader<CollisionEvent>,
     projectiles: Query<(&ProjectileHitEffect, &Transform)>,
     mut healths: Query<&mut BossHealth>,
     players: Query<&PlayerID>,
     mut next_phase: ResMut<NextState<BossPhase>>,
     current_phase: Res<CurrentPhase>,
 ) {
-    for CollisionStarted(e1, e2) in collisions.read() {
-        if let Ok((p, _)) = projectiles.get(*e1) {
-            handle_projectile_collision(
-                &mut commands,
-                p,
-                e1,
-                healths.get_mut(*e2),
-                players.get(*e2),
-                &mut next_phase,
-                &current_phase,
-            );
-        }
-        if let Ok((p, _)) = projectiles.get(*e2) {
-            handle_projectile_collision(
-                &mut commands,
-                p,
-                e2,
-                healths.get_mut(*e1),
-                players.get(*e1),
-                &mut next_phase,
-                &current_phase,
-            );
-        }
-    }
+    collisions
+        .read()
+        .filter_map(|ev| match ev {
+            CollisionEvent::Started(e1, e2, _) => Some((e1, e2)),
+            _ => None,
+        })
+        .for_each(|(e1, e2)| {
+            if let Ok((p, _)) = projectiles.get(*e1) {
+                handle_projectile_collision(
+                    &mut commands,
+                    p,
+                    e1,
+                    healths.get_mut(*e2),
+                    players.get(*e2),
+                    &mut next_phase,
+                    &current_phase,
+                );
+            }
+            if let Ok((p, _)) = projectiles.get(*e2) {
+                handle_projectile_collision(
+                    &mut commands,
+                    p,
+                    e2,
+                    healths.get_mut(*e1),
+                    players.get(*e1),
+                    &mut next_phase,
+                    &current_phase,
+                );
+            }
+        });
 }
 
 // TODO see previous TODO
@@ -161,12 +167,13 @@ pub fn spawn_projectile(
                 },
                 LinearMovement(3.0),
                 ProjectileHitEffect::Damage(DamageMask::FIRE, 25.0),
-                CollisionLayers::new(
-                    PhysLayer::PlayerProjectile,
-                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
-                ),
-                Collider::sphere(0.1),
-                RigidBody::Kinematic,
+                CollisionGroups {
+                    memberships: PhysLayer::PlayerProj.into(),
+                    filters: Group::all()
+                        .difference(PhysLayer::Player.into())
+                        .difference(PhysLayer::BossProj.into()),
+                },
+                Collider::ball(0.1),
             ))
             .add_rollback(),
         ProjectileType::LightningBolt => commands
@@ -180,12 +187,13 @@ pub fn spawn_projectile(
                 },
                 LinearMovement(6.0),
                 ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 25.0),
-                CollisionLayers::new(
-                    PhysLayer::PlayerProjectile,
-                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
-                ),
-                Collider::sphere(0.1),
-                RigidBody::Kinematic,
+                CollisionGroups {
+                    memberships: PhysLayer::PlayerProj.into(),
+                    filters: Group::all()
+                        .difference(PhysLayer::Player.into())
+                        .difference(PhysLayer::BossProj.into()),
+                },
+                Collider::ball(0.1),
             ))
             .add_rollback(),
         ProjectileType::BossAttack => commands
@@ -199,12 +207,13 @@ pub fn spawn_projectile(
                 },
                 LinearMovement(1.0),
                 ProjectileHitEffect::ResetPhase,
-                CollisionLayers::new(
-                    PhysLayer::BossProjectile,
-                    (LayerMask::ALL ^ PhysLayer::Boss) ^ PhysLayer::PlayerProjectile, // ugh
-                ),
-                Collider::sphere(0.2),
-                RigidBody::Kinematic,
+                CollisionGroups {
+                    memberships: PhysLayer::PlayerProj.into(),
+                    filters: Group::all()
+                        .difference(PhysLayer::Player.into())
+                        .difference(PhysLayer::BossProj.into()),
+                },
+                Collider::ball(0.2),
             ))
             .add_rollback(),
     };

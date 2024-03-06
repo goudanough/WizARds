@@ -18,7 +18,7 @@ use bevy_oxr::{
     },
     XrEvents,
 };
-use bevy_xpbd_3d::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 use crate::{oxr, PhysLayer};
 
@@ -366,19 +366,22 @@ fn init_world_mesh(
 
         // We need to map between Vector3f and Vec3 because Vector3f is repr(C) and Vec3 is not
         // This means they could potentially have different layouts
-        bevy_mesh.insert_attribute(
-            Mesh::ATTRIBUTE_POSITION,
-            vertices
-                .into_iter()
-                .map(|Vector3f { x, y, z }| Vec3 { x, y, z })
-                .collect::<Vec<_>>(),
-        );
-        let indices = mesh::Indices::U32(indices);
-        bevy_mesh.insert_indices(indices);
+        let vertices = vertices
+            .into_iter()
+            .map(|Vector3f { x, y, z }| Vec3 { x, y, z })
+            .collect::<Vec<_>>();
+        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices.to_owned());
+        bevy_mesh.insert_indices(mesh::Indices::U32(indices.to_owned()));
 
         // Here we spawn our mesh that represents the room
         commands.spawn((
-            AsyncCollider(ComputedCollider::TriMesh),
+            Collider::trimesh(
+                vertices,
+                indices
+                    .chunks_exact(3)
+                    .map(|t| [t[0], t[1], t[2]])
+                    .collect(),
+            ),
             PbrBundle {
                 mesh: meshes.add(bevy_mesh),
                 material: materials.add(Color::rgba(0.0, 0.0, 0.0, 0.0)),
@@ -398,8 +401,10 @@ fn init_world_mesh(
                 },
                 ..default()
             },
-            CollisionLayers::new(PhysLayer::Terrain, LayerMask::ALL),
-            RigidBody::Static,
+            CollisionGroups {
+                memberships: PhysLayer::Terrain.into(),
+                filters: Group::all(),
+            },
         ));
     } else {
         todo!("Fall back to regular scene API when XR_META_spatial_entity_mesh not available")

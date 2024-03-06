@@ -4,7 +4,7 @@ mod boss_state;
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
-use bevy_xpbd_3d::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 use self::{
     boss_attack::{boss_attack, AttackTimer},
@@ -100,9 +100,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(0.0, 0.4, 0.0).with_scale(Vec3::new(1.0, 2.5, 1.0)),
             ..default()
         },
-        RigidBody::Kinematic,
         Collider::cuboid(0.25, 0.25, 0.25),
-        CollisionLayers::new(PhysLayer::Boss, LayerMask::ALL ^ PhysLayer::BossProjectile),
+        CollisionGroups {
+            memberships: PhysLayer::Boss.into(),
+            filters: Group::all().difference(PhysLayer::BossProj.into()),
+        },
         Boss,
         BossHealth {
             max: BossPhase::Phase1.max_health(),

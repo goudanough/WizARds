@@ -1,7 +1,7 @@
 use ::bevy::prelude::*;
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_oxr::xr_input::hands::common::HandsResource;
-use bevy_xpbd_3d::plugins::spatial_query::{SpatialQuery, SpatialQueryFilter};
+use bevy_rapier3d::prelude::*;
 
 use crate::assets::{AssetHandles, MatName, MeshName};
 use crate::network::{move_networked_player_objs, PlayerID};
@@ -188,7 +188,7 @@ pub fn spawn_trajectory_indicator(
 
 fn handle_straight_laser_traj_ind(
     traj_ind: Query<&GlobalTransform, With<StraightLaserTrajInd>>,
-    spatial_query: SpatialQuery,
+    rapier_context: Res<RapierContext>,
     mut gizmos: Gizmos,
 ) {
     let t = match traj_ind.get_single() {
@@ -196,14 +196,24 @@ fn handle_straight_laser_traj_ind(
         _ => return,
     };
     let max_travel = 50.0;
-    let ray_travel = match spatial_query.cast_ray(
+
+    let ray_travel = match rapier_context.cast_ray(
         t.translation(),
-        t.compute_transform().forward(),
+        t.compute_transform().forward().xyz(),
         max_travel,
-        true,
-        SpatialQueryFilter::from_mask([PhysLayer::Terrain, PhysLayer::Boss]),
+        false,
+        QueryFilter {
+            groups: Some(CollisionGroups {
+                memberships: Group::all(),
+                filters: Group::NONE
+                    .union(PhysLayer::Boss.into())
+                    .union(PhysLayer::Terrain.into()),
+            }),
+
+            ..default()
+        },
     ) {
-        Some(ray_hit) => ray_hit.time_of_impact,
+        Some((_, toi)) => toi,
         None => max_travel,
     };
     gizmos.line(
