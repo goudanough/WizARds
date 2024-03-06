@@ -197,7 +197,7 @@ fn handle_straight_laser_traj_ind(
 
     let ray_travel = match spatial_query.cast_ray(
         t.translation,
-        head_transform.forward().xyz(),
+        head_transform.forward(),
         max_travel,
         true,
         SpatialQueryFilter::from_mask([PhysLayer::Terrain, PhysLayer::Boss]),
@@ -207,7 +207,7 @@ fn handle_straight_laser_traj_ind(
     };
     gizmos.line(
         t.translation,
-        head_transform.translation + (head_transform.forward().xyz() * ray_travel),
+        head_transform.translation + (head_transform.forward() * ray_travel),
         Color::RED,
     ); // TODO don't use gizmos for line drawing
 }
