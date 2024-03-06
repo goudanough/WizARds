@@ -1,10 +1,10 @@
-use bevy::{ecs::query::QueryEntityError, prelude::*};
+use bevy::prelude::*;
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
-    boss::{BossHealth, BossPhase, CurrentPhase},
+    boss::{BossHealth, BossPhase},
     network::{move_networked_player_objs, PlayerID},
     PhysLayer,
 };
@@ -144,35 +144,66 @@ fn detect_projectile_collisions(
     }
 }
 
-// TODO see previous TODO
-fn handle_projectile_collision(
-    commands: &mut Commands,
-    hit_effect: &ProjectileHitEffect,
-    p_entity: &Entity,
-    health: Result<Mut<BossHealth>, QueryEntityError>,
-    player: Result<&PlayerID, QueryEntityError>,
-    next_phase: &mut ResMut<NextState<BossPhase>>,
-    current_phase: &Res<CurrentPhase>,
+// // TODO see previous TODO
+// fn handle_projectile_collision(
+//     commands: &mut Commands,
+//     hit_effect: &ProjectileHitEffect,
+//     p_entity: &Entity,
+//     health: Result<Mut<BossHealth>, QueryEntityError>,
+//     player: Result<&PlayerID, QueryEntityError>,
+//     next_phase: &mut ResMut<NextState<BossPhase>>,
+//     current_phase: &Res<CurrentPhase>,
+// ) {
+//     commands.entity(*p_entity).despawn();
+//     match &hit_effect {
+//         ProjectileHitEffect::Damage(m, a) => {
+//             if let Ok(mut h) = health {
+//                 if h.damage_mask.intersect(m) {
+//                     h.current -= a;
+//                     if h.current <= 0.0 {
+//                         println!("Change phase");
+//                         next_phase.set(current_phase.0.next_phase());
+//                     }
+//                 }
+//             }
+//         }
+//         ProjectileHitEffect::ResetPhase => {
+//             if player.is_ok() {
+//                 println!("Reset phase");
+//                 next_phase.set(BossPhase::Reset);
+//             }
+//         }
+//     }
+// }
+
+fn handle_damage_hits(
+    mut commands: Commands,
+    hits: Query<(&ProjectileHitEffect, &Transform, &ProjectileHit, Entity), With<DamageHit>>,
+    mut boss_health: Query<&mut BossHealth>,
 ) {
-    commands.entity(*p_entity).despawn();
-    match &hit_effect {
-        ProjectileHitEffect::Damage(m, a) => {
-            if let Ok(mut h) = health {
+    for (hit_effect, _transform, p_hit, e) in hits.iter() {
+        if let Ok(mut h) = boss_health.get_mut(p_hit.0) {
+            if let ProjectileHitEffect::Damage(m, d) = hit_effect {
                 if h.damage_mask.intersect(m) {
-                    h.current -= a;
-                    if h.current <= 0.0 {
-                        println!("Change phase");
-                        next_phase.set(current_phase.0.next_phase());
-                    }
+                    h.current -= d;
                 }
             }
         }
-        ProjectileHitEffect::ResetPhase => {
-            if player.is_ok() {
-                println!("Reset phase");
-                next_phase.set(BossPhase::Reset);
-            }
+        commands.entity(e).despawn();
+    }
+}
+
+fn handle_boss_hits(
+    mut commands: Commands,
+    hits: Query<(&ProjectileHitEffect, &Transform, &ProjectileHit, Entity), With<BossHit>>,
+    mut next_phase: ResMut<NextState<BossPhase>>,
+    players: Query<&PlayerID>,
+) {
+    for (_, _transform, p_hit, e) in hits.iter() {
+        if players.get(p_hit.0).is_ok() {
+            next_phase.set(BossPhase::Reset)
         }
+        commands.entity(e).despawn();
     }
 }
 
@@ -241,35 +272,4 @@ pub fn spawn_projectile(
             ))
             .add_rollback(),
     };
-}
-
-fn handle_damage_hits(
-    mut commands: Commands,
-    hits: Query<(&ProjectileHitEffect, &Transform, &ProjectileHit, Entity), With<DamageHit>>,
-    mut boss_health: Query<&mut BossHealth>,
-) {
-    for (hit_effect, _transform, p_hit, e) in hits.iter() {
-        if let Ok(mut h) = boss_health.get_mut(p_hit.0) {
-            if let ProjectileHitEffect::Damage(m, d) = hit_effect {
-                if h.damage_mask.intersect(m) {
-                    h.current -= d;
-                }
-            }
-        }
-        commands.entity(e).despawn();
-    }
-}
-
-fn handle_boss_hits(
-    mut commands: Commands,
-    hits: Query<(&ProjectileHitEffect, &Transform, &ProjectileHit, Entity), With<BossHit>>,
-    mut next_phase: ResMut<NextState<BossPhase>>,
-    players: Query<&PlayerID>,
-) {
-    for (_, _transform, p_hit, e) in hits.iter() {
-        if let Ok(h) = players.get(p_hit.0) {
-            next_phase.set(BossPhase::Reset)
-        }
-        commands.entity(e).despawn();
-    }
 }
