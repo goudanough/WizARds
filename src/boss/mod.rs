@@ -177,7 +177,7 @@ fn check_phase(
     mut next_phase: ResMut<NextState<BossPhase>>,
     boss_health: Query<&BossHealth>,
 ) {
-    let Ok((health)) = boss_health.get_single() else {
+    let Ok(health) = boss_health.get_single() else {
         return;
     };
     if health.current <= 0.0 {
