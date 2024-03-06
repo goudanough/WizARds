@@ -481,11 +481,12 @@ fn spawn_networked_player_objs(
         commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::ball(0.1),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::Player)
-                    .remove_mask(PhysLayer::PlayerProjectile),
-                // TransformBundle { ..default() },
+                Collider::sphere(0.1),
+                CollisionLayers::new(
+                    PhysLayer::Player,
+                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
+                ),
+                TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerHead,
                 player::Player,
@@ -499,10 +500,11 @@ fn spawn_networked_player_objs(
         commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::ball(0.1),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::Player)
-                    .remove_mask(PhysLayer::PlayerProjectile),
+                Collider::sphere(0.1),
+                CollisionLayers::new(
+                    PhysLayer::Player,
+                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
+                ),
                 TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerLeftPalm,
@@ -511,10 +513,11 @@ fn spawn_networked_player_objs(
         commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::ball(0.1),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::Player)
-                    .remove_mask(PhysLayer::PlayerProjectile),
+                Collider::sphere(0.1),
+                CollisionLayers::new(
+                    PhysLayer::Player,
+                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
+                ),
                 TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerRightPalm,

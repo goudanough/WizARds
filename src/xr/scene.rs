@@ -366,7 +366,7 @@ fn init_world_mesh(
                 .collect::<Vec<_>>(),
         );
         let indices = mesh::Indices::U32(indices);
-        bevy_mesh.set_indices(Some(indices));
+        bevy_mesh.insert_indices(indices);
 
         // Here we spawn our mesh that represents the room
         commands.spawn((
@@ -390,7 +390,7 @@ fn init_world_mesh(
                 },
                 ..default()
             },
-            CollisionLayers::all_masks::<PhysLayer>().add_group(PhysLayer::Terrain),
+            CollisionLayers::new(PhysLayer::Terrain, LayerMask::ALL),
             RigidBody::Static,
         ));
     } else {

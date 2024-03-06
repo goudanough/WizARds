@@ -3,7 +3,7 @@ use std::ptr::{null, null_mut};
 use ash::vk::{Handle, Image};
 use bevy::{
     core_pipeline::core_3d::{
-        graph::{Labels3d, SubGraph3d},
+        graph::{Core3d, Node3d},
         prepare_core_3d_depth_textures, Core3dPlugin,
     },
     ecs::query::QueryItem,
@@ -230,8 +230,8 @@ impl bevy::prelude::Plugin for EnvDepthPlugin {
     fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(bevy::render::RenderApp);
         let name = DepthRenderNode;
-        render_app.add_render_graph_node::<ViewNodeRunner<EnvDepthRenderNode>>(SubGraph3d, name);
-        render_app.add_render_graph_edges(SubGraph3d, (name, Labels3d::Prepass));
+        render_app.add_render_graph_node::<ViewNodeRunner<EnvDepthRenderNode>>(Core3d, name);
+        render_app.add_render_graph_edges(Core3d, (name, Node3d::Prepass));
     }
 }
 

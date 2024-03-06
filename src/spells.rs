@@ -198,10 +198,10 @@ fn handle_straight_laser_traj_ind(
     let max_travel = 50.0;
     let ray_travel = match spatial_query.cast_ray(
         t.translation(),
-        t.forward(),
+        t.compute_transform().forward(),
         max_travel,
         true,
-        SpatialQueryFilter::new().with_masks(&[PhysLayer::Terrain, PhysLayer::Boss]),
+        SpatialQueryFilter::from_mask([PhysLayer::Terrain, PhysLayer::Boss]),
     ) {
         Some(ray_hit) => ray_hit.time_of_impact,
         None => max_travel,

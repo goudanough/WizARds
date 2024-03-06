@@ -114,6 +114,7 @@ pub fn main() {
                 features: WgpuFeatures::POLYGON_MODE_LINE,
                 ..default()
             }),
+            ..default()
         }))
         .add_systems(Startup, spawn_camera)
         .add_systems(Startup, spoof_xr_components);
