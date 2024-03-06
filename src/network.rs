@@ -248,12 +248,12 @@ fn debug_spawn_networked_player_objs(
             commands
             .spawn((
                 PbrBundle { 
-                    mesh: meshes.add(shape::Box::new(1.0,0.5,1.0)),
+                    mesh: meshes.add(shape::Box::new(1.0,1.0,1.0)),
                     material: materials.add(Color::WHITE),
                     ..default()
                 },
                 RigidBody::Kinematic,
-                Collider::capsule(0.5,0.05),
+                Collider::capsule(1.0,0.05),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::Player)
                     .remove_mask(PhysLayer::PlayerProjectile),
@@ -326,9 +326,8 @@ pub fn debug_move_networked_player_objs(
     }
     for (mut t, p) in player_bodys.iter_mut() {
         let input = inputs[p.handle].0;
-        t.translation = Vec3::new(input.head_pos.x,0.0,input.head_pos.z);
-        info!(input.head_pos.y);
-        t.scale = Vec3::ONE + Vec3::Y * ((input.head_pos.y-0.5)/0.5);
+        t.translation = Vec3::new(input.head_pos.x,input.head_pos.y/2.0,input.head_pos.z);
+        t.scale = Vec3::new(1.0,input.head_pos.y-0.01,1.0);
     }
 }
     
