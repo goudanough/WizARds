@@ -8,27 +8,6 @@ use bevy_oxr::xr_input::{
 use bevy_xpbd_3d::prelude::*;
 use std::net::SocketAddr;
 
-// Define a component to keep information for the scaled object.
-// #[derive(Component)]
-// struct Scaling {
-//     scale_direction: Vec3,
-//     scale_speed: f32,
-//     max_element_size: f32,
-//     min_element_size: f32,
-// }
-
-// // Implement a simple initialization.
-// impl Scaling {
-//     fn new() -> Self {
-//         Scaling {
-//             scale_direction: Vec3::Y,
-//             scale_speed: 2.0,
-//             max_element_size: 5.0,
-//             min_element_size: 1.0,
-//         }
-//     }
-// }
-
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
     Uninitialized,
@@ -67,6 +46,13 @@ pub struct NetworkPlugin;
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(GgrsPlugin::<WizGgrsConfig>::default())
+        .insert_gizmo_group(
+            PhysicsGizmos {
+                aabb_color: Some(Color::WHITE),
+                ..default()
+            },
+            GizmoConfig::default(),
+        )
             // define frequency of rollback game logic update
             .set_rollback_schedule_fps(FPS)
             .rollback_component_with_clone::<Transform>()
@@ -247,20 +233,19 @@ fn debug_spawn_networked_player_objs(
            //body
             commands
             .spawn((
-                PbrBundle { 
-                    mesh: meshes.add(shape::Box::new(1.0,1.0,1.0)),
-                    material: materials.add(Color::WHITE),
-                    ..default()
-                },
+                // PbrBundle { 
+                //     mesh: meshes.add(shape::Capsule(1.0,0.05)),
+                //     material: materials.add(Color::WHITE),
+                //     ..default()
+                // },
                 RigidBody::Kinematic,
                 Collider::capsule(1.0,0.05),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::Player)
                     .remove_mask(PhysLayer::PlayerProjectile),
-                // TransformBundle { ..default() },
+                TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerBody,
-                // Scaling::new(),
             ))
             .add_rollback();
     }
