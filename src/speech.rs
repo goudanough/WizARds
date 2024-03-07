@@ -45,14 +45,12 @@ impl Plugin for SpeechPlugin {
         app.init_state::<RecordingStatus>()
             .insert_resource(RecognizedWord("".to_owned()))
             .add_systems(Startup, setup_audio)
-            .add_systems(OnEnter(RecordingStatus::Recording), play_audio_stream)
-            .add_systems(
-                OnExit(RecordingStatus::Recording),
-                (pause_audio_stream, reset_recognizer),
-            )
+            .add_systems(OnExit(RecordingStatus::Recording), reset_recognizer)
             .add_systems(
                 OnEnter(RecordingStatus::Success),
-                |mut state: ResMut<NextState<RecordingStatus>>| state.set(RecordingStatus::Awaiting),
+                |mut state: ResMut<NextState<RecordingStatus>>| {
+                    state.set(RecordingStatus::Awaiting)
+                },
             )
             .add_systems(
                 Update,
@@ -97,21 +95,13 @@ pub(crate) fn fetch_recogniser(grammar: &[impl AsRef<str>]) -> Recognizer {
     };
     // Attempt to create recogniser, repeat until successful, and return.
     loop {
-        if let Some(mut r) = Recognizer::new_with_grammar(&model, 44100., &grammar) {
+        if let Some(mut r) = Recognizer::new_with_grammar(&model, 44100., grammar) {
             r.set_words(true);
             return r;
         } else {
             println!("Failed to create recogniser, trying again.")
         }
     }
-}
-
-fn play_audio_stream(stream: NonSend<cpal::Stream>) {
-    // stream.play().unwrap();
-}
-
-fn pause_audio_stream(stream: NonSend<cpal::Stream>) {
-    // stream.pause().unwrap();
 }
 
 fn reset_recognizer(recognizer: Option<ResMut<SpeechRecognizer>>) {
@@ -158,7 +148,7 @@ fn queue_input_data(data: &[i16], queue: &Arc<ArrayQueue<i16>>) {
 }
 
 fn submit_recorded_buf(
-    mut voice_buffer: ResMut<VoiceBuffer>,
+    voice_buffer: ResMut<VoiceBuffer>,
     recognizer: Option<ResMut<SpeechRecognizer>>,
 ) {
     let Some(mut recognizer) = recognizer else {
@@ -204,7 +194,7 @@ fn check_stop_recording(
 fn check_word_found(
     recognizer: Option<ResMut<SpeechRecognizer>>,
     mut recording_state: ResMut<NextState<RecordingStatus>>,
-    mut word: ResMut<RecognizedWord>
+    mut word: ResMut<RecognizedWord>,
 ) {
     let Some(mut recognizer) = recognizer else {
         return;
