@@ -4,7 +4,7 @@ use bevy_oxr::xr_input::hands::common::HandsResource;
 use bevy_xpbd_3d::plugins::spatial_query::{SpatialQuery, SpatialQueryFilter};
 
 use crate::assets::{AssetHandles, MatName, MeshName};
-use crate::network::{debug_move_networked_player_objs, PlayerID};
+use crate::network::{move_networked_player_objs, PlayerID};
 use crate::projectile::{spawn_projectile, update_linear_movement, ProjectileType};
 use crate::spell_control::{SelectedSpell, Spell};
 use crate::{PhysLayer, PlayerInput};
@@ -38,7 +38,7 @@ impl Plugin for SpellsPlugin {
             (handle_lightning, handle_fireballs)
                 .chain()
                 .before(update_linear_movement)
-                .after(debug_move_networked_player_objs),
+                .after(move_networked_player_objs),
         )
         .add_systems(Update, handle_straight_laser_traj_ind);
     }
@@ -198,10 +198,10 @@ fn handle_straight_laser_traj_ind(
     let max_travel = 50.0;
     let ray_travel = match spatial_query.cast_ray(
         t.translation(),
-        t.forward(),
+        t.compute_transform().forward(),
         max_travel,
         true,
-        SpatialQueryFilter::new().with_masks(&[PhysLayer::Terrain, PhysLayer::Boss]),
+        SpatialQueryFilter::from_mask([PhysLayer::Terrain, PhysLayer::Boss]),
     ) {
         Some(ray_hit) => ray_hit.time_of_impact,
         None => max_travel,

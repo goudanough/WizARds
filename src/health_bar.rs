@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{math::primitives, prelude::*};
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
 
 use crate::{boss::BossHealth, projectile::DamageMask};
@@ -30,7 +30,7 @@ fn spawn_health_bar(
     commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(0.6, 0.1)))),
+                mesh: meshes.add(Mesh::from(primitives::Rectangle::new(0.6, 0.1))),
                 material: materials.add(StandardMaterial {
                     base_color: Color::BLACK,
                     depth_bias: 0.1,
@@ -44,7 +44,7 @@ fn spawn_health_bar(
         .with_children(|parent| {
             parent.spawn((
                 PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(0.6, 0.1)))),
+                    mesh: meshes.add(Mesh::from(primitives::Rectangle::new(0.6, 0.1))),
                     material: materials.add(StandardMaterial {
                         base_color: Color::RED,
                         depth_bias: 1000.0,

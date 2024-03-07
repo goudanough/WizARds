@@ -1,13 +1,11 @@
-use bevy::{ecs::query::QueryEntityError, prelude::*, scene::ron::de};
+use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
-use bevy_xpbd_3d::{math::PI, prelude::*};
+use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
     boss::{BossHealth, BossPhase, CurrentPhase},
-    network::{debug_move_networked_player_objs, PlayerID},
-    player::Player,
-    text::{Text, TextTimer},
+    network::{move_networked_player_objs, PlayerID},
     PhysLayer,
 };
 
@@ -58,7 +56,7 @@ impl Plugin for ProjectilePlugin {
         app.add_systems(
             GgrsSchedule,
             (
-                update_linear_movement.ambiguous_with(debug_move_networked_player_objs), // TODO this might be a hack, but also might be how bevy_ggrs works
+                update_linear_movement.ambiguous_with(move_networked_player_objs), // TODO this might be a hack, but also might be how bevy_ggrs works
                 detect_projectile_collisions,
             )
                 .chain(),
@@ -88,24 +86,22 @@ fn detect_projectile_collisions(
     current_phase: Res<CurrentPhase>,
 ) {
     for CollisionStarted(e1, e2) in collisions.read() {
-        if let Ok((p, t)) = projectiles.get(*e1) {
+        if let Ok((p, _)) = projectiles.get(*e1) {
             handle_projectile_collision(
                 &mut commands,
                 p,
                 e1,
-                t.translation,
                 healths.get_mut(*e2),
                 players.get(*e2),
                 &mut next_phase,
                 &current_phase,
             );
         }
-        if let Ok((p, t)) = projectiles.get(*e2) {
+        if let Ok((p, _)) = projectiles.get(*e2) {
             handle_projectile_collision(
                 &mut commands,
                 p,
                 e2,
-                t.translation,
                 healths.get_mut(*e1),
                 players.get(*e1),
                 &mut next_phase,
@@ -120,7 +116,6 @@ fn handle_projectile_collision(
     commands: &mut Commands,
     hit_effect: &ProjectileHitEffect,
     p_entity: &Entity,
-    hit_location: Vec3,
     health: Result<Mut<BossHealth>, QueryEntityError>,
     player: Result<&PlayerID, QueryEntityError>,
     next_phase: &mut ResMut<NextState<BossPhase>>,
@@ -131,38 +126,11 @@ fn handle_projectile_collision(
         ProjectileHitEffect::Damage(m, a) => {
             if let Ok(mut h) = health {
                 if h.damage_mask.intersect(m) {
-                    // TODO Add text to this.
-                    commands.spawn((
-                        TransformBundle {
-                            local: Transform {
-                                translation: hit_location + Vec3::new(0.0, 0.4, 0.0),
-                                rotation: Quat::from_axis_angle(Vec3::Y, PI),
-                                ..default()
-                            },
-                            ..default()
-                        },
-                        Text::new(format!("-{}", a).to_owned()),
-                        TextTimer(Timer::from_seconds(1., TimerMode::Once)),
-                    ));
                     h.current -= a;
                     if h.current <= 0.0 {
                         println!("Change phase");
                         next_phase.set(current_phase.0.next_phase());
                     }
-                } else {
-                    // TODO Add text to this
-                    commands.spawn((
-                        TransformBundle {
-                            local: Transform {
-                                translation: hit_location + Vec3::new(0.0, 0.4, 0.0),
-                                rotation: Quat::from_axis_angle(Vec3::Y, PI),
-                                ..default()
-                            },
-                            ..default()
-                        },
-                        Text::new("RESISTED".to_owned()),
-                        TextTimer(Timer::from_seconds(1., TimerMode::Once)),
-                    ));
                 }
             }
         }
@@ -193,11 +161,11 @@ pub fn spawn_projectile(
                 },
                 LinearMovement(3.0),
                 ProjectileHitEffect::Damage(DamageMask::FIRE, 25.0),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::PlayerProjectile)
-                    .remove_mask(PhysLayer::Player)
-                    .remove_mask(PhysLayer::BossProjectile),
-                Collider::ball(0.1),
+                CollisionLayers::new(
+                    PhysLayer::PlayerProjectile,
+                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
+                ),
+                Collider::sphere(0.1),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
@@ -212,11 +180,11 @@ pub fn spawn_projectile(
                 },
                 LinearMovement(6.0),
                 ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 25.0),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::PlayerProjectile)
-                    .remove_mask(PhysLayer::Player)
-                    .remove_mask(PhysLayer::BossProjectile),
-                Collider::ball(0.1),
+                CollisionLayers::new(
+                    PhysLayer::PlayerProjectile,
+                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
+                ),
+                Collider::sphere(0.1),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
@@ -231,11 +199,11 @@ pub fn spawn_projectile(
                 },
                 LinearMovement(1.0),
                 ProjectileHitEffect::ResetPhase,
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::BossProjectile)
-                    .remove_mask(PhysLayer::Boss)
-                    .remove_mask(PhysLayer::PlayerProjectile),
-                Collider::ball(0.2),
+                CollisionLayers::new(
+                    PhysLayer::BossProjectile,
+                    (LayerMask::ALL ^ PhysLayer::Boss) ^ PhysLayer::PlayerProjectile, // ugh
+                ),
+                Collider::sphere(0.2),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),

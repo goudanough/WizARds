@@ -1,5 +1,4 @@
-use crate::{oxr, PhysLayer};
-use bevy_xpbd_3d::prelude::*;
+use std::ptr::{null, null_mut};
 
 use bevy::{
     prelude::*,
@@ -19,10 +18,9 @@ use bevy_oxr::{
     },
     XrEvents,
 };
-use std::{
-    mem::MaybeUninit,
-    ptr::{null, null_mut},
-};
+use bevy_xpbd_3d::prelude::*;
+
+use crate::{oxr, PhysLayer};
 
 #[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
 enum SceneState {
@@ -76,11 +74,11 @@ fn capture_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
         request_byte_count: 0,
         request: null(),
     };
-    let mut request: MaybeUninit<sys::AsyncRequestIdFB> = MaybeUninit::uninit();
+    let mut request = sys::AsyncRequestIdFB::default();
     oxr!((vtable.request_scene_capture)(
         session.as_raw(),
         &info,
-        request.as_mut_ptr()
+        &mut request
     ));
 }
 
@@ -118,12 +116,12 @@ fn query_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
     }));
 
     let vtable = instance.exts().fb_spatial_entity_query.unwrap();
-    let mut request: MaybeUninit<sys::AsyncRequestIdFB> = MaybeUninit::uninit();
+    let mut request = sys::AsyncRequestIdFB::default();
 
     oxr!((vtable.query_spaces)(
         session.as_raw(),
         query as *const _ as *const _,
-        request.as_mut_ptr(),
+        &mut request
     ));
 }
 
@@ -271,12 +269,12 @@ fn wait_query_complete(
                         enabled: true.into(),
                         timeout: Duration::NONE,
                     };
-                    let mut request: MaybeUninit<sys::AsyncRequestIdFB> = MaybeUninit::uninit();
+                    let mut request = sys::AsyncRequestIdFB::default();
                     // TODO: Actually handle this async request.
                     oxr!((vtable.set_space_component_status)(
                         space,
                         &mut status,
-                        request.as_mut_ptr()
+                        &mut request
                     ));
 
                     info!("Setting {space:?} as XrHandle for scene mesh");
@@ -376,7 +374,7 @@ fn init_world_mesh(
                 .collect::<Vec<_>>(),
         );
         let indices = mesh::Indices::U32(indices);
-        bevy_mesh.set_indices(Some(indices));
+        bevy_mesh.insert_indices(indices);
 
         // Here we spawn our mesh that represents the room
         commands.spawn((
@@ -400,7 +398,7 @@ fn init_world_mesh(
                 },
                 ..default()
             },
-            CollisionLayers::all_masks::<PhysLayer>().add_group(PhysLayer::Terrain),
+            CollisionLayers::new(PhysLayer::Terrain, LayerMask::ALL),
             RigidBody::Static,
         ));
     } else {

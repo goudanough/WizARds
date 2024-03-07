@@ -1,4 +1,5 @@
-use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
+use std::net::SocketAddr;
+
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
 use bevy_oxr::xr_input::{
@@ -6,7 +7,8 @@ use bevy_oxr::xr_input::{
     trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
 use bevy_xpbd_3d::prelude::*;
-use std::net::SocketAddr;
+
+use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
@@ -70,12 +72,9 @@ impl Plugin for NetworkPlugin {
                 client_wait.run_if(in_state(NetworkingState::ClientWaiting)),
             )
             .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)
-            .add_systems(
-                OnEnter(NetworkingState::Done),
-                debug_spawn_networked_player_objs,
-            )
+            .add_systems(OnEnter(NetworkingState::Done), spawn_networked_player_objs)
             .add_systems(ReadInputs, read_local_inputs)
-            .add_systems(GgrsSchedule, debug_move_networked_player_objs);
+            .add_systems(GgrsSchedule, move_networked_player_objs);
     }
 }
 
@@ -177,7 +176,7 @@ pub fn read_local_inputs(
             right_hand_pos: right_hand.translation,
             left_hand_rot: left_hand.rotation,
             right_hand_rot: right_hand.rotation,
-            spell: queued_spell.to_owned().into(),
+            spell: queued_spell.0.map(|s| s as u32).unwrap_or(0),
             ..Default::default()
         },
     );
@@ -185,21 +184,17 @@ pub fn read_local_inputs(
     queued_spell.0 = None;
 }
 
-fn debug_spawn_networked_player_objs(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    args: Res<ConnectionArgs>,
-) {
+fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>) {
     // Add one cube on each player's head
     for i in 0..args.players.len() {
         commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::ball(0.1),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::Player)
-                    .remove_mask(PhysLayer::PlayerProjectile),
+                Collider::sphere(0.1),
+                CollisionLayers::new(
+                    PhysLayer::Player,
+                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
+                ),
                 TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerHead,
@@ -209,10 +204,11 @@ fn debug_spawn_networked_player_objs(
         commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::ball(0.1),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::Player)
-                    .remove_mask(PhysLayer::PlayerProjectile),
+                Collider::sphere(0.1),
+                CollisionLayers::new(
+                    PhysLayer::Player,
+                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
+                ),
                 TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerLeftPalm,
@@ -221,10 +217,11 @@ fn debug_spawn_networked_player_objs(
         commands
             .spawn((
                 RigidBody::Kinematic,
-                Collider::ball(0.1),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::Player)
-                    .remove_mask(PhysLayer::PlayerProjectile),
+                Collider::sphere(0.1),
+                CollisionLayers::new(
+                    PhysLayer::Player,
+                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
+                ),
                 TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerRightPalm,
@@ -251,7 +248,7 @@ fn debug_spawn_networked_player_objs(
     }
 }
 
-pub fn debug_move_networked_player_objs(
+pub fn move_networked_player_objs(
     mut player_heads: Query<
         (&mut Transform, &PlayerID),
         (

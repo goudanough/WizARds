@@ -1,3 +1,9 @@
+use bevy::prelude::*;
+use bevy_ggrs::{GgrsSchedule, PlayerInputs};
+use bevy_oxr::xr_input::hands::common::HandsResource;
+use bevy_oxr::xr_input::hands::HandBone;
+use bevy_oxr::xr_input::trackers::OpenXRTracker;
+
 use crate::{
     network::{LocalPlayerID, PlayerHead, PlayerID},
     speech::{collect_voice, recognise_voice, start_voice},
@@ -5,17 +11,14 @@ use crate::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
         TrajectoryIndicator,
     },
+    WizGgrsConfig,
 };
-use bevy::prelude::*;
-use bevy_ggrs::{GgrsSchedule, PlayerInputs};
-use bevy_oxr::xr_input::hands::common::HandsResource;
-use bevy_oxr::xr_input::hands::HandBone;
-use bevy_oxr::xr_input::trackers::OpenXRTracker;
+
 pub struct SpellControlPlugin;
-use crate::WizGgrsConfig;
 
 #[derive(Copy, Clone)]
 pub enum Spell {
+    // don't use 0! it's used to represent no spell in the player inputs
     Fireball = 1,
     Lightning = 2,
 }
@@ -48,15 +51,6 @@ pub struct SelectedSpell(pub Option<Spell>);
 
 #[derive(Resource, Clone)]
 pub struct QueuedSpell(pub Option<Spell>);
-
-impl Into<u32> for QueuedSpell {
-    fn into(self) -> u32 {
-        match self.0 {
-            Some(s) => s as u32,
-            None => 0,
-        }
-    }
-}
 
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {

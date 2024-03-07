@@ -10,18 +10,10 @@ mod projectile;
 mod speech;
 mod spell_control;
 mod spells;
-mod text;
-
-use crate::speech::SpeechPlugin;
-use crate::spell_control::SpellControlPlugin;
-use assets::AssetHandlesPlugin;
 mod xr;
 
-use crate::xr::scene::QuestScene;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use bevy::render::settings::{RenderCreation, WgpuFeatures, WgpuSettings};
-use bevy::render::RenderPlugin;
 use bevy::transform::components::Transform;
 use bevy_ggrs::GgrsConfig;
 #[cfg(target_os = "android")]
@@ -29,22 +21,11 @@ use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
 #[cfg(target_os = "android")]
-use bevy_oxr::xr_input::hands::common::{HandInputDebugRenderer, OpenXrHandInput};
-use bevy_oxr::xr_input::hands::common::{
-    HandResource, HandsResource, IndexResource, LittleResource, MiddleResource, RingResource,
-    ThumbResource,
-};
-use bevy_oxr::xr_input::hands::HandBone;
-use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker};
+use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
 #[cfg(target_os = "android")]
 use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
 use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use health_bar::HealthBarPlugin;
-use network::NetworkPlugin;
-use projectile::ProjectilePlugin;
-use spells::SpellsPlugin;
-use text::TextPlugin;
 
 const FPS: usize = 72;
 
@@ -79,8 +60,6 @@ pub fn main() {
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_plugins(NetworkPlugin)
-        .add_plugins(boss::BossPlugin)
         .add_plugins(PhysicsPlugins::default())
         .add_plugins(ProjectilePlugin)
         .add_plugins(SpeechPlugin)
@@ -124,17 +103,20 @@ pub fn main() {
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)
         //.add_plugins(HandInputDebugRenderer)
-        .add_plugins(QuestScene);
+        .add_plugins(xr::scene::QuestScene);
     }
 
     #[cfg(not(target_os = "android"))]
     {
+        use bevy::render::settings::{RenderCreation, WgpuFeatures, WgpuSettings};
+        use bevy::render::RenderPlugin;
         app.add_plugins(DefaultPlugins.set(RenderPlugin {
             render_creation: RenderCreation::Automatic(WgpuSettings {
                 // WARN this is a native only feature. It will not work with webgl or webgpu
                 features: WgpuFeatures::POLYGON_MODE_LINE,
                 ..default()
             }),
+            ..default()
         }))
         .add_systems(Startup, spawn_camera)
         .add_systems(Startup, spoof_xr_components);
@@ -146,6 +128,7 @@ pub fn main() {
 #[derive(Component)]
 struct PancakeCamera;
 
+#[cfg(not(target_os = "android"))]
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
@@ -157,12 +140,7 @@ fn spawn_camera(mut commands: Commands) {
 }
 
 /// set up a simple 3D scene
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut clear_color: ResMut<ClearColor>,
-) {
+fn setup(mut commands: Commands, mut clear_color: ResMut<ClearColor>) {
     clear_color.0 = Color::Rgba {
         red: 0.0,
         green: 0.0,
@@ -181,7 +159,19 @@ fn setup(
     });
 }
 
+#[cfg(not(target_os = "android"))]
 fn spoof_xr_components(mut commands: Commands) {
+    use bevy_oxr::xr_input::{
+        hands::{
+            common::{
+                HandResource, HandsResource, IndexResource, LittleResource, MiddleResource,
+                RingResource, ThumbResource,
+            },
+            HandBone,
+        },
+        trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
+    };
+
     commands.spawn((Transform::from_xyz(1.0, 2.0, 1.1), OpenXRLeftEye));
     commands.spawn((Transform::from_xyz(1.0, 2.0, 0.9), OpenXRRightEye));
 

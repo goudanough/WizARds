@@ -14,10 +14,10 @@ path = "src/main.rs"
 
 [dependencies]
 ash = "0.37.3"
-bevy = { git = "https://github.com/bevyengine/bevy", rev = "d4132f661a8a567fd3f9c3b329c2b4032bb1e05e" }
-bevy_xpbd_3d = { git = "https://github.com/goudanough/bevy_xpbd", rev = "771276761479c2d5bd8f814e3f9164c39103f083" }
-bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "d2a4b79b01b1dab4412015177026664ff1947121", default-features = false }
-bevy_ggrs = { git = "https://github.com/goudanough/bevy_ggrs", rev = "b9ef8772fc39f1bc166df7588b69b0760fc3437f" }
+bevy = "0.13"
+bevy_xpbd_3d = "0.4.2"
+bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "13d3d1773e019886cd98824fd937527c1024543e", default-features = false }
+bevy_ggrs = "0.15.0"
 bytemuck = { version = "1.14.1", features = ["derive"] }
 
 
@@ -26,6 +26,9 @@ crossbeam = "0.8.4"
 vosk = "0.2.0"
 wgpu = "0.19.1"
 zip = "0.6.6"
+
+[patch.crates-io]
+ggrs = { git = "https://github.com/goudanough/ggrs", rev = "78b59934ac964c4fad47908e922f520b4a3228bf" }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android-activity = "0.5.2"
