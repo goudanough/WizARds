@@ -46,10 +46,10 @@ pub enum SpellStatus {
 }
 
 #[derive(Resource)]
-pub struct FingerDistsClose(pub bool);
+pub struct SpellRecognitionActive(pub bool);
 
 #[derive(Resource)]
-pub struct PalmMidPoint(pub Vec3);
+pub struct SpellSpawnLocation(pub Vec3);
 
 #[derive(Resource)]
 pub struct SelectedSpell(pub Option<Spell>);
@@ -62,8 +62,8 @@ impl Plugin for SpellControlPlugin {
         app.init_state::<SpellStatus>()
             .insert_resource(SelectedSpell(None))
             .insert_resource(QueuedSpell(None))
-            .insert_resource(FingerDistsClose(false))
-            .insert_resource(PalmMidPoint(Vec3 {
+            .insert_resource(SpellRecognitionActive(false))
+            .insert_resource(SpellSpawnLocation(Vec3 {
                 x: 0.0,
                 y: 0.0,
                 z: 0.0,
@@ -111,7 +111,7 @@ impl Plugin for SpellControlPlugin {
 fn check_spell_select_input(
     spell_state: Res<State<SpellStatus>>,
     mut next_spell_state: ResMut<NextState<SpellStatus>>,
-    finger_dist_close: Res<FingerDistsClose>,
+    finger_dist_close: Res<SpellRecognitionActive>,
 ) {
     if SpellStatus::None == *spell_state.get() && finger_dist_close.0 {
         next_spell_state.set(SpellStatus::VoiceRecording);
@@ -121,7 +121,7 @@ fn check_spell_select_input(
 fn check_finger_dists(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
-    mut finger_dist_close: ResMut<FingerDistsClose>,
+    mut finger_dist_close: ResMut<SpellRecognitionActive>,
 ) {
     let thumb_dists = (hand_bones
         .get(hands_resource.left.thumb.tip)
@@ -155,7 +155,7 @@ fn check_finger_dists(
 
 fn check_spell_fire_input(
     mut next_spell_state: ResMut<NextState<SpellStatus>>,
-    finger_dist_close: Res<FingerDistsClose>,
+    finger_dist_close: Res<SpellRecognitionActive>,
 ) {
     if !finger_dist_close.0 {
         next_spell_state.set(SpellStatus::Fire)
@@ -204,7 +204,7 @@ fn spawn_new_spell_entities(
     inputs: Res<PlayerInputs<WizGgrsConfig>>,
     mut commands: Commands,
     player_objs: Query<&PlayerID, With<PlayerHead>>,
-    palm_mid_point_res: Res<PalmMidPoint>,
+    spawn_location: Res<SpellSpawnLocation>,
 ) {
     for p in player_objs.iter() {
         let input = inputs[p.handle].0;
@@ -217,7 +217,7 @@ fn spawn_new_spell_entities(
                 &mut commands,
                 input,
                 p.handle,
-                palm_mid_point_res.0,
+                spawn_location.0,
                 head_transform,
             );
         }
@@ -227,7 +227,7 @@ fn spawn_new_spell_entities(
 fn palm_mid_point_track(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
-    mut palm_mid_point_res: ResMut<PalmMidPoint>,
+    mut palms_mid_point_res: ResMut<SpellSpawnLocation>,
 ) {
     let left_palm = hand_bones
         .get(hands_resource.left.palm)
@@ -239,5 +239,5 @@ fn palm_mid_point_track(
         .unwrap()
         .translation;
 
-    palm_mid_point_res.0 = left_palm.lerp(right_palm, 0.5);
+    palms_mid_point_res.0 = left_palm.lerp(right_palm, 0.5);
 }

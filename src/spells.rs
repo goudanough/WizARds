@@ -6,7 +6,7 @@ use bevy_xpbd_3d::plugins::spatial_query::{SpatialQuery, SpatialQueryFilter};
 use crate::assets::{AssetHandles, MatName, MeshName};
 use crate::network::{move_networked_player_objs, PlayerID};
 use crate::projectile::{spawn_projectile, update_linear_movement, ProjectileType};
-use crate::spell_control::{PalmMidPoint, SelectedSpell, Spell};
+use crate::spell_control::{SelectedSpell, Spell, SpellSpawnLocation};
 use crate::{PhysLayer, PlayerInput};
 
 pub struct SpellsPlugin;
@@ -115,7 +115,7 @@ pub fn spawn_spell_indicator(
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
     selected_spell: Res<SelectedSpell>,
-    palm_mid_point: Res<PalmMidPoint>,
+    palm_mid_point: Res<SpellSpawnLocation>,
 ) {
     match selected_spell.0.unwrap() {
         Spell::Fireball => commands.spawn((
@@ -144,7 +144,7 @@ pub fn spawn_spell_indicator(
 pub fn spawn_trajectory_indicator(
     mut commands: Commands,
     selected_spell: Res<SelectedSpell>,
-    palm_mid_point: Res<PalmMidPoint>,
+    palm_mid_point: Res<SpellSpawnLocation>,
 ) {
     match selected_spell.0.unwrap() {
         Spell::Fireball => {
@@ -177,7 +177,7 @@ fn handle_straight_laser_traj_ind(
     mut gizmos: Gizmos,
     left_eye: Query<&Transform, (With<OpenXRLeftEye>, Without<StraightLaserTrajInd>)>,
     right_eye: Query<&Transform, (With<OpenXRRightEye>, Without<StraightLaserTrajInd>)>,
-    palm_mid_point: Res<PalmMidPoint>,
+    palm_mid_point: Res<SpellSpawnLocation>,
 ) {
     let left_eye = left_eye.get_single().unwrap();
     let right_eye = right_eye.get_single().unwrap();
@@ -213,7 +213,7 @@ fn handle_straight_laser_traj_ind(
 }
 
 fn track_spell_indictator(
-    palm_mid_point: Res<PalmMidPoint>,
+    palm_mid_point: Res<SpellSpawnLocation>,
     mut spell_indictator: Query<&mut Transform, With<SpellIndicator>>,
 ) {
     let mut t = match spell_indictator.get_single_mut() {

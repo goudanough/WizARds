@@ -10,7 +10,7 @@ use cpal::{
 use crossbeam::queue::ArrayQueue;
 use vosk::*;
 
-use crate::spell_control::{FingerDistsClose, SelectedSpell, Spell, SpellStatus};
+use crate::spell_control::{SelectedSpell, Spell, SpellRecognitionActive, SpellStatus};
 
 const BUFFER_SIZE: usize = 10000;
 
@@ -162,17 +162,14 @@ pub fn recognise_voice(
     mut next_spell_state: ResMut<NextState<SpellStatus>>,
     mut selected_spell: ResMut<SelectedSpell>,
     time: Res<Time>,
-    mut config: ResMut<RecognitionTimer>,
-    finger_dist: Res<FingerDistsClose>,
+    mut recognition_timer: ResMut<RecognitionTimer>,
+    finger_dist: Res<SpellRecognitionActive>,
 ) {
-    config.timer.tick(time.delta());
-
-    if config.timer.finished() && finger_dist.0 {
+    if recognition_timer.timer.tick(time.delta()).just_finished() && finger_dist.0 {
         let mut averaged_channel_data: Vec<i16> = Vec::new();
         for index in (1..clip.data.len()).step_by(2) {
             averaged_channel_data.push((clip.data[index - 1] + clip.data[index]) / 2);
         }
-        clip.data.clear();
 
         recogniser.0.accept_waveform(&averaged_channel_data);
         let result: CompleteResultSingle = recogniser
@@ -181,13 +178,19 @@ pub fn recognise_voice(
             .single()
             .expect("Expect a single result, got one with alternatives");
         let last_word = result.text.split_whitespace().last().unwrap_or("");
-        println!("detected word: {}", last_word);
 
         let (next_s, s_spell) = match last_word {
-            "fireball" => (SpellStatus::Armed, Some(Spell::Fireball)),
-            "lightning" => (SpellStatus::Armed, Some(Spell::Lightning)),
+            "fireball" => {
+                clip.data.clear();
+                (SpellStatus::Armed, Some(Spell::Fireball))
+            }
+            "lightning" => {
+                clip.data.clear();
+                (SpellStatus::Armed, Some(Spell::Lightning))
+            }
             _ => (SpellStatus::None, None),
         };
+
         next_spell_state.set(next_s);
         selected_spell.0 = s_spell;
     }
