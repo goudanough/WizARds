@@ -4777,6 +4777,7 @@ dependencies = [
  "ash",
  "bevy",
  "bevy_ggrs",
+ "bevy_math",
  "bevy_oxr",
  "bevy_xpbd_3d",
  "bytemuck",

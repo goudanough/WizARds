@@ -19,6 +19,7 @@ bevy_xpbd_3d = "0.4.2"
 bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "13d3d1773e019886cd98824fd937527c1024543e", default-features = false }
 bevy_ggrs = "0.15.0"
 bytemuck = { version = "1.14.1", features = ["derive"] }
+bevy_math = "0.13.0"
 
 
 cpal = "0.15.2"
