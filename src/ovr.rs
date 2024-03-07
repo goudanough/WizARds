@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use jni::{objects::JObject, JNIEnv};
+use std::ffi::CString;
 use std::os::raw::c_char;
 
 type OvrID = u64;
@@ -32,9 +33,10 @@ pub struct Ovr;
 impl Ovr {
     fn new() -> Self {
         let android_app = bevy::winit::ANDROID_APP.get().unwrap();
+        let app_name = CString::new("org.goudanough.wizARds").unwrap();
         unsafe {
             platform_initialize_android(
-                c"org.goudanough.wizARds".as_ptr(),
+                app_name.as_ptr(),
                 JObject::from_raw(android_app.activity_as_ptr() as *mut _),
                 jni::JavaVM::from_raw(android_app.vm_as_ptr() as *mut _)
                     .unwrap()
