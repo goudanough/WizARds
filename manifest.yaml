@@ -16,6 +16,8 @@ android:
           value: "vr_only"
         - name: "com.oculus.supportedDevices"
           value: "quest|quest2|quest3|questpro"
+        - name: "com.oculus.vr.focusaware"
+          value: "true"
       activities:
         - config_changes: "density|keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|uiMode"
           launch_mode: "singleTask"
@@ -36,10 +38,16 @@ android:
       - name: "android.permission.INTERNET"
       - name: "android.permission.ACCESS_NETWORK_STATE"
     uses_feature:
-      - name: "com.oculus.experimental.enabled"
       - name: "com.oculus.feature.PASSTHROUGH"
         required: true
       - name: "oculus.software.handtracking"
         required: true
+      - name: "android.hardware.vr.headtracking"
+        required: true
+        version: 1
+      - name: "android.hardware.vulkan.version"
+        required: true
+        version: 4206592 
     sdk:
       target_sdk_version: 32
+      min_sdk_version: 23
