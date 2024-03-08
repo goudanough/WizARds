@@ -15,7 +15,7 @@ mod xr;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::transform::components::Transform;
-use bevy_ggrs::{GgrsConfig, GgrsSchedule};
+use bevy_ggrs::GgrsConfig;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode};
 #[cfg(target_os = "android")]
@@ -26,6 +26,7 @@ use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
 use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
 use bevy_rapier3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
+use network::GgrsPhysics;
 
 const FPS: usize = 72;
 
@@ -71,10 +72,7 @@ pub fn main() {
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_plugins(RapierPhysicsPlugin::<NoUserData>::in_schedule(
-            RapierPhysicsPlugin::default(),
-            GgrsSchedule, // TODO WARN this is probably the wrong schedule
-        ))
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default().in_schedule(GgrsPhysics))
         .add_plugins(assets::AssetHandlesPlugin)
         .add_plugins(boss::BossPlugin)
         .add_plugins(network::NetworkPlugin)

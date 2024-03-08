@@ -1,11 +1,11 @@
 use bevy::prelude::*;
-use bevy_ggrs::{GgrsSchedule, PlayerInputs};
+use bevy_ggrs::PlayerInputs;
 use bevy_oxr::xr_input::hands::common::HandsResource;
 use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::OpenXRTracker;
 
 use crate::{
-    network::{LocalPlayerID, PlayerHead, PlayerID},
+    network::{GgrsUpdate, LocalPlayerID, PlayerHead, PlayerID},
     speech::{collect_voice, recognise_voice, start_voice},
     spells::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
@@ -85,7 +85,7 @@ impl Plugin for SpellControlPlugin {
             .add_systems(OnExit(SpellStatus::Armed), despawn_trajectory_indictaor)
             .add_systems(OnEnter(SpellStatus::Fire), queue_new_spell)
             .add_systems(OnExit(SpellStatus::Fire), despawn_trajectory_indictaor)
-            .add_systems(GgrsSchedule, spawn_new_spell_entities);
+            .add_systems(GgrsUpdate, spawn_new_spell_entities);
     }
 }
 

@@ -1,11 +1,11 @@
 use bevy::{ecs::query::QueryEntityError, prelude::*};
-use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
+use bevy_ggrs::AddRollbackCommandExtension;
 use bevy_rapier3d::{pipeline::CollisionEvent, prelude::*};
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
     boss::{BossHealth, BossPhase, CurrentPhase},
-    network::{move_networked_player_objs, PlayerID},
+    network::{move_networked_player_objs, GgrsPhysics, GgrsUpdate, PlayerID},
     PhysLayer,
 };
 
@@ -54,13 +54,14 @@ pub struct ProjectilePlugin;
 impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            GgrsSchedule,
+            GgrsUpdate,
             (
                 update_linear_movement.ambiguous_with(move_networked_player_objs), // TODO this might be a hack, but also might be how bevy_ggrs works
                 detect_projectile_collisions,
             )
                 .chain(),
         );
+        // .add_systems(GgrsPhysics, debug_proj_collisions);
     }
 }
 
@@ -73,6 +74,15 @@ pub fn update_linear_movement(
         t.translation += forward * s.0 * time.delta_seconds();
     }
 }
+
+// fn debug_proj_collisions(mut collisions: EventReader<CollisionEvent>) {
+//     for collision_event in collisions.read() {
+//         println!(
+//             "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMReceived collision event: {:?}",
+//             collision_event
+//         );
+//     }
+// }
 
 // TODO Make this better - function signature changes as we add more types of projectile which is bad.
 // instead of this we should create an bundle representing each collision and have these be processed by different systems.
@@ -92,6 +102,7 @@ fn detect_projectile_collisions(
             _ => None,
         })
         .for_each(|(e1, e2)| {
+            println!("MMMMMMMMMMM {:?}, {:?}", e1, e2);
             if let Ok((p, _)) = projectiles.get(*e1) {
                 handle_projectile_collision(
                     &mut commands,
@@ -173,6 +184,7 @@ pub fn spawn_projectile(
                         .difference(PhysLayer::Player.into())
                         .difference(PhysLayer::BossProj.into()),
                 },
+                Sensor,
                 Collider::ball(0.1),
             ))
             .add_rollback(),
@@ -193,6 +205,7 @@ pub fn spawn_projectile(
                         .difference(PhysLayer::Player.into())
                         .difference(PhysLayer::BossProj.into()),
                 },
+                Sensor,
                 Collider::ball(0.1),
             ))
             .add_rollback(),
@@ -213,6 +226,7 @@ pub fn spawn_projectile(
                         .difference(PhysLayer::Player.into())
                         .difference(PhysLayer::BossProj.into()),
                 },
+                Sensor,
                 Collider::ball(0.2),
             ))
             .add_rollback(),

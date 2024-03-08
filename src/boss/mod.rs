@@ -100,7 +100,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(0.0, 0.4, 0.0).with_scale(Vec3::new(1.0, 2.5, 1.0)),
             ..default()
         },
+        Sensor,
         Collider::cuboid(0.25, 0.25, 0.25),
+        ActiveEvents::COLLISION_EVENTS,
+        ActiveCollisionTypes::STATIC_STATIC,
         CollisionGroups {
             memberships: PhysLayer::Boss.into(),
             filters: Group::all().difference(PhysLayer::BossProj.into()),

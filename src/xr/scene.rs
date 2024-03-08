@@ -375,6 +375,7 @@ fn init_world_mesh(
 
         // Here we spawn our mesh that represents the room
         commands.spawn((
+            Sensor,
             Collider::trimesh(
                 vertices,
                 indices
@@ -382,6 +383,8 @@ fn init_world_mesh(
                     .map(|t| [t[0], t[1], t[2]])
                     .collect(),
             ),
+            ActiveEvents::COLLISION_EVENTS,
+            ActiveCollisionTypes::STATIC_STATIC,
             PbrBundle {
                 mesh: meshes.add(bevy_mesh),
                 material: materials.add(Color::rgba(0.0, 0.0, 0.0, 0.0)),

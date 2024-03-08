@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{ecs::schedule::ScheduleLabel, prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
 use bevy_oxr::xr_input::{
     hands::{common::HandsResource, HandBone},
@@ -43,6 +43,12 @@ struct ConnectionArgs {
 }
 pub struct NetworkPlugin;
 
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct GgrsUpdate;
+
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct GgrsPhysics;
+
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(GgrsPlugin::<WizGgrsConfig>::default())
@@ -65,8 +71,14 @@ impl Plugin for NetworkPlugin {
             .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)
             .add_systems(OnEnter(NetworkingState::Done), spawn_networked_player_objs)
             .add_systems(ReadInputs, read_local_inputs)
-            .add_systems(GgrsSchedule, move_networked_player_objs);
+            .add_systems(GgrsSchedule, run_ggrs_sub_schedules)
+            .add_systems(GgrsUpdate, move_networked_player_objs);
     }
+}
+
+fn run_ggrs_sub_schedules(world: &mut World) {
+    world.run_schedule(GgrsPhysics);
+    world.run_schedule(GgrsUpdate);
 }
 
 fn init(mut state: ResMut<NextState<NetworkingState>>) {
@@ -180,7 +192,10 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
     for i in 0..args.players.len() {
         commands
             .spawn((
+                Sensor,
                 Collider::ball(0.1),
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::STATIC_STATIC,
                 CollisionGroups {
                     memberships: PhysLayer::Player.into(),
                     filters: Group::all().difference(PhysLayer::PlayerProj.into()),
@@ -193,7 +208,10 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
             .add_rollback();
         commands
             .spawn((
+                Sensor,
                 Collider::ball(0.1),
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::STATIC_STATIC,
                 CollisionGroups {
                     memberships: PhysLayer::Player.into(),
                     filters: Group::all().difference(PhysLayer::PlayerProj.into()),
@@ -205,7 +223,10 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
             .add_rollback();
         commands
             .spawn((
+                Sensor,
                 Collider::ball(0.1),
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::STATIC_STATIC,
                 CollisionGroups {
                     memberships: PhysLayer::Player.into(),
                     filters: Group::all().difference(PhysLayer::PlayerProj.into()),
