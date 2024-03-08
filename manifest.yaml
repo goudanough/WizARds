@@ -6,6 +6,7 @@ android:
     - "runtime_libs"
   manifest:
     package: "com.github.goudanough.wizards"
+    install_location: "auto"
     application:
       label: "WizARds"
       theme: "@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
