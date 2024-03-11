@@ -1,0 +1,4 @@
+Privacy Policy
+
+This app accesses your Meta UserID, and no other information about the user.
+This UserID is stored in headset memory and only sent externally to Meta's servers to negotiate shared spatial anchors.
