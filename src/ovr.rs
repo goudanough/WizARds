@@ -33,7 +33,7 @@ pub struct Ovr;
 impl Ovr {
     fn new() -> Self {
         let android_app = bevy::winit::ANDROID_APP.get().unwrap();
-        let app_name = CString::new("org.goudanough.wizARds").unwrap();
+        let app_name = CString::new("7282911731788109").unwrap();
         unsafe {
             platform_initialize_android(
                 app_name.as_ptr(),

@@ -6,6 +6,8 @@ android:
     - "runtime_libs"
   manifest:
     package: "com.github.goudanough.wizards"
+    version_name: "0.0.1" 
+    version_code: 16777218
     install_location: "auto"
     application:
       label: "WizARds"

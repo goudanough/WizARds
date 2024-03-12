@@ -1,8 +1,5 @@
 use std::{
-    io::{self, Read},
-    net::{IpAddr, TcpStream},
-    ptr::null,
-    str::FromStr,
+    fs, io::{self, Read}, net::{IpAddr, TcpStream}, ptr::null, str::FromStr
 };
 
 use bevy::ecs::{
@@ -42,6 +39,7 @@ pub(super) fn client_init(mut commands: Commands) {
 pub(super) fn client_init(mut commands: Commands, ovr: Res<Ovr>) {
     // TODO: figure out how to get FB ID
     let id = ovr.get_logged_in_user_id();
+    fs::write("/storage/emulated/0/Android/data/com.github.goudanough.wizards/files/debug.log", format!("User ID: {id}"));
     panic!("User ID: {id}");
     let emitter = MulticastEmitter::new(SpaceUserFB::from_raw(id));
     commands.insert_resource(MulticastEmitterRes(emitter));
