@@ -5,8 +5,8 @@ use bevy_oxr::xr_input::hands::HandBone;
 use bevy_oxr::xr_input::trackers::OpenXRTracker;
 
 use crate::{
-    network::{PlayerHead, PlayerID, LOCAL_PLAYER_HNDL},
-    speech::{fetch_recogniser, get_recognized_words, RecordingStatus, VoiceClip},
+    network::{LOCAL_PLAYER_HNDL, PlayerHead, PlayerID},
+    speech::{check_fingers_close, fetch_recogniser, RecognizedWord, RecordingStatus, SpeechRecognizer},
     spells::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
         TrajectoryIndicator,
@@ -22,9 +22,6 @@ pub enum Spell {
     Fireball = 1,
     Lightning = 2,
 }
-
-#[derive(Resource)]
-pub struct SpellRecognizer(vosk::Recognizer);
 
 #[derive(Debug)]
 pub struct SpellConvError;
@@ -48,6 +45,9 @@ pub enum SpellStatus {
 }
 
 #[derive(Resource)]
+pub struct SpellSpawnLocation(pub Vec3);
+
+#[derive(Resource)]
 pub struct SelectedSpell(pub Option<Spell>);
 
 #[derive(Resource, Clone)]
@@ -58,10 +58,26 @@ const SPELL_GRAMMAR: [&str; 2] = ["fireball", "lightning"];
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<SpellStatus>()
-            .insert_resource(SpellRecognizer(fetch_recogniser(&SPELL_GRAMMAR)))
             .insert_resource(SelectedSpell(None))
             .insert_resource(QueuedSpell(None))
-            .add_systems(OnExit(RecordingStatus::Recording), select_spell)
+            // TODO: Inserting the grammar should be controlled by a proper game state machine. This is a temporary fix
+            .add_systems(
+                OnEnter(crate::network::NetworkingState::Done),
+                |mut commands: Commands| {
+                    commands.insert_resource(SpeechRecognizer(fetch_recogniser(&SPELL_GRAMMAR)))
+                },
+            )
+            .add_systems(OnEnter(RecordingStatus::Success), select_spell)
+            .insert_resource(SpellSpawnLocation(Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            }))
+            .add_systems(
+                Update,
+                palm_mid_point_track
+                    .run_if(in_state(SpellStatus::None).or_else(in_state(SpellStatus::Armed))),
+            )
             .add_systems(
                 Update,
                 check_spell_fire_input.run_if(in_state(SpellStatus::Armed)),
@@ -85,11 +101,7 @@ fn check_spell_fire_input(
     hands_resource: Res<HandsResource>,
     mut next_spell_state: ResMut<NextState<SpellStatus>>,
 ) {
-    let thumb_tip = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
-    let middle_tip = hand_bones.get(hands_resource.left.middle.tip).unwrap();
-    let thumb_middle_dist = (thumb_tip.translation - middle_tip.translation).length();
-
-    if thumb_middle_dist < 0.02 {
+    if !check_fingers_close(hand_bones, &hands_resource) {
         next_spell_state.set(SpellStatus::Fire)
     }
 }
@@ -133,29 +145,54 @@ fn spawn_new_spell_entities(
     inputs: Res<PlayerInputs<WizGgrsConfig>>,
     mut commands: Commands,
     player_objs: Query<&PlayerID, With<PlayerHead>>,
+    spawn_location: Res<SpellSpawnLocation>,
 ) {
     for p in player_objs.iter() {
         let input = inputs[p.handle].0;
+
+        let head_transform = Transform::from_translation(input.head_pos.lerp(input.head_pos, 0.5))
+            .with_rotation(input.head_rot);
+
         if input.spell != 0 {
-            spawn_spell(&mut commands, input, p.handle);
+            spawn_spell(
+                &mut commands,
+                input,
+                p.handle,
+                spawn_location.0,
+                head_transform,
+            );
         }
     }
 }
 
 fn select_spell(
-    clip: Res<VoiceClip>,
-    mut recogniser: ResMut<SpellRecognizer>,
+    word: Res<RecognizedWord>,
     mut next_spell_state: ResMut<NextState<SpellStatus>>,
     mut selected_spell: ResMut<SelectedSpell>,
 ) {
-    let words = get_recognized_words(&clip, &mut recogniser.0);
-    let last_word = words.last().unwrap_or("");
-
-    let (next_s, s_spell) = match last_word {
+    let (next_s, s_spell) = match &word.0[..] {
         "fireball" => (SpellStatus::Armed, Some(Spell::Fireball)),
         "lightning" => (SpellStatus::Armed, Some(Spell::Lightning)),
         _ => (SpellStatus::None, None),
     };
     next_spell_state.set(next_s);
     selected_spell.0 = s_spell;
+}
+
+fn palm_mid_point_track(
+    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
+    hands_resource: Res<HandsResource>,
+    mut palms_mid_point_res: ResMut<SpellSpawnLocation>,
+) {
+    let left_palm = hand_bones
+        .get(hands_resource.left.palm)
+        .unwrap()
+        .translation;
+
+    let right_palm = hand_bones
+        .get(hands_resource.right.palm)
+        .unwrap()
+        .translation;
+
+    palms_mid_point_res.0 = left_palm.lerp(right_palm, 0.5);
 }

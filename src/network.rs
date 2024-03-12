@@ -1,21 +1,28 @@
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
+#[cfg(target_os = "android")]
+use bevy_oxr::XrEvents;
 use bevy_oxr::{
     xr::sys::SpaceUserFB,
     xr_input::{
         hands::{common::HandsResource, HandBone},
         trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
     },
-    XrEvents,
 };
+
 use bevy_xpbd_3d::prelude::*;
 use std::{
-    io::{self, Read, Write}, net::{IpAddr, SocketAddr, TcpStream}, str::FromStr
+    io::{self, Read, Write},
+    net::{IpAddr, SocketAddr, TcpStream},
+    str::FromStr,
 };
+
+#[cfg(target_os = "android")]
+use crate::speech::{fetch_recogniser, SpeechRecognizer};
 
 use crate::{
     player,
-    speech::{fetch_recogniser, get_recognized_words, RecordingStatus, VoiceClip},
+    speech::{RecognizedWord, RecordingStatus},
     spell_control::QueuedSpell,
     xr::scene::SceneState,
     PhysLayer, PlayerInput, WizGgrsConfig, FPS,
@@ -27,7 +34,7 @@ mod multicast;
 
 // This series of states is used to represent what stage of device discovery we're in
 #[derive(States, Debug, Default, Hash, Eq, PartialEq, Clone)]
-enum NetworkingState {
+pub enum NetworkingState {
     #[default]
     HostClientMenu,
     HostWaiting,
@@ -79,9 +86,7 @@ const GGRS_PORT: u16 = 47511;
 #[derive(Resource)]
 struct RemoteAddresses(Vec<IpAddr>);
 
-#[derive(Resource)]
-pub struct MenuRecognizer(vosk::Recognizer);
-
+#[cfg(target_os = "android")]
 const MENU_GRAMMAR: [&str; 2] = ["host", "join"];
 
 pub struct NetworkPlugin;
@@ -93,14 +98,13 @@ impl Plugin for NetworkPlugin {
             .set_rollback_schedule_fps(FPS)
             .rollback_component_with_clone::<Transform>()
             .insert_resource(RemoteAddresses(Vec::new()))
-            .insert_resource(MenuRecognizer(fetch_recogniser(&MENU_GRAMMAR)))
             .init_state::<NetworkingState>()
             .init_state::<AwaitingAnchor>()
             .init_state::<AwaitingIps>()
             // On startup we need to allow a user to choose whether they want to host or join
             .add_systems(Startup, init)
             .add_systems(
-                OnExit(RecordingStatus::Recording),
+                OnEnter(RecordingStatus::Success),
                 menu_select.run_if(in_state(NetworkingState::HostClientMenu)),
             )
             // If the player chooses to host, we need to scan the room and open a multicast listener
@@ -158,33 +162,24 @@ impl Plugin for NetworkPlugin {
     }
 }
 
-fn init(mut state: ResMut<NextState<NetworkingState>>) {
-    // Here we'll need to create some prompt on startup
-    // This will allow users to select whether they're going to be acting
-    // as the host or a client that will be joining the game
-    #[cfg(target_os = "android")]
-    {}
-
-    // Devices that aren't the quest 3 should *only* be able to act as clients
-    #[cfg(not(target_os = "android"))]
-    {
-        state.0 = Some(NetworkingState::ClientEstablishConnection);
-    }
+#[cfg(target_os = "android")]
+fn init(mut commands: Commands) {
+    commands.insert_resource(SpeechRecognizer(fetch_recogniser(&MENU_GRAMMAR)));
 }
 
-fn menu_select(
-    clip: Res<VoiceClip>,
-    mut state: ResMut<NextState<NetworkingState>>,
-    mut recogniser: ResMut<MenuRecognizer>,
-) {
-    let words = get_recognized_words(&clip, &mut recogniser.0);
-    let last_word = words.last().unwrap_or("");
+// Devices that aren't the quest 3 should *only* be able to act as clients
+#[cfg(not(target_os = "android"))]
 
-    match last_word {
+fn init(mut state: ResMut<NextState<NetworkingState>>) {
+    state.set(NetworkingState::ClientEstablishConnection);
+}
+
+fn menu_select(word: Res<RecognizedWord>, mut state: ResMut<NextState<NetworkingState>>) {
+    match &*word.0 {
         "host" => {
             println!("Hosting session");
             state.set(NetworkingState::HostWaiting)
-        },
+        }
         "join" => {
             println!("Joining session");
             state.set(NetworkingState::ClientEstablishConnection)

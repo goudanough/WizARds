@@ -771,7 +771,7 @@ dependencies = [
 [[package]]
 name = "bevy_oxr"
 version = "0.1.0"
-source = "git+https://github.com/goudanough/bevy_oxr?branch=cant-stop-wont-stop#47d790f434d00bda1d528580fe0a9a7269df252d"
+source = "git+https://github.com/goudanough/bevy_oxr?rev=942e9f85a91d7ec7796661dfb62dcad6baa2753b#942e9f85a91d7ec7796661dfb62dcad6baa2753b"
 dependencies = [
  "anyhow",
  "ash",
