@@ -25,5 +25,11 @@ pub(crate) enum SceneState {
 }
 
 // This resource represents the anchor that the game will center around
+// This struct is to retain the XrSpace handle representing the mesh of the room
 #[derive(Resource)]
-pub struct MeshSpace(pub sys::Space);
+pub struct SpatialAnchors {
+    pub mesh: sys::Space,
+    pub floor: sys::Space,
+    pub walls: Vec<sys::Space>,
+    pub ceiling: sys::Space,
+}

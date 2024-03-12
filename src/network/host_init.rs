@@ -16,7 +16,7 @@ use bevy_oxr::{
 
 use crate::{
     oxr,
-    xr::{MeshSpace, SceneState},
+    xr::{SceneState, SpatialAnchors},
 };
 
 use super::{
@@ -102,12 +102,12 @@ pub(super) fn host_share_anchor(
     instance: Option<Res<XrInstance>>,
     session: Option<Res<XrSession>>,
     fb_ids: Res<FbIds>,
-    anchor: Res<MeshSpace>,
+    anchors: Res<SpatialAnchors>,
 ) {
     let (Some(instance), Some(session)) = (instance, session) else {
         return;
     };
-    let anchor = anchor.0;
+    let anchor = anchors.mesh;
     let fb_ids = &fb_ids.0;
     let vtable = instance.exts().fb_spatial_entity_sharing.unwrap();
     let info = SpaceShareInfoFB {
@@ -150,7 +150,7 @@ pub(super) fn host_inform_clients(
     addresses: Res<RemoteAddresses>,
     connections: Res<ClientConnections>,
     instace: Res<XrInstance>,
-    space: Res<MeshSpace>,
+    anchors: Res<SpatialAnchors>,
 ) {
     let (addresses, connections) = (&addresses.0, &connections.0);
 
@@ -158,7 +158,7 @@ pub(super) fn host_inform_clients(
     let mut uuid = UuidEXT {
         data: <[u8; UUID_SIZE_EXT]>::default(),
     };
-    oxr!((vtable.get_space_uuid)(space.0, &mut uuid));
+    oxr!((vtable.get_space_uuid)(anchors.mesh, &mut uuid));
     let uuid_num = u128::from_be_bytes(uuid.data);
     let msg_begin = format!("{uuid_num}");
 
