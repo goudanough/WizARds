@@ -6,7 +6,7 @@ use bevy_oxr::xr_input::trackers::OpenXRTracker;
 
 use crate::{
     network::{LocalPlayerID, PlayerHead, PlayerID},
-    speech::{fetch_recogniser, RecognizedWord, RecordingStatus, SpeechRecognizer},
+    speech::{check_fingers_close, fetch_recogniser, RecognizedWord, RecordingStatus, SpeechRecognizer},
     spells::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
         TrajectoryIndicator,
@@ -192,36 +192,4 @@ fn palm_mid_point_track(
         .translation;
 
     palms_mid_point_res.0 = left_palm.lerp(right_palm, 0.5);
-}
-
-fn check_fingers_close(
-    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
-    hands_resource: &HandsResource,
-) -> bool {
-    let thumb_dists = (hand_bones
-        .get(hands_resource.left.thumb.tip)
-        .unwrap()
-        .translation
-        - hand_bones
-            .get(hands_resource.right.thumb.tip)
-            .unwrap()
-            .translation)
-        .length();
-
-    let index_dists = (hand_bones
-        .get(hands_resource.left.index.tip)
-        .unwrap()
-        .translation
-        - hand_bones
-            .get(hands_resource.right.index.tip)
-            .unwrap()
-            .translation)
-        .length();
-
-    let mut spell_check_close = true;
-    for dist in [thumb_dists, index_dists] {
-        spell_check_close = spell_check_close && dist < 0.25;
-    }
-
-    spell_check_close
 }

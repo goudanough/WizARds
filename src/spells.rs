@@ -42,7 +42,7 @@ impl Plugin for SpellsPlugin {
         )
         .add_systems(
             Update,
-            (handle_straight_laser_traj_ind, track_spell_indictator),
+            (handle_straight_laser_traj_ind, track_spell_indicator),
         );
     }
 }
@@ -212,11 +212,11 @@ fn handle_straight_laser_traj_ind(
     ); // TODO don't use gizmos for line drawing
 }
 
-fn track_spell_indictator(
+fn track_spell_indicator(
     palm_mid_point: Res<SpellSpawnLocation>,
-    mut spell_indictator: Query<&mut Transform, With<SpellIndicator>>,
+    mut spell_indicator: Query<&mut Transform, With<SpellIndicator>>,
 ) {
-    let mut t = match spell_indictator.get_single_mut() {
+    let mut t = match spell_indicator.get_single_mut() {
         Ok(t) => t,
         _ => return,
     };

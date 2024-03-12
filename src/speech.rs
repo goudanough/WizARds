@@ -40,11 +40,6 @@ pub enum RecordingStatus {
     Success,
 }
 
-#[derive(Resource)]
-pub struct RecognitionTimer {
-    timer: Timer,
-}
-
 impl Plugin for SpeechPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<RecordingStatus>()
@@ -209,7 +204,7 @@ fn check_word_found(
     recording_state.set(RecordingStatus::Success);
 }
 
-fn check_fingers_close(
+pub(crate) fn check_fingers_close(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: &HandsResource,
 ) -> bool {
