@@ -1,4 +1,4 @@
-use std::{io::Write, mem::MaybeUninit, net::TcpStream, ptr::null};
+use std::{io::Write, net::TcpStream, ptr::null};
 
 use bevy::ecs::{
     schedule::NextState,
@@ -8,7 +8,7 @@ use bevy_oxr::{
     resources::{XrInstance, XrSession},
     xr::{
         self,
-        sys::{SpaceShareInfoFB, SpaceUserFB},
+        sys::{SpaceShareInfoFB, SpaceUserFB, UUID_SIZE_EXT},
         AsyncRequestIdFB, UuidEXT,
     },
     XrEvents,
@@ -42,7 +42,7 @@ pub(super) struct FbIds(Vec<u64>);
 // Create a multicast listener and insert it as a resource
 pub(super) fn host_init(mut commands: Commands, mut scan_state: ResMut<NextState<SceneState>>) {
     // Request a scene capture on hosting
-    scan_state.0 = Some(SceneState::Scanning);
+    scan_state.set(SceneState::Scanning);
 
     let listener = MulticastListener::new();
     commands.insert_resource(MulticastListenerRes(listener));
@@ -89,7 +89,7 @@ pub(super) fn host_establish_connections(
         if addresses.len() == 1 {
             // Drop the listener, we don't need it anymore
             commands.remove_resource::<MulticastListenerRes>();
-            state.0 = Some(NetworkingState::InitGgrs);
+            state.set(NetworkingState::InitGgrs);
             return;
         }
     }
@@ -122,12 +122,8 @@ pub(super) fn host_share_anchor(
             .collect::<Vec<_>>()
             .as_mut_ptr(),
     };
-    let mut request: MaybeUninit<AsyncRequestIdFB> = MaybeUninit::uninit();
-    oxr!((vtable.share_spaces)(
-        session.as_raw(),
-        &info,
-        request.as_mut_ptr()
-    ));
+    let mut request = AsyncRequestIdFB::default();
+    oxr!((vtable.share_spaces)(session.as_raw(), &info, &mut request));
 
     // Drop all the other user IDs
     commands.remove_resource::<FbIds>();
@@ -140,7 +136,7 @@ pub(super) fn host_wait_share_anchor(
     for event in &events.0 {
         let event = unsafe { xr::Event::from_raw(&(*event).inner) }.unwrap();
         if let xr::Event::SpaceShareCompleteFB(_) = event {
-            state.0 = Some(NetworkingState::InitGgrs)
+            state.set(NetworkingState::InitGgrs)
         }
     }
 }
@@ -157,9 +153,10 @@ pub(super) fn host_inform_clients(
     let (addresses, connections) = (&addresses.0, &connections.0);
 
     let vtable = instace.exts().fb_spatial_entity.unwrap();
-    let mut uuid: MaybeUninit<UuidEXT> = MaybeUninit::uninit();
-    oxr!((vtable.get_space_uuid)(space.0, uuid.as_mut_ptr()));
-    let uuid = unsafe { uuid.assume_init() };
+    let mut uuid = UuidEXT {
+        data: <[u8; UUID_SIZE_EXT]>::default(),
+    };
+    oxr!((vtable.get_space_uuid)(space.0, &mut uuid));
     let uuid_num = u128::from_be_bytes(uuid.data);
     let msg_begin = format!("{uuid_num}");
 

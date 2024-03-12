@@ -78,7 +78,7 @@ fn wait_scan_complete(events: NonSend<XrEvents>, mut state: ResMut<NextState<Sce
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
         if let Event::SceneCaptureCompleteFB(_) = event {
-            state.0 = Some(SceneState::QueryingScene)
+            state.set(SceneState::QueryingScene)
         };
     }
 }
@@ -268,7 +268,7 @@ fn wait_query_complete(
 
                     // Set the XrSpace handle as the one we'll use in init_world_mesh
                     commands.insert_resource(MeshSpace(space));
-                    state.0 = Some(SceneState::Done);
+                    state.set(SceneState::Done);
                     break;
                 }
             }

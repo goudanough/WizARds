@@ -184,7 +184,7 @@ fn init_ggrs(
 
     // add your GGRS session
     commands.insert_resource(Session::P2P(sess));
-    state.0 = Some(NetworkingState::Done);
+    state.set(NetworkingState::Done);
 }
 
 pub fn read_local_inputs(

@@ -1,5 +1,8 @@
 use std::{
-    fs, io::{self, Read}, net::{IpAddr, TcpStream}, ptr::null, str::FromStr
+    io::{self, Read},
+    net::{IpAddr, TcpStream},
+    ptr::null,
+    str::FromStr,
 };
 
 use bevy::ecs::{
@@ -37,10 +40,7 @@ pub(super) fn client_init(mut commands: Commands) {
 // Initialize the multicast emitter with our own SpaceUserFB ID
 #[cfg(target_os = "android")]
 pub(super) fn client_init(mut commands: Commands, ovr: Res<Ovr>) {
-    // TODO: figure out how to get FB ID
     let id = ovr.get_logged_in_user_id();
-    fs::write("/storage/emulated/0/Android/data/com.github.goudanough.wizards/files/debug.log", format!("User ID: {id}"));
-    panic!("User ID: {id}");
     let emitter = MulticastEmitter::new(SpaceUserFB::from_raw(id));
     commands.insert_resource(MulticastEmitterRes(emitter));
 }
@@ -60,7 +60,7 @@ pub(super) fn client_establish_tcp(
     // First we do a listen to see if we've got any incoming connections
     if let Some((stream, _)) = emit.accept() {
         commands.insert_resource(HostConnection(stream));
-        state.0 = Some(NetworkingState::ClientWaitForData);
+        state.set(NetworkingState::ClientWaitForData);
         return;
     } else {
         // If we there are no incoming requests then we emit a new multicast message
@@ -100,7 +100,7 @@ pub(super) fn client_await_data(
             commands.insert_resource(RemoteAddresses(ips));
             commands.remove_resource::<MulticastEmitterRes>();
             commands.remove_resource::<HostConnection>();
-            state.0 = Some(NetworkingState::Done);
+            state.set(NetworkingState::Done);
         }
         Err(err) if err.kind() == io::ErrorKind::WouldBlock => return,
         Err(err) if err.kind() == io::ErrorKind::ConnectionReset => return,
@@ -110,49 +110,45 @@ pub(super) fn client_await_data(
 
 pub(super) fn client_sync_anchor(
     scene_state: Option<ResMut<NextState<SceneState>>>,
-    instance: Option<Res<XrInstance>>,
-    session: Option<Res<XrSession>>,
+    instance: Res<XrInstance>,
+    session: Res<XrSession>,
     anchor: Res<AnchorUuid>,
 ) {
-    let (Some(instance), Some(session)) = (instance, session) else {
-        return;
-    };
-
-    let filter = Box::leak(Box::new(SpaceUuidFilterInfoFB {
+    let filter = SpaceUuidFilterInfoFB {
         ty: SpaceUuidFilterInfoFB::TYPE,
         next: null(),
         uuid_count: 1,
         uuids: [anchor.0].as_mut_ptr(),
-    }));
+    };
 
-    let filter = Box::leak(Box::new(SpaceStorageLocationFilterInfoFB {
+    let filter = SpaceStorageLocationFilterInfoFB {
         ty: SpaceStorageLocationFilterInfoFB::TYPE,
-        next: filter as *mut _ as *mut _,
+        next: &filter as *const _ as *const _,
         location: SpaceStorageLocationFB::CLOUD,
-    }));
+    };
 
-    let query = Box::leak(Box::new(SpaceQueryInfoFB {
+    let query = SpaceQueryInfoFB {
         ty: SpaceQueryInfoFB::TYPE,
         next: null(),
         query_action: SpaceQueryActionFB::LOAD,
         max_result_count: 20u32,
         timeout: Duration::NONE,
-        filter: filter as *const _ as *const _,
+        filter: &filter as *const _ as *const _,
         exclude_filter: null(),
-    }));
+    };
 
     let vtable = instance.exts().fb_spatial_entity_query.unwrap();
-    let mut request_id: AsyncRequestIdFB = AsyncRequestIdFB::from_raw(0);
+    let mut request_id = AsyncRequestIdFB::default();
 
     oxr!((vtable.query_spaces)(
         session.as_raw(),
-        query as *const _ as *const _,
+        &query as *const _ as *const _,
         &mut request_id,
     ));
 
     // If we're running this in conjunction with the ScenePlugin then we should
     // notify it that we're awaiting an anchor and it should handle that
     if let Some(mut scene_state) = scene_state {
-        scene_state.0 = Some(SceneState::QueryingScene);
+        scene_state.set(SceneState::QueryingScene);
     }
 }
