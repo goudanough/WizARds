@@ -35,6 +35,7 @@ android:
       - name: "com.oculus.permission.USE_SCENE"
       - name: "com.oculus.permission.HAND_TRACKING"
       - name: "com.oculus.permission.USE_ANCHOR_API"
+      - name: "com.oculus.permission.IMPORT_EXPORT_IOT_MAP_DATA"
       - name: "android.permission.RECORD_AUDIO"
       - name: "android.permission.WRITE_EXTERNAL_STORAGE"
       - name: "android.permission.READ_EXTERNAL_STORAGE"

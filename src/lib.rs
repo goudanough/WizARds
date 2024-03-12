@@ -78,16 +78,16 @@ pub fn main() {
             .enable_fb_passthrough()
             .enable_hand_tracking();
 
-        reqeusted_extensions.raw_mut().fb_scene = true;
-        reqeusted_extensions.raw_mut().fb_scene_capture = true;
-        reqeusted_extensions.raw_mut().fb_spatial_entity = true;
-        reqeusted_extensions.raw_mut().fb_spatial_entity_query = true;
-        reqeusted_extensions.raw_mut().fb_spatial_entity_storage = true;
-        reqeusted_extensions.raw_mut().fb_spatial_entity_container = true;
-        reqeusted_extensions.raw_mut().meta_spatial_entity_mesh = true;
-        reqeusted_extensions.raw_mut().fb_triangle_mesh = true;
-        reqeusted_extensions.raw_mut().khr_convert_timespec_time = true;
-        reqeusted_extensions.raw_mut().meta_environment_depth = true;
+        let mut exts = reqeusted_extensions.raw_mut();
+        exts.fb_scene = true;
+        exts.fb_scene_capture = true;
+        exts.fb_spatial_entity = true;
+        exts.fb_spatial_entity_query = true;
+        exts.fb_spatial_entity_storage = true;
+        exts.fb_spatial_entity_container = true;
+        exts.fb_spatial_entity_sharing = true;
+        exts.meta_spatial_entity_mesh = true;
+        exts.meta_environment_depth = true;
 
         app.add_plugins(
             (DefaultXrPlugins {

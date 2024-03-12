@@ -89,7 +89,7 @@ pub(super) fn host_establish_connections(
         if addresses.len() == 1 {
             // Drop the listener, we don't need it anymore
             commands.remove_resource::<MulticastListenerRes>();
-            state.set(NetworkingState::InitGgrs);
+            state.set(NetworkingState::HostSendData);
             return;
         }
     }
@@ -124,6 +124,7 @@ pub(super) fn host_share_anchor(
     };
     let mut request = AsyncRequestIdFB::default();
     oxr!((vtable.share_spaces)(session.as_raw(), &info, &mut request));
+    println!("Sharing space {anchor:?} with users {fb_ids:?}");
 
     // Drop all the other user IDs
     commands.remove_resource::<FbIds>();
@@ -136,6 +137,7 @@ pub(super) fn host_wait_share_anchor(
     for event in &events.0 {
         let event = unsafe { xr::Event::from_raw(&event.inner) }.unwrap();
         if let xr::Event::SpaceShareCompleteFB(_) = event {
+            println!("Finished sharing anchor");
             state.set(NetworkingState::InitGgrs)
         }
     }
