@@ -18,22 +18,22 @@ pub enum ProjectileType {
 #[derive(Component)]
 struct ProjectileHit(Entity);
 
-#[derive(Component)]
-struct DamageHit;
+#[derive(Component, Debug, Clone)]
+struct DamageHit(DamageMask, f32);
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 struct BossHit;
 #[derive(Debug, Default, Component)]
 pub struct LinearMovement(f32);
 
 #[derive(Debug, Component, Clone)]
 enum ProjectileHitEffect {
-    Damage(DamageMask, f32),
-    ResetPhase,
+    Damage(DamageHit),
+    ResetPhase(BossHit),
 }
 impl Default for ProjectileHitEffect {
     fn default() -> Self {
-        ProjectileHitEffect::Damage(DamageMask::FIRE, 10.)
+        ProjectileHitEffect::Damage(DamageHit(DamageMask::FIRE, 10.))
     }
 }
 
@@ -94,14 +94,14 @@ fn detect_projectile_collisions(
     for CollisionStarted(e1, e2) in collisions.read() {
         if let Ok((p, t)) = projectiles.get(*e1) {
             match p {
-                ProjectileHitEffect::Damage(_, _) => {
+                ProjectileHitEffect::Damage(damage_hit) => {
                     commands
-                        .spawn((ProjectileHit(*e2), *t, p.clone(), DamageHit))
+                        .spawn((ProjectileHit(*e2), *t, damage_hit.clone()))
                         .add_rollback();
                 }
-                ProjectileHitEffect::ResetPhase => {
+                ProjectileHitEffect::ResetPhase(boss_hit) => {
                     commands
-                        .spawn((ProjectileHit(*e2), *t, p.clone(), BossHit))
+                        .spawn((ProjectileHit(*e2), *t, boss_hit.clone()))
                         .add_rollback();
                 }
             }
@@ -110,14 +110,14 @@ fn detect_projectile_collisions(
         }
         if let Ok((p, t)) = projectiles.get(*e2) {
             match p {
-                ProjectileHitEffect::Damage(_, _) => {
+                ProjectileHitEffect::Damage(damage_hit) => {
                     commands
-                        .spawn((ProjectileHit(*e1), *t, p.clone(), DamageHit))
+                        .spawn((ProjectileHit(*e1), *t, damage_hit.clone()))
                         .add_rollback();
                 }
-                ProjectileHitEffect::ResetPhase => {
+                ProjectileHitEffect::ResetPhase(boss_hit) => {
                     commands
-                        .spawn((ProjectileHit(*e1), *t, p.clone(), BossHit))
+                        .spawn((ProjectileHit(*e1), *t, boss_hit.clone()))
                         .add_rollback();
                 }
             }
@@ -128,15 +128,13 @@ fn detect_projectile_collisions(
 
 fn handle_damage_hits(
     mut commands: Commands,
-    hits: Query<(&ProjectileHitEffect, &Transform, &ProjectileHit, Entity), With<DamageHit>>,
+    hits: Query<(&Transform, &ProjectileHit, Entity, &DamageHit)>,
     mut boss_health: Query<&mut BossHealth>,
 ) {
-    for (hit_effect, _transform, p_hit, e) in hits.iter() {
+    for (_transform, p_hit, e, d) in hits.iter() {
         if let Ok(mut h) = boss_health.get_mut(p_hit.0) {
-            if let ProjectileHitEffect::Damage(m, d) = hit_effect {
-                if h.damage_mask.intersect(m) {
-                    h.current -= d;
-                }
+            if h.damage_mask.intersect(&d.0) {
+                h.current -= d.1;
             }
         }
         commands.entity(e).despawn();
@@ -145,11 +143,11 @@ fn handle_damage_hits(
 
 fn handle_boss_hits(
     mut commands: Commands,
-    hits: Query<(&ProjectileHitEffect, &Transform, &ProjectileHit, Entity), With<BossHit>>,
+    hits: Query<(&Transform, &ProjectileHit, Entity), With<BossHit>>,
     mut next_phase: ResMut<NextState<BossPhase>>,
     players: Query<&PlayerID>,
 ) {
-    for (_, _transform, p_hit, e) in hits.iter() {
+    for (_transform, p_hit, e) in hits.iter() {
         if players.get(p_hit.0).is_ok() {
             next_phase.set(BossPhase::Reset)
         }
@@ -174,7 +172,7 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(3.0),
-                ProjectileHitEffect::Damage(DamageMask::FIRE, 25.0),
+                ProjectileHitEffect::Damage(DamageHit(DamageMask::FIRE, 25.0)),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
                     .remove_mask(PhysLayer::Player)
@@ -193,7 +191,7 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(6.0),
-                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 25.0),
+                ProjectileHitEffect::Damage(DamageHit(DamageMask::LIGHTNING, 25.0)),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::PlayerProjectile)
                     .remove_mask(PhysLayer::Player)
@@ -212,7 +210,7 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(1.0),
-                ProjectileHitEffect::ResetPhase,
+                ProjectileHitEffect::ResetPhase(BossHit),
                 CollisionLayers::all_masks::<PhysLayer>()
                     .add_group(PhysLayer::BossProjectile)
                     .remove_mask(PhysLayer::Boss)
