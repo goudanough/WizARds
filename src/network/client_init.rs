@@ -61,7 +61,6 @@ pub(super) fn client_establish_tcp(
     if let Some((stream, _)) = emit.accept() {
         commands.insert_resource(HostConnection(stream));
         state.set(NetworkingState::ClientWaitForData);
-        return;
     } else {
         // If we there are no incoming requests then we emit a new multicast message
         // TODO: put this on a timer
@@ -80,6 +79,7 @@ pub(super) fn client_await_data(
     let stream = &mut stream.0;
     let mut buf = Vec::new();
 
+    use io::ErrorKind::*;
     match stream.read_to_end(&mut buf) {
         Ok(len) => {
             // Gather the Space ID and all valid IPs from the message we've been sent
@@ -102,10 +102,9 @@ pub(super) fn client_await_data(
             commands.remove_resource::<HostConnection>();
             state.set(NetworkingState::Done);
         }
-        Err(err) if err.kind() == io::ErrorKind::WouldBlock => return,
-        Err(err) if err.kind() == io::ErrorKind::ConnectionReset => return,
+        Err(err) if matches!(err.kind(), WouldBlock | ConnectionReset) => {}
         Err(err) => panic!("{err:?} on {:?}", stream),
-    };
+    }
 }
 
 pub(super) fn client_sync_anchor(

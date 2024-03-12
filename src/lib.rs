@@ -66,7 +66,6 @@ pub fn main() {
         .add_plugins(PhysicsPlugins::default())
         .add_plugins(assets::AssetHandlesPlugin)
         .add_plugins(boss::BossPlugin)
-        .add_plugins(network::NetworkPlugin)
         .add_plugins(projectile::ProjectilePlugin)
         .add_plugins(spell_control::SpellControlPlugin)
         .add_plugins(spells::SpellsPlugin)
@@ -125,7 +124,8 @@ pub fn main() {
         .add_systems(Startup, spoof_xr_components);
     }
 
-    app.add_plugins(WireframePlugin)
+    app.add_plugins(network::NetworkPlugin)
+        .add_plugins(WireframePlugin)
         .insert_resource(WireframeConfig {
             global: true,
             default_color: Color::TURQUOISE,

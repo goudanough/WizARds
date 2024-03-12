@@ -1,8 +1,11 @@
 use std::ptr::{null, null_mut};
 
+use super::SceneState;
 use crate::{oxr, xr::MeshSpace, PhysLayer};
 use bevy::{
-    pbr::wireframe::Wireframe, prelude::*, render::{mesh, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology}
+    pbr::wireframe::Wireframe,
+    prelude::*,
+    render::{mesh, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
 };
 use bevy_oxr::{
     input::XrInput,
@@ -19,15 +22,6 @@ use bevy_oxr::{
     XrEvents,
 };
 use bevy_xpbd_3d::prelude::*;
-
-#[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
-pub enum SceneState {
-    #[default]
-    Uninit,
-    Scanning,
-    QueryingScene,
-    Done,
-}
 
 pub struct QuestScene;
 
@@ -386,7 +380,7 @@ fn init_world_mesh(
             },
             CollisionLayers::new(PhysLayer::Terrain, LayerMask::ALL),
             RigidBody::Static,
-            Wireframe
+            Wireframe,
         ));
     } else {
         todo!("Fall back to regular scene API when XR_META_spatial_entity_mesh not available")

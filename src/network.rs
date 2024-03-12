@@ -1,21 +1,25 @@
-use bevy::{prelude::*, utils::HashMap};
-use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
-use bevy_oxr::xr_input::{
-    hands::{common::HandsResource, HandBone},
-    trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
-};
-
-use bevy_xpbd_3d::prelude::*;
-use std::net::{IpAddr, SocketAddr};
-
-use crate::{player, speech::{RecognizedWord, RecordingStatus}, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
-
 use self::{
     client_init::{client_await_data, client_establish_tcp, client_sync_anchor},
     host_init::{
         host_establish_connections, host_inform_clients, host_share_anchor, host_wait_share_anchor,
     },
 };
+#[cfg(target_os = "android")]
+use crate::speech::{fetch_recogniser, SpeechRecognizer};
+use crate::{
+    player,
+    speech::{RecognizedWord, RecordingStatus},
+    spell_control::QueuedSpell,
+    PhysLayer, PlayerInput, WizGgrsConfig, FPS,
+};
+use bevy::{prelude::*, utils::HashMap};
+use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
+use bevy_oxr::xr_input::{
+    hands::{common::HandsResource, HandBone},
+    trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
+};
+use bevy_xpbd_3d::prelude::*;
+use std::net::{IpAddr, SocketAddr};
 
 mod client_init;
 mod host_init;
@@ -163,7 +167,7 @@ fn init_ggrs(
     // create a GGRS session
     let mut sess_build = SessionBuilder::<WizGgrsConfig>::new()
         .with_num_players(addresses.len() + 1)
-        .add_player(PlayerType::Local, 0)
+        .add_player(PlayerType::Local, LOCAL_PLAYER_HNDL)
         .unwrap();
     // .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
     // .with_max_prediction_window(12).expect("prediction window can't be 0") // (optional) set max prediction window

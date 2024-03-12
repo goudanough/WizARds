@@ -13,7 +13,7 @@ const MULTICAST_SOCKET: (Ipv4Addr, u16) = (MULTICAST_ADDRESS, MULTICAST_PORT);
 
 const MULTICAST_MTU: usize = 1500;
 
-pub fn decode(msg: Box<[u8]>) -> Option<(u16, u64)> {
+pub fn decode(msg: &[u8]) -> Option<(u16, u64)> {
     let msg_parts = msg.split(|b| *b == b':').collect::<Vec<&[u8]>>();
     if msg_parts.len() != 3 {
         // Should contain three segments
@@ -85,7 +85,7 @@ impl MulticastEmitter {
         )
         .unwrap();
         self.socket
-            .send_to(&msg.as_bytes(), MULTICAST_SOCKET)
+            .send_to(msg.as_bytes(), MULTICAST_SOCKET)
             .unwrap();
     }
 

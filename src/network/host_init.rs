@@ -70,7 +70,7 @@ pub(super) fn host_establish_connections(
         }
 
         // Attempt to decode the message into a TCP port and ID
-        let Some((port, fb_id)) = multicast::decode(msg) else {
+        let Some((port, fb_id)) = multicast::decode(&msg) else {
             continue;
         };
 
@@ -117,7 +117,7 @@ pub(super) fn host_share_anchor(
         spaces: [anchor].as_mut_ptr(),
         user_count: fb_ids.len() as u32,
         users: fb_ids
-            .into_iter()
+            .iter()
             .map(|id| SpaceUserFB::from_raw(*id))
             .collect::<Vec<_>>()
             .as_mut_ptr(),
@@ -134,7 +134,7 @@ pub(super) fn host_wait_share_anchor(
     mut state: ResMut<NextState<NetworkingState>>,
 ) {
     for event in &events.0 {
-        let event = unsafe { xr::Event::from_raw(&(*event).inner) }.unwrap();
+        let event = unsafe { xr::Event::from_raw(&event.inner) }.unwrap();
         if let xr::Event::SpaceShareCompleteFB(_) = event {
             state.set(NetworkingState::InitGgrs)
         }

@@ -237,7 +237,7 @@ impl bevy::prelude::Plugin for EnvDepthPlugin {
 
 fn extract_eyes(mut cmds: Commands, query: Extract<Query<(Entity, &XrCameraType)>>) {
     for (id, cam_ty) in query.iter() {
-        cmds.get_or_spawn(id).insert(cam_ty.clone());
+        cmds.get_or_spawn(id).insert(*cam_ty);
     }
 }
 
