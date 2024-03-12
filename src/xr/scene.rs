@@ -250,7 +250,13 @@ fn wait_query_complete(
                         timeout: Duration::NONE,
                     };
                     let mut request = sys::AsyncRequestIdFB::default();
-                    // TODO: Actually handle this async request.
+                    // TODO: Actually handle these async requests.
+                    oxr!((vtable.set_space_component_status)(
+                        space,
+                        &mut status,
+                        &mut request
+                    ));
+                    status.component_type = SpaceComponentTypeFB::SHARABLE;
                     oxr!((vtable.set_space_component_status)(
                         space,
                         &mut status,
