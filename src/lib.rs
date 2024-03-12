@@ -16,6 +16,7 @@ mod xr;
 mod ovr;
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy_ggrs::GgrsConfig;
 #[cfg(target_os = "android")]
@@ -123,6 +124,12 @@ pub fn main() {
         .add_systems(Startup, spawn_camera)
         .add_systems(Startup, spoof_xr_components);
     }
+
+    app.add_plugins(WireframePlugin)
+        .insert_resource(WireframeConfig {
+            global: true,
+            default_color: Color::TURQUOISE,
+        });
 
     app.run();
 }

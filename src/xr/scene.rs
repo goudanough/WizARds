@@ -2,8 +2,7 @@ use std::ptr::{null, null_mut};
 
 use crate::{oxr, xr::MeshSpace, PhysLayer};
 use bevy::{
-    prelude::*,
-    render::{mesh, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
+    pbr::wireframe::Wireframe, prelude::*, render::{mesh, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology}
 };
 use bevy_oxr::{
     input::XrInput,
@@ -387,6 +386,7 @@ fn init_world_mesh(
             },
             CollisionLayers::new(PhysLayer::Terrain, LayerMask::ALL),
             RigidBody::Static,
+            Wireframe
         ));
     } else {
         todo!("Fall back to regular scene API when XR_META_spatial_entity_mesh not available")
