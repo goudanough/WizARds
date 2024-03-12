@@ -1,6 +1,6 @@
-use std::sync::Arc;
 #[cfg(target_os = "android")]
 use std::{ffi::CString, path::Path};
+use std::{sync::Arc, time::Duration};
 
 use bevy::prelude::*;
 use bevy_oxr::xr_input::{
@@ -40,11 +40,17 @@ pub enum RecordingStatus {
     Success,
 }
 
+#[derive(Resource)]
+pub struct RecognitionTimer {
+    timer: Timer,
+}
+
 impl Plugin for SpeechPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<RecordingStatus>()
             .insert_resource(RecognizedWord("".to_owned()))
             .add_systems(Startup, setup_audio)
+            .add_systems(OnEnter(RecordingStatus::Recording), clear_audio_buf)
             .add_systems(OnExit(RecordingStatus::Recording), reset_recognizer)
             .add_systems(
                 OnEnter(RecordingStatus::Success),
@@ -90,7 +96,7 @@ pub(crate) fn fetch_recogniser(grammar: &[impl AsRef<str>]) -> Recognizer {
             "/storage/emulated/0/Android/data/com.github.goudanough.wizards/files/vosk-model",
         ) {
             Some(model) => break model,
-            None => println!("Failed to fetch vosk model, trying again."),
+            None => eprintln!("Failed to fetch vosk model, trying again."),
         }
     };
     // Attempt to create recogniser, repeat until successful, and return.
@@ -99,7 +105,7 @@ pub(crate) fn fetch_recogniser(grammar: &[impl AsRef<str>]) -> Recognizer {
             r.set_words(true);
             return r;
         } else {
-            println!("Failed to create recogniser, trying again.")
+            eprintln!("Failed to create recogniser, trying again.")
         }
     }
 }
@@ -147,6 +153,10 @@ fn queue_input_data(data: &[i16], queue: &Arc<ArrayQueue<i16>>) {
     }
 }
 
+fn clear_audio_buf(voice_buffer: ResMut<VoiceBuffer>) {
+    while voice_buffer.0.pop().is_some() {}
+}
+
 fn submit_recorded_buf(
     voice_buffer: ResMut<VoiceBuffer>,
     recognizer: Option<ResMut<SpeechRecognizer>>,
@@ -168,11 +178,7 @@ fn check_start_recording(
     hands_resource: Res<HandsResource>,
     mut recording_state: ResMut<NextState<RecordingStatus>>,
 ) {
-    let thumb_tip = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
-    let index_tip = hand_bones.get(hands_resource.left.index.tip).unwrap();
-    let thumb_index_dist = (thumb_tip.translation - index_tip.translation).length();
-
-    if thumb_index_dist < 0.02 {
+    if check_fingers_close(hand_bones, &hands_resource) {
         recording_state.set(RecordingStatus::Recording);
     }
 }
@@ -182,11 +188,7 @@ fn check_stop_recording(
     hands_resource: Res<HandsResource>,
     mut recording_state: ResMut<NextState<RecordingStatus>>,
 ) {
-    let thumb_tip = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
-    let index_tip = hand_bones.get(hands_resource.left.index.tip).unwrap();
-    let thumb_index_dist = (thumb_tip.translation - index_tip.translation).length();
-
-    if thumb_index_dist > 0.02 {
+    if !check_fingers_close(hand_bones, &hands_resource) {
         recording_state.set(RecordingStatus::Awaiting);
     }
 }
@@ -201,9 +203,41 @@ fn check_word_found(
     };
     let partial = recognizer.0.partial_result().partial;
     let last_word = partial.split_whitespace().last();
-    dbg!(partial);
     let Some(last_word) = last_word else { return };
     *word = RecognizedWord(last_word.to_string());
     recognizer.0.reset();
     recording_state.set(RecordingStatus::Success);
+}
+
+fn check_fingers_close(
+    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
+    hands_resource: &HandsResource,
+) -> bool {
+    let thumb_dists = (hand_bones
+        .get(hands_resource.left.thumb.tip)
+        .unwrap()
+        .translation
+        - hand_bones
+            .get(hands_resource.right.thumb.tip)
+            .unwrap()
+            .translation)
+        .length();
+
+    let index_dists = (hand_bones
+        .get(hands_resource.left.index.tip)
+        .unwrap()
+        .translation
+        - hand_bones
+            .get(hands_resource.right.index.tip)
+            .unwrap()
+            .translation)
+        .length();
+
+    let mut spell_check_close = true;
+
+    for dist in [thumb_dists, index_dists] {
+        spell_check_close = spell_check_close && dist < 0.25;
+    }
+
+    spell_check_close
 }

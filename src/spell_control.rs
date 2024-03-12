@@ -45,6 +45,9 @@ pub enum SpellStatus {
 }
 
 #[derive(Resource)]
+pub struct SpellSpawnLocation(pub Vec3);
+
+#[derive(Resource)]
 pub struct SelectedSpell(pub Option<Spell>);
 
 #[derive(Resource, Clone)]
@@ -59,6 +62,16 @@ impl Plugin for SpellControlPlugin {
             .insert_resource(SelectedSpell(None))
             .insert_resource(QueuedSpell(None))
             .add_systems(OnEnter(RecordingStatus::Success), select_spell)
+            .insert_resource(SpellSpawnLocation(Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            }))
+            .add_systems(
+                Update,
+                palm_mid_point_track
+                    .run_if(in_state(SpellStatus::None).or_else(in_state(SpellStatus::Armed))),
+            )
             .add_systems(
                 Update,
                 check_spell_fire_input.run_if(in_state(SpellStatus::Armed)),
@@ -82,11 +95,7 @@ fn check_spell_fire_input(
     hands_resource: Res<HandsResource>,
     mut next_spell_state: ResMut<NextState<SpellStatus>>,
 ) {
-    let thumb_tip = hand_bones.get(hands_resource.left.thumb.tip).unwrap();
-    let middle_tip = hand_bones.get(hands_resource.left.middle.tip).unwrap();
-    let thumb_middle_dist = (thumb_tip.translation - middle_tip.translation).length();
-
-    if thumb_middle_dist < 0.02 {
+    if !check_fingers_close(hand_bones, &hands_resource) {
         next_spell_state.set(SpellStatus::Fire)
     }
 }
@@ -133,11 +142,22 @@ fn spawn_new_spell_entities(
     inputs: Res<PlayerInputs<WizGgrsConfig>>,
     mut commands: Commands,
     player_objs: Query<&PlayerID, With<PlayerHead>>,
+    spawn_location: Res<SpellSpawnLocation>,
 ) {
     for p in player_objs.iter() {
         let input = inputs[p.handle].0;
+
+        let head_transform = Transform::from_translation(input.head_pos.lerp(input.head_pos, 0.5))
+            .with_rotation(input.head_rot);
+
         if input.spell != 0 {
-            spawn_spell(&mut commands, input, p.handle);
+            spawn_spell(
+                &mut commands,
+                input,
+                p.handle,
+                spawn_location.0,
+                head_transform,
+            );
         }
     }
 }
@@ -154,4 +174,54 @@ fn select_spell(
     };
     next_spell_state.set(next_s);
     selected_spell.0 = s_spell;
+}
+
+fn palm_mid_point_track(
+    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
+    hands_resource: Res<HandsResource>,
+    mut palms_mid_point_res: ResMut<SpellSpawnLocation>,
+) {
+    let left_palm = hand_bones
+        .get(hands_resource.left.palm)
+        .unwrap()
+        .translation;
+
+    let right_palm = hand_bones
+        .get(hands_resource.right.palm)
+        .unwrap()
+        .translation;
+
+    palms_mid_point_res.0 = left_palm.lerp(right_palm, 0.5);
+}
+
+fn check_fingers_close(
+    hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
+    hands_resource: &HandsResource,
+) -> bool {
+    let thumb_dists = (hand_bones
+        .get(hands_resource.left.thumb.tip)
+        .unwrap()
+        .translation
+        - hand_bones
+            .get(hands_resource.right.thumb.tip)
+            .unwrap()
+            .translation)
+        .length();
+
+    let index_dists = (hand_bones
+        .get(hands_resource.left.index.tip)
+        .unwrap()
+        .translation
+        - hand_bones
+            .get(hands_resource.right.index.tip)
+            .unwrap()
+            .translation)
+        .length();
+
+    let mut spell_check_close = true;
+    for dist in [thumb_dists, index_dists] {
+        spell_check_close = spell_check_close && dist < 0.25;
+    }
+
+    spell_check_close
 }
