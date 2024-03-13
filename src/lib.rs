@@ -82,12 +82,13 @@ pub fn main() {
         exts.fb_scene = true;
         exts.fb_scene_capture = true;
         exts.fb_spatial_entity = true;
+        exts.fb_spatial_entity_user = true;
         exts.fb_spatial_entity_query = true;
+        exts.fb_spatial_entity_sharing = true;
         exts.fb_spatial_entity_storage = true;
         exts.fb_spatial_entity_container = true;
-        exts.fb_spatial_entity_sharing = true;
-        exts.meta_spatial_entity_mesh = true;
         exts.meta_environment_depth = true;
+        exts.meta_spatial_entity_mesh = true;
 
         app.add_plugins(
             (DefaultXrPlugins {

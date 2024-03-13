@@ -13,11 +13,11 @@ use bevy_oxr::{
         sys::{
             self, RoomLayoutFB, Session, Space, SpaceComponentFilterInfoFB, SpaceComponentStatusFB,
             SpaceComponentStatusSetInfoFB, SpaceLocation, SpaceQueryInfoFB, SpaceQueryResultFB,
-            SpaceQueryResultsFB, UUID_SIZE_EXT,
+            SpaceQueryResultsFB, SpaceSaveInfoFB, SpatialAnchorCreateInfoFB, UUID_SIZE_EXT,
         },
-        Duration, Event, InstanceExtensions, Offset2Df, Posef, Rect2Df, SpaceComponentTypeFB,
-        SpaceLocationFlags, SpaceQueryActionFB, SpaceQueryResultsAvailableFB, StructureType,
-        UuidEXT, Vector3f,
+        AsyncRequestIdFB, Duration, Event, InstanceExtensions, Offset2Df, Posef, Rect2Df,
+        SpaceComponentTypeFB, SpaceLocationFlags, SpacePersistenceModeFB, SpaceQueryActionFB,
+        SpaceQueryResultsAvailableFB, SpaceStorageLocationFB, StructureType, UuidEXT, Vector3f,
     },
     XrEvents,
 };
@@ -42,9 +42,16 @@ impl Plugin for QuestScene {
                 Update,
                 wait_query_complete.run_if(in_state(SceneState::QueryingScene)),
             )
+            .add_systems(OnEnter(SceneState::Locating), create_sharable_anchor)
+            .add_systems(
+                Update,
+                wait_sharable_anchor.run_if(in_state(SceneState::Locating)),
+            )
             // .add_systems(Update, dbg_mesh_gizmos)
-            .add_systems(OnEnter(SceneState::Done), init_world_mesh)
-            .add_systems(OnEnter(SceneState::Done), init_room_layout);
+            .add_systems(
+                OnEnter(SceneState::Done),
+                (init_world_mesh, init_room_layout),
+            );
     }
 }
 
@@ -52,6 +59,7 @@ impl Plugin for QuestScene {
 // This relies on the extension listed at
 // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#XR_FB_scene_capture
 fn capture_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
+    println!("capture_scene");
     let vtable = instance.exts().fb_scene_capture.unwrap();
     let info = sys::SceneCaptureRequestInfoFB {
         ty: sys::SceneCaptureRequestInfoFB::TYPE,
@@ -69,6 +77,7 @@ fn capture_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
 
 // We wait for an XrEventDataSceneCaptureCompleteFB event
 fn wait_scan_complete(events: NonSend<XrEvents>, mut state: ResMut<NextState<SceneState>>) {
+    println!("wait_scan_complete");
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
         if let Event::SceneCaptureCompleteFB(_) = event {
@@ -81,6 +90,7 @@ fn wait_scan_complete(events: NonSend<XrEvents>, mut state: ResMut<NextState<Sce
 // This relies on the extension listed at
 // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#XR_FB_spatial_entity_query
 fn query_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
+    println!("query_scene");
     // TODO: Fix the filter
     // currently adding it gives an error "insight_QueryAnchorSpaces invalid filter flags provided: 24"
     let _filter = Box::leak(Box::new(SpaceComponentFilterInfoFB {
@@ -94,7 +104,7 @@ fn query_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
         ty: SpaceQueryInfoFB::TYPE,
         next: null(),
         query_action: SpaceQueryActionFB::LOAD,
-        max_result_count: 20u32,
+        max_result_count: 32,
         timeout: Duration::NONE,
         filter: null(),
         exclude_filter: null(),
@@ -150,7 +160,10 @@ fn get_query_results(
     results
 }
 
-fn get_supported_components(space: Space, exts: &InstanceExtensions) -> Vec<SpaceComponentTypeFB> {
+pub fn get_supported_components(
+    space: Space,
+    exts: &InstanceExtensions,
+) -> Vec<SpaceComponentTypeFB> {
     let vtable = exts.fb_spatial_entity.unwrap();
     let mut cnt = 0;
     // This call populates cnt with the number of supported components
@@ -249,6 +262,7 @@ fn wait_query_complete(
                     floor: sys::Space::NULL,
                     walls: Vec::new(),
                     ceiling: sys::Space::NULL,
+                    position: sys::Space::NULL,
                 };
                 let results = get_query_results(resultsAvailable, session.as_raw(), exts);
                 // I wish I could do this with a hashmap or something...
@@ -339,10 +353,100 @@ fn wait_query_complete(
                 }
                 // Set the XrSpace handle as the one we'll use in init_world_mesh
                 commands.insert_resource(room_layout);
-                state.0 = Some(SceneState::Done);
+                state.0 = Some(SceneState::Locating);
             }
             _ => {}
         }
+    }
+}
+
+fn create_sharable_anchor(
+    instance: Res<XrInstance>,
+    session: Res<XrSession>,
+    input: Res<XrInput>,
+    anchors: Res<SpatialAnchors>,
+    xr_frame_state: Res<XrFrameState>,
+) {
+    let vtable = instance.exts().fb_spatial_entity.unwrap();
+
+    let mut location = SpaceLocation {
+        ty: SpaceLocation::TYPE,
+        next: null_mut(),
+        location_flags: SpaceLocationFlags::EMPTY,
+        pose: Posef::IDENTITY,
+    };
+    oxr!((instance.fp().locate_space)(
+        anchors.floor,
+        input.stage.as_raw(),
+        xr_frame_state.lock().unwrap().predicted_display_time,
+        &mut location,
+    ));
+
+    let info = SpatialAnchorCreateInfoFB {
+        ty: SpatialAnchorCreateInfoFB::TYPE,
+        next: null(),
+        space: anchors.floor,
+        pose_in_space: location.pose,
+        time: xr_frame_state.lock().unwrap().predicted_display_time,
+    };
+    oxr!((vtable.create_spatial_anchor)(
+        session.as_raw(),
+        &info,
+        &mut AsyncRequestIdFB::default()
+    ));
+}
+
+fn wait_sharable_anchor(
+    instance: Res<XrInstance>,
+    session: Res<XrSession>,
+    events: NonSend<XrEvents>,
+    mut anchors: ResMut<SpatialAnchors>,
+    mut state: ResMut<NextState<SceneState>>,
+) {
+    let vtable = instance.exts().fb_spatial_entity.unwrap();
+    for event in &events.0 {
+        let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
+        if let Event::SpatialAnchorCreateCompleteFB(res) = event {
+            let space = res.space();
+            anchors.position = space;
+
+            let mut status = SpaceComponentStatusSetInfoFB {
+                ty: SpaceComponentStatusSetInfoFB::TYPE,
+                next: null(),
+                component_type: SpaceComponentTypeFB::STORABLE,
+                enabled: true.into(),
+                timeout: Duration::NONE,
+            };
+            oxr!((vtable.set_space_component_status)(
+                space,
+                &mut status,
+                &mut AsyncRequestIdFB::default()
+            ));
+
+            status.component_type = SpaceComponentTypeFB::SHARABLE;
+            oxr!((vtable.set_space_component_status)(
+                space,
+                &mut status,
+                &mut AsyncRequestIdFB::default()
+            ));
+
+            let vtable = instance.exts().fb_spatial_entity_storage.unwrap();
+            let info = SpaceSaveInfoFB {
+                ty: SpaceSaveInfoFB::TYPE,
+                next: null(),
+                space,
+                location: SpaceStorageLocationFB::CLOUD,
+                persistence_mode: SpacePersistenceModeFB::INDEFINITE,
+            };
+            oxr!((vtable.save_space)(
+                session.as_raw(),
+                &info,
+                &mut AsyncRequestIdFB::default()
+            ));
+            println!("Uploaded anchor {:?}", space);
+
+            state.set(SceneState::Done)
+        };
     }
 }
 

@@ -8,7 +8,7 @@ use bevy_oxr::{
     resources::{XrInstance, XrSession},
     xr::{
         self,
-        sys::{SpaceShareInfoFB, SpaceUserFB, UUID_SIZE_EXT},
+        sys::{SpaceShareInfoFB, SpaceUserCreateInfoFB, SpaceUserFB, UUID_SIZE_EXT},
         AsyncRequestIdFB, UuidEXT,
     },
     XrEvents,
@@ -16,7 +16,7 @@ use bevy_oxr::{
 
 use crate::{
     oxr,
-    xr::{SceneState, SpatialAnchors},
+    xr::{scene::get_supported_components, SceneState, SpatialAnchors},
 };
 
 use super::{
@@ -37,7 +37,7 @@ pub(super) struct ClientConnections(Vec<TcpStream>);
 // Used for sharing an anchor with other quest clients in host_share_anchor
 // created: host_init | dropped: host_share_anchor
 #[derive(Resource)]
-pub(super) struct FbIds(Vec<u64>);
+pub(super) struct FbIds(Vec<SpaceUserFB>);
 
 // Create a multicast listener and insert it as a resource
 pub(super) fn host_init(mut commands: Commands, mut scan_state: ResMut<NextState<SceneState>>) {
@@ -54,6 +54,8 @@ pub(super) fn host_init(mut commands: Commands, mut scan_state: ResMut<NextState
 pub(super) fn host_establish_connections(
     mut state: ResMut<NextState<NetworkingState>>,
     mut commands: Commands,
+    instance: Res<XrInstance>,
+    session: Res<XrSession>,
     listener: Res<MulticastListenerRes>,
     mut addresses: ResMut<RemoteAddresses>,
     mut connections: ResMut<ClientConnections>,
@@ -73,6 +75,10 @@ pub(super) fn host_establish_connections(
         let Some((port, fb_id)) = multicast::decode(&msg) else {
             continue;
         };
+        println!(
+            "Got message {:?}, which decoded into (port: {port}, fb_id: {fb_id})",
+            std::str::from_utf8(&msg)
+        );
 
         //Log the IP of the incoming connection
         addresses.push(addr.ip());
@@ -82,7 +88,15 @@ pub(super) fn host_establish_connections(
         stream.set_nonblocking(true).unwrap();
         connections.push(stream);
         if fb_id != 0 {
-            fb_ids.push(fb_id);
+            let vtable = instance.exts().fb_spatial_entity_user.unwrap();
+            let info = SpaceUserCreateInfoFB {
+                ty: SpaceUserCreateInfoFB::TYPE,
+                next: null(),
+                user_id: fb_id,
+            };
+            let mut user = SpaceUserFB::NULL;
+            oxr!((vtable.create_space_user)(session.as_raw(), &info, &mut user));
+            fb_ids.push(user);
         }
 
         // Currently hardcoded to exit on 1 remote client
@@ -101,26 +115,23 @@ pub(super) fn host_share_anchor(
     mut commands: Commands,
     instance: Option<Res<XrInstance>>,
     session: Option<Res<XrSession>>,
-    fb_ids: Res<FbIds>,
+    mut fb_ids: ResMut<FbIds>,
     anchors: Res<SpatialAnchors>,
 ) {
     let (Some(instance), Some(session)) = (instance, session) else {
         return;
     };
-    let anchor = anchors.mesh;
-    let fb_ids = &fb_ids.0;
+    let anchor = anchors.position;
+    let fb_ids = &mut fb_ids.0;
     let vtable = instance.exts().fb_spatial_entity_sharing.unwrap();
+    let mut anchors = [anchor];
     let info = SpaceShareInfoFB {
         ty: SpaceShareInfoFB::TYPE,
         next: null(),
         space_count: 1,
-        spaces: [anchor].as_mut_ptr(),
+        spaces: anchors.as_mut_ptr(),
         user_count: fb_ids.len() as u32,
-        users: fb_ids
-            .iter()
-            .map(|id| SpaceUserFB::from_raw(*id))
-            .collect::<Vec<_>>()
-            .as_mut_ptr(),
+        users: fb_ids.as_mut_ptr(),
     };
     let mut request = AsyncRequestIdFB::default();
     oxr!((vtable.share_spaces)(session.as_raw(), &info, &mut request));
@@ -149,12 +160,12 @@ pub(super) fn host_inform_clients(
     mut commands: Commands,
     addresses: Res<RemoteAddresses>,
     connections: Res<ClientConnections>,
-    instace: Res<XrInstance>,
+    instance: Res<XrInstance>,
     anchors: Res<SpatialAnchors>,
 ) {
     let (addresses, connections) = (&addresses.0, &connections.0);
 
-    let vtable = instace.exts().fb_spatial_entity.unwrap();
+    let vtable = instance.exts().fb_spatial_entity.unwrap();
     let mut uuid = UuidEXT {
         data: <[u8; UUID_SIZE_EXT]>::default(),
     };
@@ -179,4 +190,14 @@ pub(super) fn host_inform_clients(
 
     // Drop all the open tcp streams
     commands.remove_resource::<ClientConnections>();
+}
+
+pub fn host_wait_anchor_store(instance: Res<XrInstance>, events: NonSend<XrEvents>) {
+    for event in &events.0 {
+        let event = unsafe { xr::Event::from_raw(&event.inner) }.unwrap();
+        if let xr::Event::SpaceSaveCompleteFB(res) = event {
+            let enabled = get_supported_components(res.space(), instance.exts());
+            panic!("Finished sharing anchor. Components are {enabled:?}");
+        }
+    }
 }

@@ -26,7 +26,7 @@ pub fn decode(msg: &[u8]) -> Option<(u16, u64)> {
     // Get port number
     let port: u16 = FromStr::from_str(std::str::from_utf8(msg_parts[1]).ok()?).ok()?;
     // Get XrSpaceUserFB ID
-    let fb_id: u64 = FromStr::from_str(std::str::from_utf8(msg_parts[1]).ok()?).ok()?;
+    let fb_id: u64 = FromStr::from_str(std::str::from_utf8(msg_parts[2]).ok()?).ok()?;
     Some((port, fb_id))
 }
 

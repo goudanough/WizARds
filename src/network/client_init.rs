@@ -41,6 +41,7 @@ pub(super) fn client_init(mut commands: Commands) {
 #[cfg(target_os = "android")]
 pub(super) fn client_init(mut commands: Commands, ovr: Res<Ovr>) {
     let id = ovr.get_logged_in_user_id();
+    println!("Logged in User ID: {id}");
     let emitter = MulticastEmitter::new(SpaceUserFB::from_raw(id));
     commands.insert_resource(MulticastEmitterRes(emitter));
 }
@@ -113,11 +114,12 @@ pub(super) fn client_sync_anchor(
     session: Res<XrSession>,
     anchor: Res<AnchorUuid>,
 ) {
+    let mut uuid = [anchor.0];
     let filter = SpaceUuidFilterInfoFB {
         ty: SpaceUuidFilterInfoFB::TYPE,
         next: null(),
         uuid_count: 1,
-        uuids: [anchor.0].as_mut_ptr(),
+        uuids: uuid.as_mut_ptr(),
     };
 
     let filter = SpaceStorageLocationFilterInfoFB {
@@ -130,8 +132,8 @@ pub(super) fn client_sync_anchor(
         ty: SpaceQueryInfoFB::TYPE,
         next: null(),
         query_action: SpaceQueryActionFB::LOAD,
-        max_result_count: 20u32,
-        timeout: Duration::NONE,
+        max_result_count: 32, // TODO: figure out this number. It should probably be 1 tbh.
+        timeout: Duration::INFINITE,
         filter: &filter as *const _ as *const _,
         exclude_filter: null(),
     };
