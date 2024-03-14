@@ -23,7 +23,7 @@ use bevy_xpbd_3d::prelude::*;
 use crate::{oxr, PhysLayer};
 
 #[derive(States, Default, Debug, Hash, PartialEq, Eq, Clone)]
-enum SceneState {
+pub enum SceneState {
     #[default]
     Uninit,
     Scanning,
@@ -36,7 +36,6 @@ pub struct QuestScene;
 impl Plugin for QuestScene {
     fn build(&self, app: &mut App) {
         app.init_state::<SceneState>()
-            .add_systems(Startup, capture_scene_startup)
             // When this state machine is set to scanning, we begin our scan
             .add_systems(OnEnter(SceneState::Scanning), capture_scene)
             // While we're scanning, we wait for an event that signifies that the scan is complete
@@ -54,13 +53,6 @@ impl Plugin for QuestScene {
             // .add_systems(Update, dbg_mesh_gizmos)
             .add_systems(OnEnter(SceneState::Done), init_world_mesh);
     }
-}
-
-// This function will be removed in future, and only serves the purpose of
-// performing scene capture on startup. Eventually this will be managed
-// by a menu system in another plugin instead
-fn capture_scene_startup(mut state: ResMut<NextState<SceneState>>) {
-    state.0 = Some(SceneState::Scanning);
 }
 
 // This prompts the user to do a scene setup
