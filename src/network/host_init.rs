@@ -11,7 +11,8 @@ use bevy_oxr::{
     xr::{
         self,
         sys::{
-            self, SpaceLocation, SpaceSaveInfoFB, SpaceShareInfoFB, SpaceUserCreateInfoFB, SpaceUserFB, UUID_SIZE_EXT
+            self, SpaceLocation, SpaceSaveInfoFB, SpaceShareInfoFB, SpaceUserCreateInfoFB,
+            SpaceUserFB, UUID_SIZE_EXT,
         },
         AsyncRequestIdFB, Posef, SpaceLocationFlags, SpacePersistenceModeFB,
         SpaceStorageLocationFB, UuidEXT,
