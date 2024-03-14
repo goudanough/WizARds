@@ -84,8 +84,6 @@ pub fn update_linear_movement(
     }
 }
 
-// TODO Make this better - function signature changes as we add more types of projectile which is bad.
-// instead of this we should create an bundle representing each collision and have these be processed by different systems.
 fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
@@ -173,11 +171,11 @@ pub fn spawn_projectile(
                 },
                 LinearMovement(3.0),
                 ProjectileHitEffect::Damage(DamageHit(DamageMask::FIRE, 25.0)),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::PlayerProjectile)
-                    .remove_mask(PhysLayer::Player)
-                    .remove_mask(PhysLayer::BossProjectile),
-                Collider::ball(0.1),
+                CollisionLayers::new(
+                    PhysLayer::PlayerProjectile,
+                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
+                ),
+                Collider::sphere(0.1),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
@@ -192,11 +190,11 @@ pub fn spawn_projectile(
                 },
                 LinearMovement(6.0),
                 ProjectileHitEffect::Damage(DamageHit(DamageMask::LIGHTNING, 25.0)),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::PlayerProjectile)
-                    .remove_mask(PhysLayer::Player)
-                    .remove_mask(PhysLayer::BossProjectile),
-                Collider::ball(0.1),
+                CollisionLayers::new(
+                    PhysLayer::PlayerProjectile,
+                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
+                ),
+                Collider::sphere(0.1),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
@@ -211,11 +209,11 @@ pub fn spawn_projectile(
                 },
                 LinearMovement(1.0),
                 ProjectileHitEffect::ResetPhase(BossHit),
-                CollisionLayers::all_masks::<PhysLayer>()
-                    .add_group(PhysLayer::BossProjectile)
-                    .remove_mask(PhysLayer::Boss)
-                    .remove_mask(PhysLayer::PlayerProjectile),
-                Collider::ball(0.2),
+                CollisionLayers::new(
+                    PhysLayer::BossProjectile,
+                    (LayerMask::ALL ^ PhysLayer::Boss) ^ PhysLayer::PlayerProjectile, // ugh
+                ),
+                Collider::sphere(0.2),
                 RigidBody::Kinematic,
             ))
             .add_rollback(),
