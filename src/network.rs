@@ -48,13 +48,6 @@ pub struct NetworkPlugin;
 impl Plugin for NetworkPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(GgrsPlugin::<WizGgrsConfig>::default())
-        .insert_gizmo_group(
-            PhysicsGizmos {
-                aabb_color: Some(Color::WHITE),
-                ..default()
-            },
-            GizmoConfig::default(),
-        )
             // define frequency of rollback game logic update
             .set_rollback_schedule_fps(FPS)
             .rollback_component_with_clone::<Transform>()
