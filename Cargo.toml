@@ -20,6 +20,7 @@ bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "13d3d1773e01
 bevy_ggrs = "0.15.0"
 bytemuck = { version = "1.14.1", features = ["derive"] }
 
+
 cpal = "0.15.2"
 crossbeam = "0.8.4"
 vosk = "0.2.0"

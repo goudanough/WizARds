@@ -68,7 +68,8 @@ pub fn main() {
         .add_plugins(speech::SpeechPlugin)
         .add_plugins(spell_control::SpellControlPlugin)
         .add_plugins(spells::SpellsPlugin)
-        .add_plugins(health_bar::HealthBarPlugin);
+        .add_plugins(health_bar::HealthBarPlugin)
+        .add_plugins(PhysicsDebugPlugin::default());
 
     #[cfg(target_os = "android")]
     {
@@ -266,3 +267,6 @@ fn spoof_xr_components(mut commands: Commands) {
 
     commands.insert_resource(HandsResource { left, right });
 }
+
+
+

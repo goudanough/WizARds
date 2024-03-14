@@ -35,6 +35,8 @@ pub struct PlayerHead;
 pub struct PlayerLeftPalm;
 #[derive(Component)]
 pub struct PlayerRightPalm;
+#[derive(Component)]
+pub struct PlayerBody;
 
 #[derive(Resource)]
 struct ConnectionArgs {
@@ -175,7 +177,9 @@ pub fn read_local_inputs(
     queued_spell.0 = None;
 }
 
-fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>) {
+fn spawn_networked_player_objs(mut commands: Commands, 
+    args: Res<ConnectionArgs>,
+) {
     // Add one cube on each player's head
     for i in 0..args.players.len() {
         commands
@@ -218,6 +222,20 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
                 PlayerRightPalm,
             ))
             .add_rollback();
+           //body
+           commands
+            .spawn((
+                RigidBody::Kinematic,
+                Collider::capsule(1.0,0.05),
+                CollisionLayers::new(
+                    PhysLayer::Player,
+                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
+                ),
+                TransformBundle { ..default() },
+                PlayerID { handle: i },
+                PlayerBody,
+            ))
+            .add_rollback();
     }
 }
 
@@ -228,6 +246,7 @@ pub fn move_networked_player_objs(
             With<PlayerHead>,
             Without<PlayerLeftPalm>,
             Without<PlayerRightPalm>,
+            Without<PlayerBody>,
             With<Rollback>,
         ),
     >,
@@ -237,6 +256,7 @@ pub fn move_networked_player_objs(
             Without<PlayerHead>,
             With<PlayerLeftPalm>,
             Without<PlayerRightPalm>,
+            Without<PlayerBody>,
             With<Rollback>,
         ),
     >,
@@ -246,6 +266,17 @@ pub fn move_networked_player_objs(
             Without<PlayerHead>,
             Without<PlayerLeftPalm>,
             With<PlayerRightPalm>,
+            Without<PlayerBody>,
+            With<Rollback>,
+        ),
+    >,
+    mut player_bodys: Query<
+        (&mut Transform, &PlayerID),
+        (
+            Without<PlayerHead>,
+            Without<PlayerLeftPalm>,
+            Without<PlayerRightPalm>,
+            With<PlayerBody>,
             With<Rollback>,
         ),
     >,
@@ -266,4 +297,10 @@ pub fn move_networked_player_objs(
         t.translation = input.right_hand_pos;
         t.rotation = input.right_hand_rot;
     }
+    for (mut t, p) in player_bodys.iter_mut() {
+        let input = inputs[p.handle].0;
+        t.translation = Vec3::new(input.head_pos.x,input.head_pos.y/2.0,input.head_pos.z);
+        t.scale = Vec3::new(1.0,input.head_pos.y-0.01,1.0);
+    }
 }
+    
