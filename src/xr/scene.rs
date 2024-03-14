@@ -47,6 +47,19 @@ impl Plugin for QuestScene {
                 Update,
                 wait_sharable_anchor.run_if(in_state(SceneState::Locating)),
             )
+            .add_systems(
+                OnEnter(SceneState::EnableStoreShare),
+                enable_anchor_components,
+            )
+            .add_systems(
+                Update,
+                wait_enable_anchor_components.run_if(in_state(SceneState::EnableStoreShare)),
+            )
+            .add_systems(OnEnter(SceneState::Uploading), upload_anchor)
+            .add_systems(
+                Update,
+                wait_upload_anchor.run_if(in_state(SceneState::Uploading)),
+            )
             // .add_systems(Update, dbg_mesh_gizmos)
             .add_systems(
                 OnEnter(SceneState::Done),
@@ -120,11 +133,12 @@ fn query_scene(instance: Res<XrInstance>, session: Res<XrSession>) {
     ));
 }
 
-fn get_query_results(
+pub fn get_query_results(
     resultsAvailable: SpaceQueryResultsAvailableFB,
     session: Session,
     exts: &InstanceExtensions,
 ) -> Vec<SpaceQueryResultFB> {
+    println!("get_query_results");
     let vtable = exts.fb_spatial_entity_query.unwrap();
     // To figure out how many results were generated, we call xrRetrieveSpaceQueryResultsFB
     // with result_capacity_input set to 0
@@ -212,7 +226,7 @@ fn check_component_enabled(
 }
 
 // Making anchors LOCATABLE means that we can use functions like XrLocateSpace on them
-fn make_space_locatable(space: sys::Space, exts: &InstanceExtensions) {
+pub fn make_space_locatable(space: sys::Space, exts: &InstanceExtensions) -> AsyncRequestIdFB {
     let vtable = exts.fb_spatial_entity.unwrap();
 
     let mut status = SpaceComponentStatusSetInfoFB {
@@ -229,6 +243,7 @@ fn make_space_locatable(space: sys::Space, exts: &InstanceExtensions) {
         &mut status,
         &mut request
     ));
+    request
 }
 
 // This function waits for our query to complete
@@ -257,13 +272,7 @@ fn wait_query_complete(
             }
             Event::SpaceQueryResultsAvailableFB(resultsAvailable) => {
                 let exts = instance.exts();
-                let mut room_layout = SpatialAnchors {
-                    mesh: sys::Space::NULL,
-                    floor: sys::Space::NULL,
-                    walls: Vec::new(),
-                    ceiling: sys::Space::NULL,
-                    position: sys::Space::NULL,
-                };
+                let mut room_layout = SpatialAnchors::default();
                 let results = get_query_results(resultsAvailable, session.as_raw(), exts);
                 // I wish I could do this with a hashmap or something...
                 // Lets just assume it stays small
@@ -353,7 +362,7 @@ fn wait_query_complete(
                 }
                 // Set the XrSpace handle as the one we'll use in init_world_mesh
                 commands.insert_resource(room_layout);
-                state.0 = Some(SceneState::Locating);
+                state.set(SceneState::Locating);
             }
             _ => {}
         }
@@ -397,56 +406,95 @@ fn create_sharable_anchor(
 }
 
 fn wait_sharable_anchor(
-    instance: Res<XrInstance>,
-    session: Res<XrSession>,
     events: NonSend<XrEvents>,
     mut anchors: ResMut<SpatialAnchors>,
     mut state: ResMut<NextState<SceneState>>,
 ) {
-    let vtable = instance.exts().fb_spatial_entity.unwrap();
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
         if let Event::SpatialAnchorCreateCompleteFB(res) = event {
-            let space = res.space();
-            anchors.position = space;
-
-            let mut status = SpaceComponentStatusSetInfoFB {
-                ty: SpaceComponentStatusSetInfoFB::TYPE,
-                next: null(),
-                component_type: SpaceComponentTypeFB::STORABLE,
-                enabled: true.into(),
-                timeout: Duration::NONE,
-            };
-            oxr!((vtable.set_space_component_status)(
-                space,
-                &mut status,
-                &mut AsyncRequestIdFB::default()
-            ));
-
-            status.component_type = SpaceComponentTypeFB::SHARABLE;
-            oxr!((vtable.set_space_component_status)(
-                space,
-                &mut status,
-                &mut AsyncRequestIdFB::default()
-            ));
-
-            let vtable = instance.exts().fb_spatial_entity_storage.unwrap();
-            let info = SpaceSaveInfoFB {
-                ty: SpaceSaveInfoFB::TYPE,
-                next: null(),
-                space,
-                location: SpaceStorageLocationFB::CLOUD,
-                persistence_mode: SpacePersistenceModeFB::INDEFINITE,
-            };
-            oxr!((vtable.save_space)(
-                session.as_raw(),
-                &info,
-                &mut AsyncRequestIdFB::default()
-            ));
-            println!("Uploaded anchor {:?}", space);
-
-            state.set(SceneState::Done)
+            anchors.position = res.space();
+            state.set(SceneState::EnableStoreShare)
         };
+    }
+}
+
+fn enable_anchor_components(instance: Res<XrInstance>, anchors: Res<SpatialAnchors>) {
+    let vtable = instance.exts().fb_spatial_entity.unwrap();
+
+    let mut status = SpaceComponentStatusSetInfoFB {
+        ty: SpaceComponentStatusSetInfoFB::TYPE,
+        next: null(),
+        component_type: SpaceComponentTypeFB::STORABLE,
+        enabled: true.into(),
+        timeout: Duration::NONE,
+    };
+    oxr!((vtable.set_space_component_status)(
+        anchors.position,
+        &mut status,
+        &mut AsyncRequestIdFB::default()
+    ));
+
+    status.component_type = SpaceComponentTypeFB::SHARABLE;
+    oxr!((vtable.set_space_component_status)(
+        anchors.position,
+        &mut status,
+        &mut AsyncRequestIdFB::default()
+    ));
+}
+
+fn wait_enable_anchor_components(
+    events: NonSend<XrEvents>,
+    instance: Res<XrInstance>,
+    anchors: Res<SpatialAnchors>,
+    mut state: ResMut<NextState<SceneState>>,
+) {
+    for event in &events.0 {
+        let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
+        if let Event::SpaceSetStatusCompleteFB(res) = event {
+            let space = res.space();
+            let ty = res.component_type();
+            let (store, share) = (
+                SpaceComponentTypeFB::STORABLE,
+                SpaceComponentTypeFB::SHARABLE,
+            );
+            let exts = instance.exts();
+            if space == anchors.position
+                && ((ty == store && check_component_enabled(space, share, exts))
+                    || (ty == share && check_component_enabled(space, store, exts)))
+            {
+                state.set(SceneState::Uploading)
+            }
+        };
+    }
+}
+
+fn upload_anchor(instance: Res<XrInstance>, session: Res<XrSession>, anchors: Res<SpatialAnchors>) {
+    let vtable = instance.exts().fb_spatial_entity_storage.unwrap();
+    let info = SpaceSaveInfoFB {
+        ty: SpaceSaveInfoFB::TYPE,
+        next: null(),
+        space: anchors.position,
+        location: SpaceStorageLocationFB::CLOUD,
+        persistence_mode: SpacePersistenceModeFB::INDEFINITE,
+    };
+    oxr!((vtable.save_space)(
+        session.as_raw(),
+        &info,
+        &mut AsyncRequestIdFB::default()
+    ));
+}
+
+pub(super) fn wait_upload_anchor(
+    events: NonSend<XrEvents>,
+    mut state: ResMut<NextState<SceneState>>,
+) {
+    for event in &events.0 {
+        let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
+        if let Event::SpaceSaveCompleteFB(res) = event {
+            println!("Uploaded anchor {:?}", res.space());
+            state.set(SceneState::Done);
+        }
     }
 }
 
@@ -572,7 +620,6 @@ fn init_room_layout(
     room_layout: Res<SpatialAnchors>,
     input: Res<XrInput>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Do fucky stuff with walls and shit
 
@@ -606,7 +653,6 @@ fn init_room_layout(
             mesh: meshes.add(Rectangle {
                 half_size: Vec2 { x, y },
             }),
-            material: materials.add(Color::SILVER),
             transform: Transform {
                 translation: Vec3 {
                     x: translation.x,

@@ -63,14 +63,14 @@ pub struct MulticastEmitter {
 }
 
 impl MulticastEmitter {
-    pub fn new(fb_id: SpaceUserFB) -> Self {
+    pub fn new(fb_id: u64) -> Self {
         let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
         let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
         listener.set_nonblocking(true).unwrap();
         Self {
             socket,
             listener,
-            fb_id: fb_id.into_raw(),
+            fb_id,
         }
     }
 

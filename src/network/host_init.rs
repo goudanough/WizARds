@@ -1,22 +1,27 @@
-use std::{io::Write, net::TcpStream, ptr::null};
-
-use bevy::ecs::{
-    schedule::NextState,
-    system::{Commands, NonSend, Res, ResMut, Resource},
+use std::{
+    io::Write,
+    net::TcpStream,
+    ptr::{null, null_mut},
 };
+
+use bevy::prelude::*;
 use bevy_oxr::{
-    resources::{XrInstance, XrSession},
+    input::XrInput,
+    resources::{XrFrameState, XrInstance, XrSession},
     xr::{
         self,
-        sys::{SpaceShareInfoFB, SpaceUserCreateInfoFB, SpaceUserFB, UUID_SIZE_EXT},
-        AsyncRequestIdFB, UuidEXT,
+        sys::{
+            self, SpaceLocation, SpaceSaveInfoFB, SpaceShareInfoFB, SpaceUserCreateInfoFB, SpaceUserFB, UUID_SIZE_EXT
+        },
+        AsyncRequestIdFB, Posef, SpaceLocationFlags, SpacePersistenceModeFB,
+        SpaceStorageLocationFB, UuidEXT,
     },
     XrEvents,
 };
 
 use crate::{
     oxr,
-    xr::{scene::get_supported_components, SceneState, SpatialAnchors},
+    xr::{SceneState, SpatialAnchors},
 };
 
 use super::{
@@ -95,7 +100,11 @@ pub(super) fn host_establish_connections(
                 user_id: fb_id,
             };
             let mut user = SpaceUserFB::NULL;
-            oxr!((vtable.create_space_user)(session.as_raw(), &info, &mut user));
+            oxr!((vtable.create_space_user)(
+                session.as_raw(),
+                &info,
+                &mut user
+            ));
             fb_ids.push(user);
         }
 
@@ -103,7 +112,7 @@ pub(super) fn host_establish_connections(
         if addresses.len() == 1 {
             // Drop the listener, we don't need it anymore
             commands.remove_resource::<MulticastListenerRes>();
-            state.set(NetworkingState::HostSendData);
+            state.set(NetworkingState::HostAssertSceneAvailable);
             return;
         }
     }
@@ -142,13 +151,52 @@ pub(super) fn host_share_anchor(
 }
 
 pub(super) fn host_wait_share_anchor(
+    mut commands: Commands,
+    instance: Res<XrInstance>,
+    input: Res<XrInput>,
     events: NonSend<XrEvents>,
+    xr_frame_state: Res<XrFrameState>,
+    anchors: Res<SpatialAnchors>,
     mut state: ResMut<NextState<NetworkingState>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for event in &events.0 {
         let event = unsafe { xr::Event::from_raw(&event.inner) }.unwrap();
-        if let xr::Event::SpaceShareCompleteFB(_) = event {
-            println!("Finished sharing anchor");
+        if let xr::Event::SpaceShareCompleteFB(res) = event {
+            if res.result() != sys::Result::SUCCESS {
+                panic!("Anchor sharing failed with {:?}", res.result())
+            }
+            println!("Successfully shared anchor");
+
+            let mut space_location = SpaceLocation {
+                ty: SpaceLocation::TYPE,
+                next: null_mut(),
+                location_flags: SpaceLocationFlags::EMPTY,
+                pose: Posef::IDENTITY,
+            };
+            oxr!((instance.fp().locate_space)(
+                anchors.position,
+                input.stage.as_raw(),
+                xr_frame_state.lock().unwrap().predicted_display_time,
+                &mut space_location,
+            ));
+            let translation = space_location.pose.position;
+
+            println!("Spawning Anchor Marker");
+            commands.spawn(PbrBundle {
+                mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
+                material: materials.add(Color::SILVER),
+                transform: Transform {
+                    translation: Vec3 {
+                        x: translation.x,
+                        y: translation.y,
+                        z: translation.z,
+                    },
+                    ..default()
+                },
+                ..default()
+            });
             state.set(NetworkingState::InitGgrs)
         }
     }
@@ -169,7 +217,7 @@ pub(super) fn host_inform_clients(
     let mut uuid = UuidEXT {
         data: <[u8; UUID_SIZE_EXT]>::default(),
     };
-    oxr!((vtable.get_space_uuid)(anchors.mesh, &mut uuid));
+    oxr!((vtable.get_space_uuid)(anchors.position, &mut uuid));
     let uuid_num = u128::from_be_bytes(uuid.data);
     let msg_begin = format!("{uuid_num}");
 
@@ -190,14 +238,4 @@ pub(super) fn host_inform_clients(
 
     // Drop all the open tcp streams
     commands.remove_resource::<ClientConnections>();
-}
-
-pub fn host_wait_anchor_store(instance: Res<XrInstance>, events: NonSend<XrEvents>) {
-    for event in &events.0 {
-        let event = unsafe { xr::Event::from_raw(&event.inner) }.unwrap();
-        if let xr::Event::SpaceSaveCompleteFB(res) = event {
-            let enabled = get_supported_components(res.space(), instance.exts());
-            panic!("Finished sharing anchor. Components are {enabled:?}");
-        }
-    }
 }

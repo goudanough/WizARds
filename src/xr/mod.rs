@@ -22,16 +22,18 @@ pub(crate) enum SceneState {
     Scanning,      // Set the state to this to force the device to scan
     QueryingScene, // Waits for a SpaceQueryResultsAvailableFB event and uses this to populate the scene
     Locating,
-    Done,          // Finished initialization
+    EnableStoreShare,
+    Uploading,
+    Done, // Finished initialization
 }
 
 // This resource represents the anchor that the game will center around
 // This struct is to retain the XrSpace handle representing the mesh of the room
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct SpatialAnchors {
     pub mesh: sys::Space,
     pub floor: sys::Space,
     pub walls: Vec<sys::Space>,
     pub ceiling: sys::Space,
-    pub position: sys::Space
+    pub position: sys::Space,
 }

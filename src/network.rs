@@ -1,5 +1,8 @@
 use self::{
-    client_init::{client_await_data, client_establish_tcp, client_sync_anchor},
+    client_init::{
+        client_await_data, client_establish_tcp, client_query_anchor, client_sync_anchor,
+        client_use_anchor,
+    },
     host_init::{
         host_establish_connections, host_inform_clients, host_share_anchor, host_wait_share_anchor,
     },
@@ -10,6 +13,7 @@ use crate::{
     player,
     speech::{RecognizedWord, RecordingStatus},
     spell_control::QueuedSpell,
+    xr::SceneState,
     PhysLayer, PlayerInput, WizGgrsConfig, FPS,
 };
 use bevy::{prelude::*, utils::HashMap};
@@ -31,9 +35,11 @@ pub enum NetworkingState {
     #[default]
     HostClientMenu,
     HostEstablishConnections,
+    HostAssertSceneAvailable,
     HostSendData,
     ClientEstablishConnection,
     ClientWaitForData,
+    ClientSynchronizeAnchor,
     InitGgrs,
     Done,
 }
@@ -90,6 +96,15 @@ impl Plugin for NetworkPlugin {
                 host_establish_connections
                     .run_if(in_state(NetworkingState::HostEstablishConnections)),
             )
+            .add_systems(
+                Update,
+                (|scene: Res<State<SceneState>>, mut state: ResMut<NextState<NetworkingState>>| {
+                    if *scene.get() == SceneState::Done {
+                        state.set(NetworkingState::HostSendData)
+                    }
+                })
+                .run_if(in_state(NetworkingState::HostAssertSceneAvailable)),
+            )
             // We tell the host to share the anchor with the clients
             .add_systems(OnEnter(NetworkingState::HostSendData), host_share_anchor)
             // We wait until the host has finished sharing the anchor with the clients
@@ -115,10 +130,20 @@ impl Plugin for NetworkPlugin {
                 Update,
                 client_await_data.run_if(in_state(NetworkingState::ClientWaitForData)),
             )
-            // Await an anchor
+            // Query the shared anchor
             .add_systems(
-                OnExit(NetworkingState::ClientWaitForData),
-                client_sync_anchor,
+                OnEnter(NetworkingState::ClientSynchronizeAnchor),
+                client_query_anchor,
+            )
+            // Await the anchor
+            .add_systems(
+                Update,
+                client_sync_anchor.run_if(in_state(NetworkingState::ClientSynchronizeAnchor)),
+            )
+            // Do stuff with the anchor
+            .add_systems(
+                OnExit(NetworkingState::ClientSynchronizeAnchor),
+                client_use_anchor,
             )
             // All setup is done. Initialize the GGRS session
             .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)

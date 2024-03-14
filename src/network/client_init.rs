@@ -1,27 +1,34 @@
 use std::{
     io::{self, Read},
     net::{IpAddr, TcpStream},
-    ptr::null,
+    ptr::{null, null_mut},
     str::FromStr,
 };
 
-use bevy::ecs::{
-    schedule::NextState,
-    system::{Commands, Res, ResMut, Resource},
-};
+use bevy::prelude::*;
 use bevy_oxr::{
-    resources::{XrInstance, XrSession},
+    input::XrInput,
+    resources::{XrFrameState, XrInstance, XrSession},
     xr::{
         sys::{
-            SpaceQueryInfoFB, SpaceStorageLocationFilterInfoFB, SpaceUserFB, SpaceUuidFilterInfoFB,
+            Space, SpaceLocation, SpaceQueryInfoFB, SpaceStorageLocationFilterInfoFB, SpaceUserFB,
+            SpaceUuidFilterInfoFB,
         },
-        AsyncRequestIdFB, Duration, SpaceQueryActionFB, SpaceStorageLocationFB, UuidEXT,
+        AsyncRequestIdFB, Duration, Event, Posef, SpaceLocationFlags, SpaceQueryActionFB,
+        SpaceStorageLocationFB, UuidEXT,
     },
+    XrEvents,
 };
 
 #[cfg(target_os = "android")]
 use crate::ovr::Ovr;
-use crate::{oxr, xr::SceneState};
+use crate::{
+    oxr,
+    xr::{
+        scene::{get_query_results, make_space_locatable},
+        SpatialAnchors,
+    },
+};
 
 use super::{multicast::MulticastEmitter, NetworkingState, RemoteAddresses};
 
@@ -33,7 +40,7 @@ pub(super) struct MulticastEmitterRes(MulticastEmitter);
 // Initialize the multicast emitter with our own SpaceUserFB ID
 #[cfg(not(target_os = "android"))]
 pub(super) fn client_init(mut commands: Commands) {
-    let emitter = MulticastEmitter::new(SpaceUserFB::NULL);
+    let emitter = MulticastEmitter::new(0);
     commands.insert_resource(MulticastEmitterRes(emitter));
 }
 
@@ -42,7 +49,7 @@ pub(super) fn client_init(mut commands: Commands) {
 pub(super) fn client_init(mut commands: Commands, ovr: Res<Ovr>) {
     let id = ovr.get_logged_in_user_id();
     println!("Logged in User ID: {id}");
-    let emitter = MulticastEmitter::new(SpaceUserFB::from_raw(id));
+    let emitter = MulticastEmitter::new(id);
     commands.insert_resource(MulticastEmitterRes(emitter));
 }
 
@@ -69,7 +76,7 @@ pub(super) fn client_establish_tcp(
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Debug)]
 pub(super) struct AnchorUuid(UuidEXT);
 
 pub(super) fn client_await_data(
@@ -89,9 +96,11 @@ pub(super) fn client_await_data(
                 .unwrap()
                 .parse()
                 .unwrap();
-            commands.insert_resource(AnchorUuid(UuidEXT {
+            let uuid = AnchorUuid(UuidEXT {
                 data: space_uuid.to_be_bytes(),
-            }));
+            });
+            println!("Synchronizing on anchor {space_uuid:?}");
+            commands.insert_resource(uuid);
 
             let mut ips = fields
                 .map(|slice| IpAddr::from_str(std::str::from_utf8(slice).unwrap()).unwrap())
@@ -101,15 +110,14 @@ pub(super) fn client_await_data(
             commands.insert_resource(RemoteAddresses(ips));
             commands.remove_resource::<MulticastEmitterRes>();
             commands.remove_resource::<HostConnection>();
-            state.set(NetworkingState::Done);
+            state.set(NetworkingState::ClientSynchronizeAnchor);
         }
         Err(err) if matches!(err.kind(), WouldBlock | ConnectionReset) => {}
         Err(err) => panic!("{err:?} on {:?}", stream),
     }
 }
 
-pub(super) fn client_sync_anchor(
-    scene_state: Option<ResMut<NextState<SceneState>>>,
+pub(super) fn client_query_anchor(
     instance: Res<XrInstance>,
     session: Res<XrSession>,
     anchor: Res<AnchorUuid>,
@@ -132,7 +140,7 @@ pub(super) fn client_sync_anchor(
         ty: SpaceQueryInfoFB::TYPE,
         next: null(),
         query_action: SpaceQueryActionFB::LOAD,
-        max_result_count: 32, // TODO: figure out this number. It should probably be 1 tbh.
+        max_result_count: 20, // TODO: figure out this number. It should probably be 1 tbh.
         timeout: Duration::INFINITE,
         filter: &filter as *const _ as *const _,
         exclude_filter: null(),
@@ -146,10 +154,84 @@ pub(super) fn client_sync_anchor(
         &query as *const _ as *const _,
         &mut request_id,
     ));
+}
 
-    // If we're running this in conjunction with the ScenePlugin then we should
-    // notify it that we're awaiting an anchor and it should handle that
-    if let Some(mut scene_state) = scene_state {
-        scene_state.set(SceneState::QueryingScene);
+// This function waits for our query to complete
+pub fn client_sync_anchor(
+    mut commands: Commands,
+    instance: Res<XrInstance>,
+    session: Res<XrSession>,
+    events: NonSend<XrEvents>,
+    mut state: ResMut<NextState<NetworkingState>>,
+) {
+    for event in &events.0 {
+        let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
+        match event {
+            // Report once the event is complete, and warn if it's failed
+            Event::SpaceQueryCompleteFB(query) => {
+                let result = query.result();
+                if result == bevy_oxr::xr::sys::Result::SUCCESS {
+                    info!("Space Query Completed Successfully");
+                } else {
+                    warn!(
+                        r#"Space Query Completed {:?} Failed With Error "{}""#,
+                        query.request_id(),
+                        result
+                    )
+                }
+            }
+            Event::SpaceQueryResultsAvailableFB(resultsAvailable) => {
+                let exts = instance.exts();
+                let results = get_query_results(resultsAvailable, session.as_raw(), exts);
+                let anchor = results[0].space;
+                make_space_locatable(anchor, exts);
+                let anchors = SpatialAnchors {
+                    position: anchor,
+                    ..default()
+                };
+                commands.insert_resource(anchors);
+                state.set(NetworkingState::InitGgrs);
+            }
+            _ => {}
+        }
     }
+}
+
+pub fn client_use_anchor(
+    mut commands: Commands,
+    instance: Res<XrInstance>,
+    input: Res<XrInput>,
+    xr_frame_state: Res<XrFrameState>,
+    anchors: Res<SpatialAnchors>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let mut space_location = SpaceLocation {
+        ty: SpaceLocation::TYPE,
+        next: null_mut(),
+        location_flags: SpaceLocationFlags::EMPTY,
+        pose: Posef::IDENTITY,
+    };
+    oxr!((instance.fp().locate_space)(
+        anchors.position,
+        input.stage.as_raw(),
+        xr_frame_state.lock().unwrap().predicted_display_time,
+        &mut space_location,
+    ));
+    let translation = space_location.pose.position;
+
+    println!("Spawning Anchor Marker");
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
+        material: materials.add(Color::SILVER),
+        transform: Transform {
+            translation: Vec3 {
+                x: translation.x,
+                y: translation.y,
+                z: translation.z,
+            },
+            ..default()
+        },
+        ..default()
+    });
 }
