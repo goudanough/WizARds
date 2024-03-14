@@ -7,7 +7,6 @@ use bevy_oxr::xr_input::{
     trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
 use bevy_xpbd_3d::prelude::*;
-use bevy_math::prelude::*;
 
 use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 
@@ -187,8 +186,6 @@ pub fn read_local_inputs(
 
 fn spawn_networked_player_objs(mut commands: Commands, 
     args: Res<ConnectionArgs>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Add one cube on each player's head
     for i in 0..args.players.len() {
@@ -235,18 +232,13 @@ fn spawn_networked_player_objs(mut commands: Commands,
            //body
            commands
             .spawn((
-                PbrBundle { 
-                    mesh: meshes.add(bevy_math::prelude::Capsule3d::new(0.05, 0.5)),
-                    material: materials.add(Color::WHITE),
-                    ..default()
-                },
                 RigidBody::Kinematic,
                 Collider::capsule(1.0,0.05),
                 CollisionLayers::new(
                     PhysLayer::Player,
                     LayerMask::ALL ^ PhysLayer::PlayerProjectile,
                 ),
-                // TransformBundle { ..default() },
+                TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerBody,
             ))
