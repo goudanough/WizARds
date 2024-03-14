@@ -40,6 +40,10 @@ impl Default for ProjectileHitEffect {
 #[derive(Component, Debug, Default)]
 pub struct Projectile;
 
+// DamageMask struct used for handling damage types.
+// Each bit is a damage type, a bit is set to 1 if that type is enabled.
+// Things that deal damage should have a damage mask with the damage types they deal enabled.
+// Things that take damage should have a damage mask with the damage types they can take enabled.
 #[derive(Debug, Clone)]
 pub struct DamageMask(pub u8);
 
@@ -61,6 +65,7 @@ pub struct ProjectilePlugin;
 
 impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
+        // All Projectile code needs to run on the GgrsSchedule.
         app.add_systems(
             GgrsSchedule,
             (
@@ -74,6 +79,7 @@ impl Plugin for ProjectilePlugin {
     }
 }
 
+// Move projectiles forward manually.
 pub fn update_linear_movement(
     time: Res<Time>,
     mut projectiles: Query<(&mut Transform, &LinearMovement), Without<PlayerID>>,
@@ -84,6 +90,7 @@ pub fn update_linear_movement(
     }
 }
 
+// Check for collisions between projectiles and other objects, and emit entities to represent these "hits".
 fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
@@ -124,13 +131,16 @@ fn detect_projectile_collisions(
     }
 }
 
+// Handle hits from player projectiles that deal damage.
 fn handle_damage_hits(
     mut commands: Commands,
     hits: Query<(&Transform, &ProjectileHit, Entity, &DamageHit)>,
     mut boss_health: Query<&mut BossHealth>,
 ) {
     for (_transform, p_hit, e, d) in hits.iter() {
+        // Check if the collided entity is the boss.
         if let Ok(mut h) = boss_health.get_mut(p_hit.0) {
+            // If the damage masks intersect, then the boss doesn't resist the attack.
             if h.damage_mask.intersect(&d.0) {
                 h.current -= d.1;
             }
@@ -139,6 +149,7 @@ fn handle_damage_hits(
     }
 }
 
+// Handle hits from boss projectiles.
 fn handle_boss_hits(
     mut commands: Commands,
     hits: Query<(&Transform, &ProjectileHit, Entity), With<BossHit>>,
@@ -146,6 +157,7 @@ fn handle_boss_hits(
     players: Query<&PlayerID>,
 ) {
     for (_transform, p_hit, e) in hits.iter() {
+        // Check if the collided entity is part of a player.
         if players.get(p_hit.0).is_ok() {
             next_phase.set(BossPhase::Reset)
         }
@@ -153,6 +165,7 @@ fn handle_boss_hits(
     }
 }
 
+// Given a projectile type, spawn a corresponding projectile. Sort of prefabing.
 pub fn spawn_projectile(
     commands: &mut Commands,
     projectile_type: ProjectileType,
