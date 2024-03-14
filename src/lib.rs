@@ -102,7 +102,8 @@ pub fn main() {
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)
         //.add_plugins(HandInputDebugRenderer)
-        .add_plugins(xr::scene::QuestScene);
+        .add_plugins(xr::scene::QuestScene)
+        .add_plugins(HanabiPlugin);
     }
 
     #[cfg(not(target_os = "android"))]
