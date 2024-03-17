@@ -244,12 +244,12 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
     // Give a bit of variation by randomizing the initial speed
     let init_vel = SetVelocitySphereModifier {
         center: writer.lit(Vec3::ZERO).expr(),
-        speed: (writer.rand(ScalarType::Float) * writer.lit(10.)).expr(),
+        speed: (writer.rand(ScalarType::Float) * writer.lit(0.0002)).expr(),
     };
 
     let effect = EffectAsset::new(
         32768,
-        Spawner::new(20000.0.into(), 1.5.into(), 1.5.into()),
+        Spawner::new(20000.0.into(), 0.5.into(), 0.5.into()),
         writer.finish(),
     )
     .with_name("firework")
@@ -280,13 +280,17 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
                 // TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerRightPalm,
-                Name::new("firework"),
-        ParticleEffectBundle {
-            effect: ParticleEffect::new(effect1),
-            ..Default::default()
-        },
             ))
             .add_rollback();
+        
+            commands.spawn((
+                Name::new("firework"),
+                ParticleEffectBundle {
+                    effect: ParticleEffect::new(effect1),
+                    transform: Transform::IDENTITY,
+                    ..Default::default()
+                },
+            ));
     }
 }
 
