@@ -22,14 +22,14 @@ struct ProjectileHit(Entity);
 struct DamageHit(DamageMask, f32);
 
 #[derive(Component, Debug, Clone)]
-struct BossHit;
+struct ResetPhaseHit;
 #[derive(Debug, Default, Component)]
 pub struct LinearMovement(f32);
 
 #[derive(Debug, Component, Clone)]
 enum ProjectileHitEffect {
     Damage(DamageHit),
-    ResetPhase(BossHit),
+    ResetPhase(ResetPhaseHit),
 }
 impl Default for ProjectileHitEffect {
     fn default() -> Self {
@@ -72,7 +72,7 @@ impl Plugin for ProjectilePlugin {
                 update_linear_movement.ambiguous_with(move_networked_player_objs), // TODO this might be a hack, but also might be how bevy_ggrs works
                 detect_projectile_collisions,
                 handle_damage_hits,
-                handle_boss_hits,
+                handle_reset_phase_hits,
             )
                 .chain(),
         );
@@ -104,9 +104,9 @@ fn detect_projectile_collisions(
                         .spawn((ProjectileHit(*e2), *t, damage_hit.clone()))
                         .add_rollback();
                 }
-                ProjectileHitEffect::ResetPhase(boss_hit) => {
+                ProjectileHitEffect::ResetPhase(reset_phase_hit) => {
                     commands
-                        .spawn((ProjectileHit(*e2), *t, boss_hit.clone()))
+                        .spawn((ProjectileHit(*e2), *t, reset_phase_hit.clone()))
                         .add_rollback();
                 }
             }
@@ -120,9 +120,9 @@ fn detect_projectile_collisions(
                         .spawn((ProjectileHit(*e1), *t, damage_hit.clone()))
                         .add_rollback();
                 }
-                ProjectileHitEffect::ResetPhase(boss_hit) => {
+                ProjectileHitEffect::ResetPhase(reset_phase_hit) => {
                     commands
-                        .spawn((ProjectileHit(*e1), *t, boss_hit.clone()))
+                        .spawn((ProjectileHit(*e1), *t, reset_phase_hit.clone()))
                         .add_rollback();
                 }
             }
@@ -150,9 +150,9 @@ fn handle_damage_hits(
 }
 
 // Handle hits from boss projectiles.
-fn handle_boss_hits(
+fn handle_reset_phase_hits(
     mut commands: Commands,
-    hits: Query<(&Transform, &ProjectileHit, Entity), With<BossHit>>,
+    hits: Query<(&Transform, &ProjectileHit, Entity), With<ResetPhaseHit>>,
     mut next_phase: ResMut<NextState<BossPhase>>,
     players: Query<&PlayerID>,
 ) {
@@ -221,7 +221,7 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(1.0),
-                ProjectileHitEffect::ResetPhase(BossHit),
+                ProjectileHitEffect::ResetPhase(ResetPhaseHit),
                 CollisionLayers::new(
                     PhysLayer::BossProjectile,
                     (LayerMask::ALL ^ PhysLayer::Boss) ^ PhysLayer::PlayerProjectile, // ugh
