@@ -26,6 +26,7 @@ use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
 use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
 use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
+use bevy_hanabi::prelude::*;
 
 const FPS: usize = 72;
 
@@ -102,7 +103,8 @@ pub fn main() {
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)
         //.add_plugins(HandInputDebugRenderer)
-        .add_plugins(xr::scene::QuestScene);
+        .add_plugins(xr::scene::QuestScene)
+        .add_plugins(HanabiPlugin);
     }
 
     #[cfg(not(target_os = "android"))]
