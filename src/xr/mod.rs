@@ -1,6 +1,8 @@
 use bevy::ecs::{schedule::States, system::Resource};
 use bevy_oxr::xr::sys;
 
+use crate::Fallible;
+
 pub mod depth;
 pub mod scene;
 
@@ -25,6 +27,13 @@ pub(crate) enum SceneState {
     EnableStoreShare,
     Uploading,
     Done, // Finished initialization
+    Failed,
+}
+
+impl Fallible for SceneState {
+    fn failure_state() -> Self {
+        Self::Failed
+    }
 }
 
 // This resource represents the anchor that the game will center around

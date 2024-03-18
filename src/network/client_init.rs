@@ -29,6 +29,7 @@ use crate::{
         scene::{get_query_results, make_space_locatable},
         SpatialAnchors,
     },
+    SetToFail,
 };
 
 use super::{multicast::MulticastEmitter, NetworkingState, RemoteAddresses};
@@ -200,7 +201,9 @@ pub fn client_sync_anchor(
                         r#"Space Query Completed {:?} Failed With Error "{}""#,
                         query.request_id(),
                         result
-                    )
+                    );
+                    state.set_fail();
+                    return;
                 }
             }
             Event::SpaceQueryResultsAvailableFB(resultsAvailable) => {

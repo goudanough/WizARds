@@ -15,7 +15,7 @@ use crate::{
     speech::{RecognizedWord, RecordingStatus},
     spell_control::QueuedSpell,
     xr::{SceneState, SpatialAnchors},
-    PhysLayer, PlayerInput, WizGgrsConfig, FPS,
+    Fallible, PhysLayer, PlayerInput, RetryState, WizGgrsConfig, FPS,
 };
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
@@ -50,6 +50,13 @@ pub enum NetworkingState {
     ClientSynchronizeAnchor,
     InitGgrs,
     Done,
+    Failed,
+}
+
+impl Fallible for NetworkingState {
+    fn failure_state() -> Self {
+        Self::Failed
+    }
 }
 
 pub const LOCAL_PLAYER_HNDL: usize = 0;
@@ -124,6 +131,7 @@ impl Plugin for NetworkPlugin {
                 Update,
                 host_wait_share_anchor.run_if(in_state(NetworkingState::HostSendData)),
             )
+            .retry_state_on_fail(NetworkingState::HostSendData)
             // When all clients are joined, we need to tell each client the IPs of all clients
             .add_systems(OnExit(NetworkingState::HostSendData), host_inform_clients)
             // If we choose to join, initialize networking ready to send multicast packets for device discovery
@@ -152,11 +160,15 @@ impl Plugin for NetworkPlugin {
                 Update,
                 client_sync_anchor.run_if(in_state(NetworkingState::ClientSynchronizeAnchor)),
             )
+            .retry_state_on_fail(NetworkingState::ClientSynchronizeAnchor)
             // Do stuff with the anchor
             .add_systems(
-                OnExit(NetworkingState::ClientSynchronizeAnchor),
+                OnTransition {
+                    from: NetworkingState::ClientSynchronizeAnchor,
+                    to: NetworkingState::InitGgrs,
+                },
                 // client_use_anchor,
-                reset_origin,
+                reset_origin
             )
             // All setup is done. Initialize the GGRS session
             .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)

@@ -278,3 +278,37 @@ fn spoof_xr_components(mut commands: Commands) {
 
     commands.insert_resource(HandsResource { left, right });
 }
+
+// Oh god what have I done?
+trait Fallible {
+    fn failure_state() -> Self;
+}
+
+trait SetToFail {
+    fn set_fail(&mut self);
+}
+
+impl<State: Fallible + bevy::prelude::States> SetToFail for NextState<State> {
+    fn set_fail(&mut self) {
+        self.set(State::failure_state())
+    }
+}
+
+trait RetryState {
+    fn retry_state_on_fail<State: bevy::prelude::States + Fallible>(&mut self, state: State) -> &mut Self;
+}
+
+impl RetryState for App {
+    fn retry_state_on_fail<State: bevy::prelude::States + Fallible>(&mut self, state: State) -> &mut Self {
+        let _state = state.clone();
+        self.add_systems(
+            OnTransition {
+                from: _state,
+                to: State::failure_state(),
+            },
+            move |mut next_state: ResMut<NextState<State>>| {
+                next_state.set(state.clone());
+            },
+        )
+    }
+}

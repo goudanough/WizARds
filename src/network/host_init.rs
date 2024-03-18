@@ -23,6 +23,7 @@ use bevy_oxr::{
 use crate::{
     oxr,
     xr::{SceneState, SpatialAnchors},
+    SetToFail,
 };
 
 use super::{
@@ -166,8 +167,11 @@ pub(super) fn host_wait_share_anchor(
     for event in &events.0 {
         let event = unsafe { xr::Event::from_raw(&event.inner) }.unwrap();
         if let xr::Event::SpaceShareCompleteFB(res) = event {
-            if res.result() != sys::Result::SUCCESS {
-                panic!("Anchor sharing failed with {:?}", res.result())
+            let res = res.result();
+            if res != sys::Result::SUCCESS {
+                warn!("Anchor sharing failed with {res:?}");
+                state.set_fail();
+                return;
             }
             println!("Successfully shared anchor");
 

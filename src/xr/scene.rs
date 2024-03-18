@@ -1,7 +1,7 @@
 use std::ptr::{null, null_mut};
 
 use super::{SceneState, SpatialAnchors};
-use crate::{network::reset_origin, oxr, PhysLayer};
+use crate::{oxr, PhysLayer, RetryState, SetToFail};
 use bevy::{
     prelude::*,
     render::{mesh, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
@@ -36,18 +36,21 @@ impl Plugin for QuestScene {
                 Update,
                 wait_scan_complete.run_if(in_state(SceneState::Scanning)),
             )
+            .retry_state_on_fail(SceneState::Scanning)
             // When we're done scanning we emit a query to the captured data
-            .add_systems(OnExit(SceneState::Scanning), query_scene)
+            .add_systems(OnEnter(SceneState::QueryingScene), query_scene)
             // We wait for the query to complete
             .add_systems(
                 Update,
                 wait_query_complete.run_if(in_state(SceneState::QueryingScene)),
             )
+            .retry_state_on_fail(SceneState::QueryingScene)
             .add_systems(OnEnter(SceneState::Locating), create_sharable_anchor)
             .add_systems(
                 Update,
                 wait_sharable_anchor.run_if(in_state(SceneState::Locating)),
             )
+            .retry_state_on_fail(SceneState::Locating)
             // .add_systems(
             //     OnTransition {
             //         from: SceneState::Locating,
@@ -63,11 +66,13 @@ impl Plugin for QuestScene {
                 Update,
                 wait_enable_anchor_components.run_if(in_state(SceneState::EnableStoreShare)),
             )
+            .retry_state_on_fail(SceneState::EnableStoreShare)
             .add_systems(OnEnter(SceneState::Uploading), upload_anchor)
             .add_systems(
                 Update,
                 wait_upload_anchor.run_if(in_state(SceneState::Uploading)),
-            );
+            )
+            .retry_state_on_fail(SceneState::Uploading);
         // .add_systems(Update, dbg_mesh_gizmos)
         // .add_systems(
         // OnEnter(SceneState::Done),
@@ -101,8 +106,15 @@ fn wait_scan_complete(events: NonSend<XrEvents>, mut state: ResMut<NextState<Sce
     println!("wait_scan_complete");
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
-        if let Event::SceneCaptureCompleteFB(_) = event {
-            state.set(SceneState::QueryingScene)
+        if let Event::SceneCaptureCompleteFB(res) = event {
+            let res = res.result();
+            if res == sys::Result::SUCCESS {
+                println!("Scene setup succeeded");
+                state.set(SceneState::QueryingScene);
+            } else {
+                warn!("Scene setup failed with {:?}", res);
+                state.set_fail();
+            }
         };
     }
 }
@@ -268,14 +280,16 @@ fn wait_query_complete(
             // Report once the event is complete, and warn if it's failed
             Event::SpaceQueryCompleteFB(query) => {
                 let result = query.result();
-                if result == bevy_oxr::xr::sys::Result::SUCCESS {
-                    info!("Space Query Completed Successfully");
+                if result == sys::Result::SUCCESS {
+                    println!("Space Query Completed Successfully");
                 } else {
                     warn!(
                         r#"Space Query Completed {:?} Failed With Error "{}""#,
                         query.request_id(),
                         result
-                    )
+                    );
+                    state.set_fail();
+                    return;
                 }
             }
             Event::SpaceQueryResultsAvailableFB(resultsAvailable) => {
@@ -371,6 +385,7 @@ fn wait_query_complete(
                 // Set the XrSpace handle as the one we'll use in init_world_mesh
                 commands.insert_resource(room_layout);
                 state.set(SceneState::Locating);
+                return;
             }
             _ => {}
         }
@@ -412,8 +427,16 @@ fn wait_sharable_anchor(
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
         if let Event::SpatialAnchorCreateCompleteFB(res) = event {
-            anchors.position = res.space();
-            state.set(SceneState::EnableStoreShare)
+            let (res, space) = (res.result(), res.space());
+            if res == sys::Result::SUCCESS {
+                println!("Successfully created");
+                anchors.position = space;
+                state.set(SceneState::EnableStoreShare);
+            } else {
+                warn!("Failed to create a new sharable anchor with {res:?}");
+                state.set_fail();
+            }
+            return;
         };
     }
 }
@@ -451,8 +474,13 @@ fn wait_enable_anchor_components(
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
         if let Event::SpaceSetStatusCompleteFB(res) = event {
-            let space = res.space();
-            let ty = res.component_type();
+            let (res, space, ty) = (res.result(), res.space(), res.component_type());
+            if res != sys::Result::SUCCESS {
+                warn!("Failed to enable component {ty:?} on shared anchor {space:?} with error: {res:?}");
+                state.set_fail();
+                return;
+            }
+
             let (store, share) = (
                 SpaceComponentTypeFB::STORABLE,
                 SpaceComponentTypeFB::SHARABLE,
@@ -491,11 +519,14 @@ pub(super) fn wait_upload_anchor(
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
         if let Event::SpaceSaveCompleteFB(res) = event {
-            if res.result() != sys::Result::SUCCESS {
-                panic!("Anchor uploading failed with {:?}", res.result())
+            if res.result() == sys::Result::SUCCESS {
+                println!("Uploaded anchor {:?}", res.space());
+                state.set(SceneState::Done);
+            } else {
+                warn!("Anchor uploading failed with {:?}", res.result());
+                state.set_fail();
             }
-            println!("Uploaded anchor {:?}", res.space());
-            state.set(SceneState::Done);
+            return;
         }
     }
 }
