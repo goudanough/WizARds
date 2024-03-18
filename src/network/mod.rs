@@ -327,7 +327,8 @@ fn client_establish_tcp(
     mut state: ResMut<NextState<NetworkingState>>,
     mut commands: Commands,
     emit: Res<MulticastEmitterRes>,
-    timer: Res<MulticastTimer>
+    mut timer: ResMut<MulticastTimer>,
+    time: Res<Time>
 ) {
     let emit = &emit.0;
 
@@ -339,6 +340,7 @@ fn client_establish_tcp(
     } else if timer.0.finished() {
         emit.emit();
     }
+    timer.0.tick(time.delta());
 }
 
 // Start awaiting both anchors and IPs
