@@ -61,7 +61,7 @@ enum PhysLayer {
 pub fn main() {
     let mut app = App::new();
     app.add_systems(Startup, setup)
-        .add_plugins(LogDiagnosticsPlugin::default())
+        // .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(PhysicsPlugins::default())
         .add_plugins(assets::AssetHandlesPlugin)
@@ -91,17 +91,15 @@ pub fn main() {
         exts.meta_spatial_entity_mesh = true;
 
         app.add_plugins(
-            (
-                DefaultXrPlugins {
-                    reqeusted_extensions,
-                    prefered_blend_mode: XrPreferdBlendMode::AlphaBlend,
-                    app_info: XrAppInfo {
-                        name: "wizARds".to_string(),
-                    },
-                }
-                // .build()
-                // .add_after::<OpenXrPlugin, _>(xr::depth::EnvDepthPlugin)
-            ),
+            (DefaultXrPlugins {
+                reqeusted_extensions,
+                prefered_blend_mode: XrPreferdBlendMode::AlphaBlend,
+                app_info: XrAppInfo {
+                    name: "wizARds".to_string(),
+                },
+            }
+            .build()
+            .add_after::<OpenXrPlugin, _>(xr::depth::EnvDepthPlugin)),
         )
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)

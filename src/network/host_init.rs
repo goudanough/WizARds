@@ -128,6 +128,7 @@ pub(super) fn host_share_anchor(
     mut fb_ids: ResMut<FbIds>,
     anchors: Res<SpatialAnchors>,
 ) {
+    println!("host_share_anchor");
     let (Some(instance), Some(session)) = (instance, session) else {
         return;
     };
@@ -212,6 +213,7 @@ pub(super) fn host_inform_clients(
     instance: Res<XrInstance>,
     anchors: Res<SpatialAnchors>,
 ) {
+    println!("host_inform_clients");
     let (addresses, connections) = (&addresses.0, &connections.0);
 
     let vtable = instance.exts().fb_spatial_entity.unwrap();

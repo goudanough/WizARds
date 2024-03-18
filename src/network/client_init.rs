@@ -78,7 +78,8 @@ pub(super) fn client_establish_tcp(
     mut state: ResMut<NextState<NetworkingState>>,
     mut commands: Commands,
     emit: Res<MulticastEmitterRes>,
-    timer: Res<MulticastTimer>,
+    mut timer: ResMut<MulticastTimer>,
+    time: Res<Time>,
 ) {
     let emit = &emit.0;
 
@@ -88,8 +89,10 @@ pub(super) fn client_establish_tcp(
         commands.insert_resource(HostConnection(stream));
         state.0 = Some(NetworkingState::ClientWaitForData);
     } else if timer.0.finished() {
+        println!("PING!");
         emit.emit();
     }
+    timer.0.tick(time.delta());
 }
 
 #[derive(Resource, Debug)]
@@ -100,6 +103,7 @@ pub(super) fn client_await_data(
     mut state: ResMut<NextState<NetworkingState>>,
     mut stream: ResMut<HostConnection>,
 ) {
+    println!("client_await_data");
     let stream = &mut stream.0;
     let mut buf = Vec::new();
 
@@ -138,6 +142,7 @@ pub(super) fn client_query_anchor(
     session: Res<XrSession>,
     anchor: Res<AnchorUuid>,
 ) {
+    println!("client_query_anchor");
     let mut uuid = [anchor.0];
     let filter = SpaceUuidFilterInfoFB {
         ty: SpaceUuidFilterInfoFB::TYPE,
@@ -180,6 +185,7 @@ pub fn client_sync_anchor(
     events: NonSend<XrEvents>,
     mut state: ResMut<NextState<NetworkingState>>,
 ) {
+    println!("client_sync_anchor");
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
         match event {

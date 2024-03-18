@@ -59,12 +59,12 @@ impl Plugin for QuestScene {
             .add_systems(
                 Update,
                 wait_upload_anchor.run_if(in_state(SceneState::Uploading)),
-            )
-            // .add_systems(Update, dbg_mesh_gizmos)
-            .add_systems(
-                OnEnter(SceneState::Done),
-                (init_world_mesh, init_room_layout),
             );
+        // .add_systems(Update, dbg_mesh_gizmos)
+        // .add_systems(
+        // OnEnter(SceneState::Done),
+        // (init_world_mesh, init_room_layout),
+        // );
     }
 }
 
@@ -492,6 +492,9 @@ pub(super) fn wait_upload_anchor(
     for event in &events.0 {
         let event = unsafe { Event::from_raw(&event.inner) }.unwrap();
         if let Event::SpaceSaveCompleteFB(res) = event {
+            if res.result() != sys::Result::SUCCESS {
+                panic!("Anchor uploading failed with {:?}", res.result())
+            }
             println!("Uploaded anchor {:?}", res.space());
             state.set(SceneState::Done);
         }

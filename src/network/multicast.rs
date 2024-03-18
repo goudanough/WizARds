@@ -4,8 +4,6 @@ use std::{
     str::FromStr,
 };
 
-use bevy_oxr::xr::sys::SpaceUserFB;
-
 // Administratively scoped multicast
 const MULTICAST_ADDRESS: Ipv4Addr = Ipv4Addr::new(239, 2, 2, 2);
 const MULTICAST_PORT: u16 = 18860;
