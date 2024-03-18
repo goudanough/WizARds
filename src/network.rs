@@ -205,16 +205,18 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
                 PlayerLeftPalm,
             ))
             .add_rollback();
-        let mut color_gradient1 = Gradient::new();
+    
+    
+    let mut color_gradient1 = Gradient::new();
     color_gradient1.add_key(0.0, Vec4::new(4.0, 4.0, 4.0, 1.0));
     color_gradient1.add_key(0.1, Vec4::new(4.0, 4.0, 0.0, 1.0));
     color_gradient1.add_key(0.9, Vec4::new(4.0, 0.0, 0.0, 1.0));
     color_gradient1.add_key(1.0, Vec4::new(4.0, 0.0, 0.0, 0.0));
 
     let mut size_gradient1 = Gradient::new();
-    size_gradient1.add_key(0.0, Vec2::splat(0.1));
+    size_gradient1.add_key(1.0, Vec2::splat(0.1));
     size_gradient1.add_key(0.3, Vec2::splat(0.1));
-    size_gradient1.add_key(1.0, Vec2::splat(0.));
+    size_gradient1.add_key(0.0, Vec2::splat(0.));
 
     let writer = ExprWriter::new();
 
@@ -224,41 +226,35 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
     let init_age = SetAttributeModifier::new(Attribute::AGE, age);
 
     // Give a bit of variation by randomizing the lifetime per particle
-    let lifetime = writer.lit(0.8).uniform(writer.lit(1.2)).expr();
+    let lifetime = writer.lit(0.5).expr();
     let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
-
-    // Add constant downward acceleration to simulate gravity
-    let accel = writer.lit(Vec3::Y * -8.).expr();
-    let update_accel = AccelModifier::new(accel);
 
     // Add drag to make particles slow down a bit after the initial explosion
     let drag = writer.lit(5.).expr();
     let update_drag = LinearDragModifier::new(drag);
 
     let init_pos = SetPositionSphereModifier {
-        center: writer.lit(Vec3::ZERO).expr(),
-        radius: writer.lit(2.).expr(),
-        dimension: ShapeDimension::Volume,
+    center: writer.lit(Vec3::ZERO).expr(),
+    radius: writer.lit(0.).uniform(writer.lit(0.001)).expr(),
+    dimension: ShapeDimension::Surface,
     };
 
-    // Give a bit of variation by randomizing the initial speed
-    let init_vel = SetVelocitySphereModifier {
-        center: writer.lit(Vec3::ZERO).expr(),
-        speed: (writer.rand(ScalarType::Float) * writer.lit(0.0002)).expr(),
+    let init_size = SetSizeModifier {
+        size: bevy_hanabi::CpuValue::Single(Vec2 { x: 0.0001, y: 0.0001 }),
+        screen_space_size: false,
     };
 
     let effect = EffectAsset::new(
         32768,
-        Spawner::new(20000.0.into(), 0.5.into(), 0.5.into()),
+        Spawner::new(2000.0.into(), 0.5.into(), 0.7.into()),
         writer.finish(),
     )
-    .with_name("firework")
+    .with_name("sparkle")
     .init(init_pos)
-    .init(init_vel)
     .init(init_age)
     .init(init_lifetime)
+    .render(init_size)
     .update(update_drag)
-    // .update(update_accel)
     .render(ColorOverLifetimeModifier {
         gradient: color_gradient1,
     })
@@ -280,17 +276,15 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
                 // TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerRightPalm,
+                Name::new("sparkle"),
+        ParticleEffectBundle {
+            effect: ParticleEffect::new(effect1),
+            transform: Transform::IDENTITY,
+            ..Default::default()
+        },
             ))
             .add_rollback();
-        
-            commands.spawn((
-                Name::new("firework"),
-                ParticleEffectBundle {
-                    effect: ParticleEffect::new(effect1),
-                    transform: Transform::IDENTITY,
-                    ..Default::default()
-                },
-            ));
+
     }
 }
 
