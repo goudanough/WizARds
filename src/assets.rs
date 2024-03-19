@@ -88,19 +88,19 @@ fn setup_bomb_explosion() -> EffectAsset {
     let accel1 = writer1.lit(Vec3::Y * -30.).expr();
     let update_accel1 = AccelModifier::new(accel1);
 
-    let init_pos1 = SetPositionCone3dModifier {
-        base_radius: writer1.lit(3.).expr(),
-        top_radius: writer1.lit(10.).expr(),
-        height: writer1.lit(20.).expr(),
+    let init_pos1=SetPositionSphereModifier{
+        center: writer1.lit(Vec3::ZERO).expr(),
+        radius: writer1.lit(2.).expr(),
         dimension: ShapeDimension::Volume,
     };
+    
 
     let init_vel1 = SetVelocitySphereModifier {
         center: writer1.lit(Vec3::ZERO).expr(),
         speed: writer1.lit(10.).expr(),
     };
         EffectAsset::new(32768, Spawner::once(3000.0.into(),true), writer1.finish())
-            .with_name("emit:rate")
+            .with_name("bomb_explosion")
             .init(init_pos1)
             // Make spawned particles move away from the emitter origin
             .init(init_vel1)
