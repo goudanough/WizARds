@@ -80,6 +80,7 @@ impl Plugin for BossPlugin {
                     boss_action,
                     boss_attack.run_if(in_state(BossState::Attack)),
                     boss_move.run_if(in_state(BossState::MoveTowardsPlayer)),
+                    check_phase,
                 ),
             )
             .add_systems(OnEnter(BossPhase::Phase2), init_phase2)
@@ -167,6 +168,19 @@ fn init_phase3(mut boss_health: Query<&mut BossHealth>, mut current_phase: ResMu
 fn reset_phase(current_phase: Res<CurrentPhase>, mut next_phase: ResMut<NextState<BossPhase>>) {
     println!("Resetting Phase.");
     next_phase.set(current_phase.0);
+}
+
+fn check_phase(
+    current_phase: Res<CurrentPhase>,
+    mut next_phase: ResMut<NextState<BossPhase>>,
+    boss_health: Query<&BossHealth>,
+) {
+    let Ok(health) = boss_health.get_single() else {
+        return;
+    };
+    if health.current <= 0.0 {
+        next_phase.set(current_phase.0.next_phase());
+    }
 }
 
 fn despawn_boss(mut commands: Commands, mut boss: Query<(Entity, &Transform), With<Boss>>) {
