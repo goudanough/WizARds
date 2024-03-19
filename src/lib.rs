@@ -15,6 +15,7 @@ mod xr;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ggrs::GgrsConfig;
+use bevy_hanabi::HanabiPlugin;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode};
 #[cfg(target_os = "android")]
