@@ -68,68 +68,50 @@ fn setup_bomb_explosion() -> EffectAsset {
     let mut color_gradient1 = Gradient::new();
     color_gradient1.add_key(0.0, Vec4::new(4.0, 4.0, 4.0, 1.0));
     color_gradient1.add_key(0.1, Vec4::new(4.0, 4.0, 0.0, 1.0));
-    color_gradient1.add_key(0.5, Vec4::new(4.0, 0.0, 0.0, 1.0));
+    color_gradient1.add_key(0.9, Vec4::new(4.0, 0.0, 0.0, 1.0));
     color_gradient1.add_key(1.0, Vec4::new(4.0, 0.0, 0.0, 0.0));
 
     let mut size_gradient1 = Gradient::new();
-    size_gradient1.add_key(0.0, Vec2::splat(0.1));
+    size_gradient1.add_key(1.0, Vec2::splat(0.1));
     size_gradient1.add_key(0.3, Vec2::splat(0.1));
-    size_gradient1.add_key(1.0, Vec2::splat(0.0));
+    size_gradient1.add_key(0.0, Vec2::splat(0.));
 
-    let writer = ExprWriter::new();
+    let writer1 = ExprWriter::new();
 
-    // Give a bit of variation by randomizing the age per particle. This will
-    // control the starting color and starting size of particles.
-    let age = writer.lit(0.).uniform(writer.lit(0.2)).expr();
-    let init_age = SetAttributeModifier::new(Attribute::AGE, age);
+    let age1 = writer1.lit(0.).expr();
+    let init_age1 = SetAttributeModifier::new(Attribute::AGE, age1);
 
-    // Give a bit of variation by randomizing the lifetime per particle
-    let lifetime = writer.lit(0.8).uniform(writer.lit(1.2)).expr();
-    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
+    let lifetime1 = writer1.lit(5.).expr();
+    let init_lifetime1 = SetAttributeModifier::new(Attribute::LIFETIME, lifetime1);
 
     // Add constant downward acceleration to simulate gravity
-    let accel = writer.lit(Vec3::Y * -8.).expr();
-    let update_accel = AccelModifier::new(accel);
+    let accel1 = writer1.lit(Vec3::Y * -30.).expr();
+    let update_accel1 = AccelModifier::new(accel1);
 
-    // Add drag to make particles slow down a bit after the initial explosion
-    let drag = writer.lit(5.).expr();
-    let update_drag = LinearDragModifier::new(drag);
-
-    let init_pos = SetPositionSphereModifier {
-        center: writer.lit(Vec3::ZERO).expr(),
-        radius: writer.lit(0.2).expr(),
+    let init_pos1 = SetPositionCone3dModifier {
+        base_radius: writer1.lit(3.).expr(),
+        top_radius: writer1.lit(10.).expr(),
+        height: writer1.lit(20.).expr(),
         dimension: ShapeDimension::Volume,
     };
 
-    // Give a bit of variation by randomizing the initial speed
-    let init_vel = SetVelocitySphereModifier {
-        center: writer.lit(Vec3::ZERO).expr(),
-        speed: (writer.rand(ScalarType::Float) * writer.lit(0.2) + writer.lit(0.3)).expr(),
+    let init_vel1 = SetVelocitySphereModifier {
+        center: writer1.lit(Vec3::ZERO).expr(),
+        speed: writer1.lit(10.).expr(),
     };
-
-    let init_size = SetSizeModifier {
-        size: bevy_hanabi::CpuValue::Single(Vec2 { x: 0.01, y: 0.01 }),
-        screen_space_size: false,
-    };
-
-    EffectAsset::new(
-        32768,
-        Spawner::new(100.0.into(), 2.0.into(), 1000.0.into()),
-        writer.finish(),
-    )
-    .with_name("firework")
-    .init(init_pos)
-    .init(init_vel)
-    .init(init_age)
-    .init(init_lifetime)
-    .render(init_size)
-    .update(update_drag)
-    .update(update_accel)
-    .render(ColorOverLifetimeModifier {
-        gradient: color_gradient1,
-    })
-    .render(SizeOverLifetimeModifier {
-        gradient: size_gradient1,
-        screen_space_size: false,
-    })
+        EffectAsset::new(32768, Spawner::once(3000.0.into(),true), writer1.finish())
+            .with_name("emit:rate")
+            .init(init_pos1)
+            // Make spawned particles move away from the emitter origin
+            .init(init_vel1)
+            .init(init_age1)
+            .init(init_lifetime1)
+            .update(update_accel1)
+            .render(ColorOverLifetimeModifier {
+                gradient: color_gradient1,
+            })
+            .render(SizeOverLifetimeModifier {
+                gradient: size_gradient1,
+                screen_space_size: false,
+            })
 }
