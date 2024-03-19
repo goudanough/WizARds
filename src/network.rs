@@ -9,6 +9,7 @@ use bevy_oxr::xr_input::{
 use bevy_xpbd_3d::prelude::*;
 use bevy_hanabi::prelude::*;
 use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
+use crate::assets::{AssetHandles, EffectName, MatName, MeshName};
 
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
@@ -41,6 +42,9 @@ struct ConnectionArgs {
     local_port: u16,
     players: Vec<String>,
 }
+
+#[derive(Component)]
+pub struct BombSparkleEffect;
 pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
@@ -175,7 +179,7 @@ pub fn read_local_inputs(
     queued_spell.0 = None;
 }
 
-fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>,mut effects: ResMut<Assets<EffectAsset>>) {
+fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>,mut effects: ResMut<Assets<EffectAsset>>,asset_handles: Res<AssetHandles>,) {
     // Add one cube on each player's head
     for i in 0..args.players.len() {
         commands
@@ -207,63 +211,63 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
             .add_rollback();
     
     
-    let mut color_gradient1 = Gradient::new();
-    color_gradient1.add_key(0.0, Vec4::new(4.0, 4.0, 4.0, 1.0));
-    color_gradient1.add_key(0.1, Vec4::new(4.0, 4.0, 0.0, 1.0));
-    color_gradient1.add_key(0.9, Vec4::new(4.0, 0.0, 0.0, 1.0));
-    color_gradient1.add_key(1.0, Vec4::new(4.0, 0.0, 0.0, 0.0));
+    // let mut color_gradient1 = Gradient::new();
+    // color_gradient1.add_key(0.0, Vec4::new(4.0, 4.0, 4.0, 1.0));
+    // color_gradient1.add_key(0.1, Vec4::new(4.0, 4.0, 0.0, 1.0));
+    // color_gradient1.add_key(0.9, Vec4::new(4.0, 0.0, 0.0, 1.0));
+    // color_gradient1.add_key(1.0, Vec4::new(4.0, 0.0, 0.0, 0.0));
 
-    let mut size_gradient1 = Gradient::new();
-    size_gradient1.add_key(1.0, Vec2::splat(0.1));
-    size_gradient1.add_key(0.3, Vec2::splat(0.1));
-    size_gradient1.add_key(0.0, Vec2::splat(0.));
+    // let mut size_gradient1 = Gradient::new();
+    // size_gradient1.add_key(1.0, Vec2::splat(0.1));
+    // size_gradient1.add_key(0.3, Vec2::splat(0.1));
+    // size_gradient1.add_key(0.0, Vec2::splat(0.));
 
-    let writer = ExprWriter::new();
+    // let writer = ExprWriter::new();
 
-    // Give a bit of variation by randomizing the age per particle. This will
-    // control the starting color and starting size of particles.
-    let age = writer.lit(0.).uniform(writer.lit(0.5)).expr();
-    let init_age = SetAttributeModifier::new(Attribute::AGE, age);
+    // // Give a bit of variation by randomizing the age per particle. This will
+    // // control the starting color and starting size of particles.
+    // let age = writer.lit(0.).uniform(writer.lit(0.5)).expr();
+    // let init_age = SetAttributeModifier::new(Attribute::AGE, age);
 
-    // Give a bit of variation by randomizing the lifetime per particle
-    let lifetime = writer.lit(0.5).expr();
-    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
+    // // Give a bit of variation by randomizing the lifetime per particle
+    // let lifetime = writer.lit(0.5).expr();
+    // let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
 
-    // Add drag to make particles slow down a bit after the initial explosion
-    let drag = writer.lit(5.).expr();
-    let update_drag = LinearDragModifier::new(drag);
+    // // Add drag to make particles slow down a bit after the initial explosion
+    // let drag = writer.lit(5.).expr();
+    // let update_drag = LinearDragModifier::new(drag);
 
-    let init_pos = SetPositionSphereModifier {
-    center: writer.lit(Vec3::ZERO).expr(),
-    radius: writer.lit(0.).uniform(writer.lit(0.001)).expr(),
-    dimension: ShapeDimension::Surface,
-    };
+    // let init_pos = SetPositionSphereModifier {
+    // center: writer.lit(Vec3::ZERO).expr(),
+    // radius: writer.lit(0.).uniform(writer.lit(0.001)).expr(),
+    // dimension: ShapeDimension::Surface,
+    // };
 
-    let init_size = SetSizeModifier {
-        size: bevy_hanabi::CpuValue::Single(Vec2 { x: 0.0001, y: 0.0001 }),
-        screen_space_size: false,
-    };
+    // let init_size = SetSizeModifier {
+    //     size: bevy_hanabi::CpuValue::Single(Vec2 { x: 0.0001, y: 0.0001 }),
+    //     screen_space_size: false,
+    // };
 
-    let effect = EffectAsset::new(
-        32768,
-        Spawner::new(2000.0.into(), 0.5.into(), 0.7.into()),
-        writer.finish(),
-    )
-    .with_name("sparkle")
-    .init(init_pos)
-    .init(init_age)
-    .init(init_lifetime)
-    .render(init_size)
-    .update(update_drag)
-    .render(ColorOverLifetimeModifier {
-        gradient: color_gradient1,
-    })
-    .render(SizeOverLifetimeModifier {
-        gradient: size_gradient1,
-        screen_space_size: false,
-    });
+    // let effect = EffectAsset::new(
+    //     32768,
+    //     Spawner::new(2000.0.into(), 0.5.into(), 0.7.into()),
+    //     writer.finish(),
+    // )
+    // .with_name("sparkle")
+    // .init(init_pos)
+    // .init(init_age)
+    // .init(init_lifetime)
+    // .render(init_size)
+    // .update(update_drag)
+    // .render(ColorOverLifetimeModifier {
+    //     gradient: color_gradient1,
+    // })
+    // .render(SizeOverLifetimeModifier {
+    //     gradient: size_gradient1,
+    //     screen_space_size: false,
+    // });
 
-    let effect1 = effects.add(effect);
+    // let effect1 = effects.add(effect);
         
         commands
             .spawn((
@@ -276,10 +280,11 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
                 // TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerRightPalm,
-                Name::new("sparkle"),
+                // Name::new("sparkle"),
         ParticleEffectBundle {
-            effect: ParticleEffect::new(effect1),
-            transform: Transform::IDENTITY,
+            effect: ParticleEffect::new(
+                        asset_handles.effects[EffectName::BombSparkle as usize].clone(),
+                    ),
             ..Default::default()
         },
             ))
