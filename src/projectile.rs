@@ -1,10 +1,10 @@
-use bevy::{ecs::query::QueryEntityError, prelude::*};
+use bevy::prelude::*;
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
 use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
-    boss::{BossHealth, BossPhase, CurrentPhase},
+    boss::{BossHealth, BossPhase},
     network::{move_networked_player_objs, PlayerID},
     PhysLayer,
 };
@@ -15,24 +15,36 @@ pub enum ProjectileType {
     BossAttack,
 }
 
+#[derive(Component)]
+struct ProjectileHit(Entity);
+
+#[derive(Component, Debug, Clone)]
+struct DamageHit(DamageMask, f32);
+
+#[derive(Component, Debug, Clone)]
+struct ResetPhaseHit;
 #[derive(Debug, Default, Component)]
 pub struct LinearMovement(f32);
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone)]
 enum ProjectileHitEffect {
-    Damage(DamageMask, f32),
-    ResetPhase,
+    Damage(DamageHit),
+    ResetPhase(ResetPhaseHit),
 }
 impl Default for ProjectileHitEffect {
     fn default() -> Self {
-        ProjectileHitEffect::Damage(DamageMask::FIRE, 10.)
+        ProjectileHitEffect::Damage(DamageHit(DamageMask::FIRE, 10.))
     }
 }
 
 #[derive(Component, Debug, Default)]
 pub struct Projectile;
 
-#[derive(Debug)]
+// DamageMask struct used for handling damage types.
+// Each bit is a damage type, a bit is set to 1 if that type is enabled.
+// Things that deal damage should have a damage mask with the damage types they deal enabled.
+// Things that take damage should have a damage mask with the damage types they can take enabled.
+#[derive(Debug, Clone)]
 pub struct DamageMask(pub u8);
 
 impl DamageMask {
@@ -53,17 +65,21 @@ pub struct ProjectilePlugin;
 
 impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
+        // All Projectile code needs to run on the GgrsSchedule.
         app.add_systems(
             GgrsSchedule,
             (
                 update_linear_movement.ambiguous_with(move_networked_player_objs), // TODO this might be a hack, but also might be how bevy_ggrs works
                 detect_projectile_collisions,
+                handle_damage_hits,
+                handle_reset_phase_hits,
             )
                 .chain(),
         );
     }
 }
 
+// Move projectiles forward manually.
 pub fn update_linear_movement(
     time: Res<Time>,
     mut projectiles: Query<(&mut Transform, &LinearMovement), Without<PlayerID>>,
@@ -74,75 +90,82 @@ pub fn update_linear_movement(
     }
 }
 
-// TODO Make this better - function signature changes as we add more types of projectile which is bad.
-// instead of this we should create an bundle representing each collision and have these be processed by different systems.
+// Check for collisions between projectiles and other objects, and emit entities to represent these "hits".
 fn detect_projectile_collisions(
     mut commands: Commands,
     mut collisions: EventReader<CollisionStarted>,
     projectiles: Query<(&ProjectileHitEffect, &Transform)>,
-    mut healths: Query<&mut BossHealth>,
-    players: Query<&PlayerID>,
-    mut next_phase: ResMut<NextState<BossPhase>>,
-    current_phase: Res<CurrentPhase>,
 ) {
     for CollisionStarted(e1, e2) in collisions.read() {
-        if let Ok((p, _)) = projectiles.get(*e1) {
-            handle_projectile_collision(
-                &mut commands,
-                p,
-                e1,
-                healths.get_mut(*e2),
-                players.get(*e2),
-                &mut next_phase,
-                &current_phase,
-            );
-        }
-        if let Ok((p, _)) = projectiles.get(*e2) {
-            handle_projectile_collision(
-                &mut commands,
-                p,
-                e2,
-                healths.get_mut(*e1),
-                players.get(*e1),
-                &mut next_phase,
-                &current_phase,
-            );
-        }
-    }
-}
-
-// TODO see previous TODO
-fn handle_projectile_collision(
-    commands: &mut Commands,
-    hit_effect: &ProjectileHitEffect,
-    p_entity: &Entity,
-    health: Result<Mut<BossHealth>, QueryEntityError>,
-    player: Result<&PlayerID, QueryEntityError>,
-    next_phase: &mut ResMut<NextState<BossPhase>>,
-    current_phase: &Res<CurrentPhase>,
-) {
-    commands.entity(*p_entity).despawn();
-    match &hit_effect {
-        ProjectileHitEffect::Damage(m, a) => {
-            if let Ok(mut h) = health {
-                if h.damage_mask.intersect(m) {
-                    h.current -= a;
-                    if h.current <= 0.0 {
-                        println!("Change phase");
-                        next_phase.set(current_phase.0.next_phase());
-                    }
+        if let Ok((p, t)) = projectiles.get(*e1) {
+            match p {
+                ProjectileHitEffect::Damage(damage_hit) => {
+                    commands
+                        .spawn((ProjectileHit(*e2), *t, damage_hit.clone()))
+                        .add_rollback();
+                }
+                ProjectileHitEffect::ResetPhase(reset_phase_hit) => {
+                    commands
+                        .spawn((ProjectileHit(*e2), *t, reset_phase_hit.clone()))
+                        .add_rollback();
                 }
             }
+
+            commands.entity(*e1).despawn();
         }
-        ProjectileHitEffect::ResetPhase => {
-            if player.is_ok() {
-                println!("Reset phase");
-                next_phase.set(BossPhase::Reset);
+        if let Ok((p, t)) = projectiles.get(*e2) {
+            match p {
+                ProjectileHitEffect::Damage(damage_hit) => {
+                    commands
+                        .spawn((ProjectileHit(*e1), *t, damage_hit.clone()))
+                        .add_rollback();
+                }
+                ProjectileHitEffect::ResetPhase(reset_phase_hit) => {
+                    commands
+                        .spawn((ProjectileHit(*e1), *t, reset_phase_hit.clone()))
+                        .add_rollback();
+                }
             }
+            commands.entity(*e2).despawn();
         }
     }
 }
 
+// Handle hits from player projectiles that deal damage.
+fn handle_damage_hits(
+    mut commands: Commands,
+    hits: Query<(&Transform, &ProjectileHit, Entity, &DamageHit)>,
+    mut boss_health: Query<&mut BossHealth>,
+) {
+    for (_transform, p_hit, e, d) in hits.iter() {
+        // Check if the collided entity is the boss.
+        if let Ok(mut h) = boss_health.get_mut(p_hit.0) {
+            // If the damage masks intersect, then the boss doesn't resist the attack.
+            if h.damage_mask.intersect(&d.0) {
+                h.current -= d.1;
+            }
+        }
+        commands.entity(e).despawn();
+    }
+}
+
+// Handle hits from boss projectiles.
+fn handle_reset_phase_hits(
+    mut commands: Commands,
+    hits: Query<(&Transform, &ProjectileHit, Entity), With<ResetPhaseHit>>,
+    mut next_phase: ResMut<NextState<BossPhase>>,
+    players: Query<&PlayerID>,
+) {
+    for (_transform, p_hit, e) in hits.iter() {
+        // Check if the collided entity is part of a player.
+        if players.get(p_hit.0).is_ok() {
+            next_phase.set(BossPhase::Reset)
+        }
+        commands.entity(e).despawn();
+    }
+}
+
+// Given a projectile type, spawn a corresponding projectile. Sort of prefabing.
 pub fn spawn_projectile(
     commands: &mut Commands,
     projectile_type: ProjectileType,
@@ -160,7 +183,7 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(3.0),
-                ProjectileHitEffect::Damage(DamageMask::FIRE, 25.0),
+                ProjectileHitEffect::Damage(DamageHit(DamageMask::FIRE, 25.0)),
                 CollisionLayers::new(
                     PhysLayer::PlayerProjectile,
                     (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
@@ -179,7 +202,7 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(6.0),
-                ProjectileHitEffect::Damage(DamageMask::LIGHTNING, 25.0),
+                ProjectileHitEffect::Damage(DamageHit(DamageMask::LIGHTNING, 25.0)),
                 CollisionLayers::new(
                     PhysLayer::PlayerProjectile,
                     (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
@@ -198,7 +221,7 @@ pub fn spawn_projectile(
                     ..Default::default()
                 },
                 LinearMovement(1.0),
-                ProjectileHitEffect::ResetPhase,
+                ProjectileHitEffect::ResetPhase(ResetPhaseHit),
                 CollisionLayers::new(
                     PhysLayer::BossProjectile,
                     (LayerMask::ALL ^ PhysLayer::Boss) ^ PhysLayer::PlayerProjectile, // ugh
