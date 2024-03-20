@@ -6,7 +6,7 @@ use bevy_oxr::xr_input::trackers::OpenXRTracker;
 
 use crate::{
     network::{LocalPlayerID, PlayerHead, PlayerID},
-    speech::{collect_voice, recognise_voice, start_voice},
+    speech::{check_fingers_close, fetch_recogniser, RecognizedWord, RecordingStatus, SpeechRecognizer},
     spells::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
         TrajectoryIndicator,
@@ -40,13 +40,9 @@ impl TryFrom<u32> for Spell {
 pub enum SpellStatus {
     #[default]
     None,
-    VoiceRecording,
     Armed,
     Fire,
 }
-
-#[derive(Resource)]
-pub struct SpellRecognitionActive(pub bool);
 
 #[derive(Resource)]
 pub struct SpellSpawnLocation(pub Vec3);
@@ -57,12 +53,15 @@ pub struct SelectedSpell(pub Option<Spell>);
 #[derive(Resource, Clone)]
 pub struct QueuedSpell(pub Option<Spell>);
 
+const SPELL_GRAMMAR: [&str; 2] = ["fireball", "lightning"];
+
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<SpellStatus>()
+            .insert_resource(SpeechRecognizer(fetch_recogniser(&SPELL_GRAMMAR)))
             .insert_resource(SelectedSpell(None))
             .insert_resource(QueuedSpell(None))
-            .insert_resource(SpellRecognitionActive(false))
+            .add_systems(OnEnter(RecordingStatus::Success), select_spell)
             .insert_resource(SpellSpawnLocation(Vec3 {
                 x: 0.0,
                 y: 0.0,
@@ -70,25 +69,8 @@ impl Plugin for SpellControlPlugin {
             }))
             .add_systems(
                 Update,
-                collect_voice.run_if(in_state(SpellStatus::VoiceRecording)),
-            )
-            .add_systems(OnEnter(SpellStatus::VoiceRecording), start_voice)
-            .add_systems(
-                Update,
-                recognise_voice.run_if(in_state(SpellStatus::VoiceRecording)),
-            )
-            .add_systems(
-                Update,
-                (
-                    check_spell_select_input,
-                    check_finger_dists,
-                    palm_mid_point_track,
-                )
-                    .run_if(
-                        in_state(SpellStatus::None)
-                            .or_else(in_state(SpellStatus::VoiceRecording))
-                            .or_else(in_state(SpellStatus::Armed)),
-                    ),
+                palm_mid_point_track
+                    .run_if(in_state(SpellStatus::None).or_else(in_state(SpellStatus::Armed))),
             )
             .add_systems(
                 Update,
@@ -108,56 +90,12 @@ impl Plugin for SpellControlPlugin {
     }
 }
 
-fn check_spell_select_input(
-    spell_state: Res<State<SpellStatus>>,
-    mut next_spell_state: ResMut<NextState<SpellStatus>>,
-    finger_dist_close: Res<SpellRecognitionActive>,
-) {
-    if SpellStatus::None == *spell_state.get() && finger_dist_close.0 {
-        next_spell_state.set(SpellStatus::VoiceRecording);
-    }
-}
-
-fn check_finger_dists(
+fn check_spell_fire_input(
     hand_bones: Query<&Transform, (With<OpenXRTracker>, With<HandBone>)>,
     hands_resource: Res<HandsResource>,
-    mut finger_dist_close: ResMut<SpellRecognitionActive>,
-) {
-    let thumb_dists = (hand_bones
-        .get(hands_resource.left.thumb.tip)
-        .unwrap()
-        .translation
-        - hand_bones
-            .get(hands_resource.right.thumb.tip)
-            .unwrap()
-            .translation)
-        .length();
-
-    let index_dists = (hand_bones
-        .get(hands_resource.left.index.tip)
-        .unwrap()
-        .translation
-        - hand_bones
-            .get(hands_resource.right.index.tip)
-            .unwrap()
-            .translation)
-        .length();
-
-    let dists = vec![thumb_dists, index_dists];
-    let mut spell_check_close = true;
-
-    for dist in dists {
-        spell_check_close = spell_check_close && dist < 0.25;
-    }
-
-    finger_dist_close.0 = spell_check_close;
-}
-
-fn check_spell_fire_input(
     mut next_spell_state: ResMut<NextState<SpellStatus>>,
-    finger_dist_close: Res<SpellRecognitionActive>,
 ) {
-    if !finger_dist_close.0 {
+    if !check_fingers_close(hand_bones, &hands_resource) {
         next_spell_state.set(SpellStatus::Fire)
     }
 }
@@ -222,6 +160,20 @@ fn spawn_new_spell_entities(
             );
         }
     }
+}
+
+fn select_spell(
+    word: Res<RecognizedWord>,
+    mut next_spell_state: ResMut<NextState<SpellStatus>>,
+    mut selected_spell: ResMut<SelectedSpell>,
+) {
+    let (next_s, s_spell) = match &word.0[..] {
+        "fireball" => (SpellStatus::Armed, Some(Spell::Fireball)),
+        "lightning" => (SpellStatus::Armed, Some(Spell::Lightning)),
+        _ => (SpellStatus::None, None),
+    };
+    next_spell_state.set(next_s);
+    selected_spell.0 = s_spell;
 }
 
 fn palm_mid_point_track(
