@@ -189,6 +189,7 @@ fn setup_bomb_sparkle_explosion() -> EffectAsset {
     .init(init_age)
     .init(init_lifetime)
     .render(init_size)
+    .render(OrientModifier { mode: OrientMode::ParallelCameraDepthPlane,..Default::default() })
     .update(update_drag)
     .render(ColorOverLifetimeModifier {
         gradient: color_gradient1,
