@@ -7,9 +7,9 @@ use bevy_oxr::xr_input::{
     trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
 use bevy_xpbd_3d::prelude::*;
-
+use bevy_hanabi::prelude::*;
 use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
-
+use crate::assets::{AssetHandles, EffectName, MatName, MeshName};
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
     Uninitialized,
@@ -41,6 +41,9 @@ struct ConnectionArgs {
     local_port: u16,
     players: Vec<String>,
 }
+
+#[derive(Component)]
+pub struct BombExplosion;
 pub struct NetworkPlugin;
 
 impl Plugin for NetworkPlugin {
@@ -175,7 +178,7 @@ pub fn read_local_inputs(
     queued_spell.0 = None;
 }
 
-fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>) {
+fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>,asset_handles: Res<AssetHandles>,) {
     // Add one cube on each player's head
     for i in 0..args.players.len() {
         commands
@@ -213,9 +216,16 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
                     PhysLayer::Player,
                     LayerMask::ALL ^ PhysLayer::PlayerProjectile,
                 ),
-                TransformBundle { ..default() },
+                // TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerRightPalm,
+                // Name::new("sparkle"),
+        ParticleEffectBundle {
+            effect: ParticleEffect::new(
+                        asset_handles.effects[EffectName::BombExplosion as usize].clone(),
+                    ),
+            ..Default::default()
+        },
             ))
             .add_rollback();
     }

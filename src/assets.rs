@@ -85,21 +85,24 @@ fn setup_bomb_explosion() -> EffectAsset {
     let init_lifetime1 = SetAttributeModifier::new(Attribute::LIFETIME, lifetime1);
 
     // Add constant downward acceleration to simulate gravity
-    let accel1 = writer1.lit(Vec3::Y * -30.).expr();
+    let accel1 = writer1.lit(Vec3::Y * -3.).expr();
     let update_accel1 = AccelModifier::new(accel1);
 
     let init_pos1=SetPositionSphereModifier{
         center: writer1.lit(Vec3::ZERO).expr(),
-        radius: writer1.lit(2.).expr(),
+        radius: writer1.lit(0.5).expr(),
         dimension: ShapeDimension::Volume,
     };
     
 
     let init_vel1 = SetVelocitySphereModifier {
         center: writer1.lit(Vec3::ZERO).expr(),
-        speed: writer1.lit(10.).expr(),
+        speed: writer1.lit(1.).expr(),
     };
-        EffectAsset::new(32768, Spawner::once(3000.0.into(),true), writer1.finish())
+        EffectAsset::new(32768, 
+            // Spawner::once(6000.0.into(),true), 
+            Spawner::new(6000.0.into(), 6.0.into(), 5.0.into()),
+            writer1.finish())
             .with_name("bomb_explosion")
             .init(init_pos1)
             // Make spawned particles move away from the emitter origin
@@ -114,4 +117,5 @@ fn setup_bomb_explosion() -> EffectAsset {
                 gradient: size_gradient1,
                 screen_space_size: false,
             })
+            .render(OrientModifier { mode: OrientMode::ParallelCameraDepthPlane,..Default::default() })
 }

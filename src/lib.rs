@@ -26,6 +26,7 @@ use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
 use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
 use bevy_xpbd_3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
+use bevy_hanabi::prelude::*;
 
 const FPS: usize = 72;
 
