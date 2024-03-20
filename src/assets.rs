@@ -170,12 +170,12 @@ fn setup_bomb_sparkle_explosion() -> EffectAsset {
 
     let init_pos = SetPositionSphereModifier {
     center: writer.lit(Vec3::ZERO).expr(),
-    radius: writer.lit(0.).uniform(writer.lit(0.001)).expr(),
+    radius: writer.lit(0.).uniform(writer.lit(0.05)).expr(),
     dimension: ShapeDimension::Surface,
     };
 
     let init_size = SetSizeModifier {
-        size: bevy_hanabi::CpuValue::Single(Vec2 { x: 0.0001, y: 0.0001 }),
+        size: bevy_hanabi::CpuValue::Single(Vec2 { x: 0.1, y: 0.1}),
         screen_space_size: false,
     };
 
