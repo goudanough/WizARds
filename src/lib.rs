@@ -15,6 +15,7 @@ mod xr;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy_ggrs::GgrsConfig;
+#[cfg(target_os = "android")]
 use bevy_hanabi::HanabiPlugin;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode};
@@ -49,6 +50,7 @@ pub struct PlayerInput {
 enum PhysLayer {
     Player,
     PlayerProjectile,
+    ParryObject,
     Bomb,
     Boss,
     BossProjectile,

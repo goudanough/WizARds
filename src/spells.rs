@@ -4,9 +4,7 @@ use ::bevy::prelude::*;
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule, Rollback};
 use bevy_hanabi::{ParticleEffect, ParticleEffectBundle};
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
-use bevy_xpbd_3d::components::{CollisionLayers, ExternalForce, LayerMask, RigidBody};
-use bevy_xpbd_3d::plugins::collision::{Collider, Collisions};
-use bevy_xpbd_3d::plugins::spatial_query::{SpatialQuery, SpatialQueryFilter};
+use bevy_xpbd_3d::prelude::*;
 
 use crate::assets::{AssetHandles, EffectName, MatName, MeshName};
 use crate::network::{move_networked_player_objs, PlayerID, PlayerLeftPalm, PlayerRightPalm};
@@ -39,6 +37,18 @@ pub struct FireSpell;
 pub struct LightningSpell;
 
 #[derive(Component)]
+pub struct ParrySpell;
+
+#[derive(Component)]
+pub struct ParryObj;
+
+#[derive(Component)]
+pub struct ParriedProjectile;
+
+#[derive(Component)]
+pub struct ParryTimer(Timer);
+
+#[derive(Component)]
 pub struct BombSpell;
 
 #[derive(Component)]
@@ -46,6 +56,7 @@ pub struct BombObj;
 
 #[derive(Component)]
 pub struct BombExplosionEffect;
+
 #[derive(Component)]
 pub struct HandObj;
 
@@ -62,6 +73,8 @@ impl Plugin for SpellsPlugin {
             (
                 handle_lightning,
                 handle_fireballs,
+                handle_parry,
+                parry_check,
                 handle_bomb,
                 handle_bomb_explode,
                 hand_bomb_collision,
@@ -108,6 +121,18 @@ pub fn spawn_spell(
                 SpatialBundle {
                     transform: Transform::from_translation(palm_mid_point)
                         .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
+                    ..Default::default()
+                },
+            ))
+            .add_rollback(),
+        Spell::Parry => commands
+            .spawn((
+                SpellObj,
+                ParrySpell,
+                PlayerID { handle: p_id },
+                SpatialBundle {
+                    transform: Transform::from_translation(palm_mid_point)
+                        .with_rotation(head_transform.rotation),
                     ..Default::default()
                 },
             ))
@@ -346,6 +371,136 @@ fn handle_bomb_explode(
     }
 }
 
+fn handle_parry(
+    mut commands: Commands,
+    left_palms: Query<(Entity, &PlayerID), With<PlayerLeftPalm>>,
+    right_palms: Query<(Entity, &PlayerID), With<PlayerRightPalm>>,
+    spell_objs: Query<(Entity, &PlayerID), With<ParrySpell>>,
+    //asset_handles: Res<AssetHandles>,
+) {
+    for (e, p) in spell_objs.iter() {
+        let parry_left = commands
+            .spawn((
+                ParryObj,
+                PlayerID { handle: p.handle },
+                SpatialBundle {
+                    ..Default::default()
+                },
+                // ParticleEffectBundle {
+                //     effect: ParticleEffect::new(asset_handles.effects[EffectName::BombExplosion as usize].clone()),
+                //     ..default()
+                // },
+                CollisionLayers::new(
+                    PhysLayer::ParryObject,
+                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::PlayerProjectile,
+                ),
+                Collider::sphere(0.12),
+                ParryTimer(Timer::from_seconds(5.0, TimerMode::Once)),
+            ))
+            .add_rollback()
+            .id();
+
+        let parry_right = commands
+            .spawn((
+                ParryObj,
+                PlayerID { handle: p.handle },
+                SpatialBundle {
+                    ..Default::default()
+                },
+                // ParticleEffectBundle {
+                //     effect: ParticleEffect::new(asset_handles.effects[EffectName::BombExplosion as usize].clone()),
+                //     ..default()
+                // },
+                CollisionLayers::new(
+                    PhysLayer::ParryObject,
+                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::PlayerProjectile,
+                ),
+                Collider::sphere(0.12),
+                ParryTimer(Timer::from_seconds(5.0, TimerMode::Once)),
+            ))
+            .add_rollback()
+            .id();
+
+        for (left_palm, id) in left_palms.iter() {
+            if id.handle == p.handle {
+                commands
+                    .get_entity(left_palm)
+                    .unwrap()
+                    .push_children(&[parry_left]);
+            }
+        }
+
+        for (right_palm, id) in right_palms.iter() {
+            if id.handle == p.handle {
+                commands
+                    .get_entity(right_palm)
+                    .unwrap()
+                    .push_children(&[parry_right]);
+            }
+        }
+
+        commands.entity(e).despawn_recursive();
+    }
+}
+
+fn parry_check(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut parry_objs_query: Query<(Entity, &GlobalTransform, &mut ParryTimer), With<ParryObj>>,
+    projectiles: Query<(&Transform, &Handle<StandardMaterial>, &Handle<Mesh>), With<Projectile>>,
+    mut collision_event_reader: EventReader<Collision>,
+) {
+    let collision_events: Vec<Collision> = collision_event_reader.read().cloned().collect();
+    for (parry_obj, _, mut parry_timer) in parry_objs_query.iter_mut() {
+        if parry_timer.0.tick(time.delta()).finished() {
+            commands.entity(parry_obj).despawn();
+        }
+    }
+
+    for (parry_obj, parry_transform, _) in parry_objs_query.iter_mut() {
+        for Collision(contacts) in &collision_events {
+            let proj = match parry_obj {
+                c if c == contacts.entity1 => contacts.entity2,
+                c if c == contacts.entity2 => contacts.entity1,
+                _ => continue,
+            };
+
+            let Ok((proj_trans, material, mesh)) = projectiles.get(proj) else {
+                continue;
+            };
+
+            commands.entity(proj).despawn();
+
+            let parry_proj_direction =
+                (proj_trans.translation - parry_transform.translation()).normalize();
+
+            commands
+                .spawn((
+                    ParriedProjectile,
+                    ExternalForce::new(parry_proj_direction * 2.0).with_persistence(false),
+                    PbrBundle {
+                        mesh: mesh.clone(),
+                        material: material.clone(),
+                        transform: *proj_trans,
+                        ..Default::default()
+                    },
+                    CollisionLayers::new(
+                        PhysLayer::PlayerProjectile,
+                        ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
+                            ^ PhysLayer::ParryObject,
+                    ),
+                    Collider::sphere(0.1),
+                    DespawnTimer(Timer::from_seconds(5.0, TimerMode::Once)),
+                    RigidBody::Dynamic,
+                ))
+                .add_rollback();
+            // only parry one thing per frame - quick n dirty way to not spawn two parried guys
+            // if we hit one normal projectile with two hands
+            return;
+        }
+    }
+}
+
 pub fn spawn_spell_indicator(
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
@@ -368,6 +523,16 @@ pub fn spawn_spell_indicator(
             PbrBundle {
                 mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
                 material: asset_handles.mats[MatName::Blue as usize].clone(),
+                transform: Transform::from_translation(palm_mid_point.0)
+                    .with_scale(0.2 * Vec3::ONE),
+                ..Default::default()
+            },
+        )),
+        Spell::Parry => commands.spawn((
+            SpellIndicator,
+            PbrBundle {
+                mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                material: asset_handles.mats[MatName::Purple as usize].clone(),
                 transform: Transform::from_translation(palm_mid_point.0)
                     .with_scale(0.2 * Vec3::ONE),
                 ..Default::default()
@@ -413,6 +578,7 @@ pub fn spawn_trajectory_indicator(
                 },
             ));
         }
+        Spell::Parry => {}
         Spell::Bomb => {}
     }
 }
@@ -476,7 +642,7 @@ fn despawn_timed_entities(
     mut objects: Query<(Entity, &mut DespawnTimer)>,
 ) {
     for (entity, mut timer) in objects.iter_mut() {
-        if timer.0.tick(time.delta()).finished() {
+        if timer.0.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         }
     }

@@ -192,7 +192,8 @@ pub fn spawn_projectile(
                 ProjectileHitEffect::Damage(DamageHit(DamageMask::FIRE, 25.0)),
                 CollisionLayers::new(
                     PhysLayer::PlayerProjectile,
-                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
+                    ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
+                        ^ PhysLayer::ParryObject,
                 ),
                 Collider::sphere(0.1),
                 RigidBody::Kinematic,
@@ -211,7 +212,8 @@ pub fn spawn_projectile(
                 ProjectileHitEffect::Damage(DamageHit(DamageMask::LIGHTNING, 25.0)),
                 CollisionLayers::new(
                     PhysLayer::PlayerProjectile,
-                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
+                    ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
+                        ^ PhysLayer::ParryObject,
                 ),
                 Collider::sphere(0.1),
                 RigidBody::Kinematic,
