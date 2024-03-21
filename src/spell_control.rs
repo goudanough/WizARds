@@ -26,6 +26,7 @@ pub enum Spell {
     Parry = 3,
     Bomb = 4,
     Wall = 5,
+    MagicMissile = 6,
 }
 
 #[derive(Debug)]
@@ -39,6 +40,7 @@ impl TryFrom<u32> for Spell {
             3 => Ok(Spell::Parry),
             4 => Ok(Spell::Bomb),
             5 => Ok(Spell::Wall),
+            6 => Ok(Spell::MagicMissile),
             _ => Err(SpellConvError),
         }
     }
@@ -61,7 +63,7 @@ pub struct SelectedSpell(pub Option<Spell>);
 #[derive(Resource, Clone)]
 pub struct QueuedSpell(pub Option<Spell>);
 
-const SPELL_GRAMMAR: [&str; 5] = ["fireball", "lightning", "wind", "fire", "earth"];
+const SPELL_GRAMMAR: [&str; 6] = ["fireball", "lightning", "wind", "fire", "earth", "ice"];
 
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
@@ -181,6 +183,7 @@ fn select_spell(
         "wind" => (SpellStatus::Armed, Some(Spell::Parry)),
         "fire" => (SpellStatus::Armed, Some(Spell::Bomb)),
         "earth" => (SpellStatus::Armed, Some(Spell::Wall)),
+        "ice" => (SpellStatus::Armed, Some(Spell::MagicMissile)),
         _ => (SpellStatus::None, None),
     };
     next_spell_state.set(next_s);

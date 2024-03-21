@@ -8,6 +8,7 @@ use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
 use bevy_xpbd_3d::prelude::*;
 
 use crate::assets::{AssetHandles, EffectName, MatName, MeshName};
+use crate::boss::BossHealth;
 use crate::network::{move_networked_player_objs, PlayerID, PlayerLeftPalm, PlayerRightPalm};
 use crate::projectile::{
     spawn_projectile, update_linear_movement, DamageHit, DamageMask, Projectile,
@@ -30,6 +31,9 @@ pub struct StraightLaserTrajInd;
 
 #[derive(Component)]
 pub struct SpellObj;
+
+#[derive(Component)]
+pub struct MissileSpell;
 
 #[derive(Component)]
 pub struct FireSpell;
@@ -84,6 +88,7 @@ impl Plugin for SpellsPlugin {
             (
                 handle_lightning,
                 handle_fireballs,
+                handle_missiles,
                 init_walls,
                 handle_walls,
                 handle_parry,
@@ -164,6 +169,18 @@ pub fn spawn_spell(
             .add_rollback(),
         Spell::Wall => commands
             .spawn((SpellObj, WallSpell, PlayerID { handle: p_id }))
+            .add_rollback(),
+        Spell::MagicMissile => commands
+            .spawn((
+                SpellObj,
+                MissileSpell,
+                PlayerID { handle: p_id },
+                SpatialBundle {
+                    transform: Transform::from_translation(palm_mid_point)
+                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
+                    ..Default::default()
+                },
+            ))
             .add_rollback(),
     };
 }
@@ -611,6 +628,68 @@ fn handle_walls(
     }
 }
 
+// Handle cast missile spells.
+fn handle_missiles(
+    mut commands: Commands,
+    spell_objs: Query<(&Transform, Entity), With<MissileSpell>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<StandardMaterial>>,
+    mut boss_health: Query<&mut BossHealth>,
+    left_eye: Query<&Transform, (With<OpenXRLeftEye>, Without<StraightLaserTrajInd>)>,
+    right_eye: Query<&Transform, (With<OpenXRRightEye>, Without<StraightLaserTrajInd>)>,
+    spatial_query: SpatialQuery,
+) {
+    let left_eye = left_eye.get_single().unwrap();
+    let right_eye = right_eye.get_single().unwrap();
+
+    let head_transform =
+        Transform::from_translation(left_eye.translation.lerp(right_eye.translation, 0.5))
+            .with_rotation(left_eye.rotation);
+
+    for (t, e) in spell_objs.iter() {
+        // Spell is hitscan, so raycast to find what the spell hits.
+        let mut beam_length = 50.0;
+        if let Some(target) = spatial_query.cast_ray(
+            t.translation,
+            head_transform.forward(),
+            beam_length,
+            true,
+            SpatialQueryFilter::from_mask([PhysLayer::Terrain, PhysLayer::Boss]),
+        ) {
+            // If we've hit the boss, damage it.
+            if let Ok(mut health) = boss_health.get_mut(target.entity) {
+                // TODO change this to use the damage type we actually want to use for this.
+                if health.damage_mask.intersect(&DamageMask::FIRE) {
+                    health.current -= 25.0;
+                }
+            }
+            beam_length = target.time_of_impact;
+        };
+        // Despawn SpellObj, since the spell has been handled now.
+        commands.entity(e).despawn();
+
+        // If the spell hits anything, spawn a visual to represent this.
+        let beam_start = t.translation;
+        let mesh = meshes.add(Cylinder::new(0.01, beam_length));
+
+        commands
+            .spawn((
+                PbrBundle {
+                    mesh,
+                    material: mats.add(Color::WHITE),
+                    transform: Transform::from_translation(
+                        beam_start + (0.5 * beam_length * Vec3::from(t.forward())),
+                    )
+                    .looking_to(t.up().into(), t.forward().into()),
+                    ..default()
+                },
+                // This visual should despawn eventually.
+                DespawnTimer(Timer::from_seconds(0.2, TimerMode::Once)),
+            ))
+            .add_rollback();
+    }
+}
+
 pub fn spawn_spell_indicator(
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
@@ -668,6 +747,16 @@ pub fn spawn_spell_indicator(
                 ..Default::default()
             },
         )),
+        Spell::MagicMissile => commands.spawn((
+            SpellIndicator,
+            PbrBundle {
+                mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                material: asset_handles.mats[MatName::Red as usize].clone(),
+                transform: Transform::from_translation(palm_mid_point.0)
+                    .with_scale(0.2 * Vec3::ONE),
+                ..Default::default()
+            },
+        )),
     };
 }
 
@@ -701,6 +790,18 @@ pub fn spawn_trajectory_indicator(
         Spell::Parry => {}
         Spell::Bomb => {}
         Spell::Wall => {}
+        Spell::MagicMissile => {
+            commands.spawn((
+                TrajectoryIndicator {
+                    despawn_on_fire: true,
+                },
+                StraightLaserTrajInd,
+                SpatialBundle {
+                    transform: Transform::from_translation(palm_mid_point.0),
+                    ..default()
+                },
+            ));
+        }
     }
 }
 
@@ -740,7 +841,7 @@ fn handle_straight_laser_traj_ind(
     };
     gizmos.line(
         t.translation,
-        head_transform.translation + (head_transform.forward() * ray_travel),
+        t.translation + (head_transform.forward() * ray_travel),
         Color::RED,
     ); // TODO don't use gizmos for line drawing
 }
@@ -757,6 +858,7 @@ fn track_spell_indicator(
     t.translation = palm_mid_point.0;
 }
 
+// Generic system for despawning entities on a timer.
 fn despawn_timed_entities(
     mut commands: Commands,
     time: Res<Time>,
