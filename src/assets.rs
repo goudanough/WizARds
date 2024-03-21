@@ -15,7 +15,7 @@ pub enum MatName {
 
 pub enum EffectName {
     BombExplosion = 0,
-    BombHandEffect,
+    // BombHandEffect,
 }
 
 #[derive(Resource, Default)]
