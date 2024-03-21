@@ -62,7 +62,7 @@ impl BossHealth {
 }
 
 #[derive(Component)]
-struct Boss;
+pub struct Boss;
 
 pub struct BossPlugin;
 

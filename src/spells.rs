@@ -1,14 +1,21 @@
+use std::time::Duration;
+
 use ::bevy::prelude::*;
-use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule};
+use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule, Rollback};
+use bevy_hanabi::{ParticleEffect, ParticleEffectBundle};
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
+use bevy_xpbd_3d::components::{CollisionLayers, ExternalForce, LayerMask, RigidBody};
+use bevy_xpbd_3d::plugins::collision::{Collider, Collisions};
 use bevy_xpbd_3d::plugins::spatial_query::{SpatialQuery, SpatialQueryFilter};
 
-use crate::assets::{AssetHandles, MatName, MeshName};
-use crate::network::{move_networked_player_objs, PlayerID};
-use crate::projectile::{spawn_projectile, update_linear_movement, ProjectileType};
+use crate::assets::{AssetHandles, EffectName, MatName, MeshName};
+use crate::network::{move_networked_player_objs, PlayerID, PlayerLeftPalm, PlayerRightPalm};
+use crate::projectile::{
+    spawn_projectile, update_linear_movement, DamageHit, DamageMask, Projectile,
+    ProjectileHitEffect, ProjectileType,
+};
 use crate::spell_control::{SelectedSpell, Spell, SpellSpawnLocation};
 use crate::{PhysLayer, PlayerInput};
-
 pub struct SpellsPlugin;
 
 #[derive(Component)]
@@ -31,11 +38,35 @@ pub struct FireSpell;
 #[derive(Component)]
 pub struct LightningSpell;
 
+#[derive(Component)]
+pub struct BombSpell;
+
+#[derive(Component)]
+pub struct BombObj;
+
+#[derive(Component)]
+pub struct BombExplosionEffect;
+#[derive(Component)]
+pub struct HandObj;
+
+#[derive(Component)]
+pub struct BombTimer(Timer);
+
+#[derive(Component)]
+pub struct DespawnTimer(Timer);
+
 impl Plugin for SpellsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             GgrsSchedule,
-            (handle_lightning, handle_fireballs)
+            (
+                handle_lightning,
+                handle_fireballs,
+                handle_bomb,
+                handle_bomb_explode,
+                hand_bomb_collision,
+                despawn_timed_entities,
+            )
                 .chain()
                 .before(update_linear_movement)
                 .after(move_networked_player_objs),
@@ -81,6 +112,18 @@ pub fn spawn_spell(
                 },
             ))
             .add_rollback(),
+        Spell::Bomb => commands
+            .spawn((
+                SpellObj,
+                BombSpell,
+                PlayerID { handle: p_id },
+                SpatialBundle {
+                    transform: Transform::from_translation(palm_mid_point)
+                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
+                    ..Default::default()
+                },
+            ))
+            .add_rollback(),
     };
 }
 
@@ -111,6 +154,198 @@ fn handle_lightning(
     }
 }
 
+fn handle_bomb(
+    mut commands: Commands,
+    spell_objs: Query<(&Transform, Entity, &PlayerID), With<BombSpell>>,
+    asset_handles: Res<AssetHandles>,
+    mut player_left_palms: Query<
+        (Entity, &PlayerID),
+        (
+            With<PlayerLeftPalm>,
+            Without<PlayerRightPalm>,
+            With<Rollback>,
+        ),
+    >,
+    mut player_right_palms: Query<
+        (Entity, &PlayerID),
+        (
+            Without<PlayerLeftPalm>,
+            With<PlayerRightPalm>,
+            With<Rollback>,
+        ),
+    >,
+) {
+    for (t, e, id) in spell_objs.iter() {
+        commands
+            .spawn((
+                PbrBundle {
+                    mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                    material: asset_handles.mats[MatName::Green as usize].clone(),
+                    transform: Transform::from_translation(t.translation)
+                        .with_scale(0.5 * Vec3::ONE),
+                    ..Default::default()
+                },
+                BombObj,
+                PlayerID { handle: id.handle },
+                CollisionLayers::new(PhysLayer::Bomb, LayerMask::ALL ^ PhysLayer::BossProjectile),
+                BombTimer(Timer::new(Duration::from_secs(5), TimerMode::Once)),
+                Collider::sphere(0.1),
+            ))
+            .add_rollback();
+
+        // To Do: add effects and uncomment this code
+        let left_hand_effect = commands
+            .spawn((
+                // ParticleEffectBundle {
+                //     effect: ParticleEffect::new(
+                //         asset_handles.effects[EffectName::BombHandEffect as usize].clone(),
+                //     ),
+                //     ..default()
+                // },
+                HandObj,
+                BombTimer(Timer::new(Duration::from_secs(5), TimerMode::Once)),
+            ))
+            .add_rollback()
+            .id();
+
+        let right_hand_effect = commands
+            .spawn((
+                // ParticleEffectBundle {
+                //     effect: ParticleEffect::new(
+                //         asset_handles.effects[EffectName::BombHandEffect as usize].clone(),
+                //     ),
+                //     ..default()
+                // },
+                HandObj,
+                BombTimer(Timer::new(Duration::from_secs(5), TimerMode::Once)),
+            ))
+            .add_rollback()
+            .id();
+
+        for (left_palm, p) in player_left_palms.iter_mut() {
+            if id.handle == p.handle {
+                commands
+                    .entity(left_hand_effect)
+                    .insert(PlayerID { handle: id.handle });
+                commands
+                    .get_entity(left_palm)
+                    .unwrap()
+                    .push_children(&[left_hand_effect]);
+            }
+        }
+
+        for (right_palm, p) in player_right_palms.iter_mut() {
+            if id.handle == p.handle {
+                commands
+                    .entity(right_hand_effect)
+                    .insert(PlayerID { handle: id.handle });
+                commands
+                    .get_entity(right_palm)
+                    .unwrap()
+                    .push_children(&[right_hand_effect]);
+            }
+        }
+
+        commands.entity(e).despawn();
+    }
+}
+
+fn hand_bomb_collision(
+    mut commands: Commands,
+    collisions: ResMut<Collisions>,
+    mut bomb: Query<(Entity, &Transform), With<BombObj>>,
+    hands_effect: Query<(Entity, &PlayerID), (With<HandObj>, Without<BombObj>)>,
+    player_left_palms: Query<
+        (Entity, &Transform, &PlayerID),
+        (
+            With<PlayerLeftPalm>,
+            Without<PlayerRightPalm>,
+            With<Rollback>,
+        ),
+    >,
+    player_right_palms: Query<
+        (Entity, &Transform, &PlayerID),
+        (
+            Without<PlayerLeftPalm>,
+            With<PlayerRightPalm>,
+            With<Rollback>,
+        ),
+    >,
+) {
+    for (bomb_entity, bomb_trans) in bomb.iter_mut() {
+        for (hand_entity, hand_transform, id) in
+            player_left_palms.iter().chain(player_right_palms.iter())
+        {
+            if collisions.contains(bomb_entity, hand_entity) {
+                let hand_bomb_direction =
+                    (bomb_trans.translation - hand_transform.translation).normalize();
+
+                commands.entity(bomb_entity).insert(RigidBody::Dynamic);
+                commands
+                    .entity(bomb_entity)
+                    .insert(ExternalForce::new(hand_bomb_direction / 10.0).with_persistence(false));
+
+                for (hand_effect, effect_id) in hands_effect.iter() {
+                    if effect_id.handle == id.handle {
+                        commands.entity(hand_effect).despawn();
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn handle_bomb_explode(
+    mut commands: Commands,
+    asset_handles: Res<AssetHandles>,
+    time: Res<Time>,
+    hands_effect: Query<(Entity, &PlayerID), (With<HandObj>, Without<BombObj>)>,
+    mut bomb_objs_query: Query<(Entity, &Transform, &mut BombTimer, &PlayerID), With<BombObj>>,
+) {
+    for (bomb_e, bomb_trans, mut bomb_timer, id) in bomb_objs_query.iter_mut() {
+        if bomb_timer.0.tick(time.delta()).finished() {
+            commands.entity(bomb_e).despawn();
+            commands
+                .spawn((
+                    Projectile,
+                    ProjectileHitEffect::Damage(DamageHit(DamageMask::FIRE, 25.0)),
+                    SpatialBundle {
+                        transform: Transform::from_translation(bomb_trans.translation)
+                            .with_rotation(bomb_trans.rotation),
+                        ..default()
+                    },
+                    Collider::sphere(1.0),
+                    CollisionLayers::new(
+                        PhysLayer::PlayerProjectile,
+                        (((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
+                            ^ PhysLayer::Terrain)
+                            ^ PhysLayer::PlayerProjectile,
+                    ),
+                    DespawnTimer(Timer::from_seconds(2.0, TimerMode::Once)),
+                ))
+                .add_rollback();
+
+            commands.spawn((
+                ParticleEffectBundle {
+                    effect: ParticleEffect::new(
+                        asset_handles.effects[EffectName::BombExplosion as usize].clone(),
+                    ),
+                    transform: Transform::from_translation(bomb_trans.translation)
+                        .with_rotation(bomb_trans.rotation),
+                    ..default()
+                },
+                DespawnTimer(Timer::from_seconds(2.0, TimerMode::Once)),
+            ));
+
+            for (hand_effect, effect_id) in hands_effect.iter() {
+                if effect_id.handle == id.handle {
+                    commands.entity(hand_effect).despawn();
+                }
+            }
+        }
+    }
+}
+
 pub fn spawn_spell_indicator(
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
@@ -133,6 +368,16 @@ pub fn spawn_spell_indicator(
             PbrBundle {
                 mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
                 material: asset_handles.mats[MatName::Blue as usize].clone(),
+                transform: Transform::from_translation(palm_mid_point.0)
+                    .with_scale(0.2 * Vec3::ONE),
+                ..Default::default()
+            },
+        )),
+        Spell::Bomb => commands.spawn((
+            SpellIndicator,
+            PbrBundle {
+                mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                material: asset_handles.mats[MatName::Green as usize].clone(),
                 transform: Transform::from_translation(palm_mid_point.0)
                     .with_scale(0.2 * Vec3::ONE),
                 ..Default::default()
@@ -168,6 +413,7 @@ pub fn spawn_trajectory_indicator(
                 },
             ));
         }
+        Spell::Bomb => {}
     }
 }
 
@@ -222,4 +468,16 @@ fn track_spell_indicator(
     };
 
     t.translation = palm_mid_point.0;
+}
+
+fn despawn_timed_entities(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut objects: Query<(Entity, &mut DespawnTimer)>,
+) {
+    for (entity, mut timer) in objects.iter_mut() {
+        if timer.0.tick(time.delta()).finished() {
+            commands.entity(entity).despawn();
+        }
+    }
 }

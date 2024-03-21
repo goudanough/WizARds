@@ -6,7 +6,9 @@ use bevy_oxr::xr_input::trackers::OpenXRTracker;
 
 use crate::{
     network::{LocalPlayerID, PlayerHead, PlayerID},
-    speech::{check_fingers_close, fetch_recogniser, RecognizedWord, RecordingStatus, SpeechRecognizer},
+    speech::{
+        check_fingers_close, fetch_recogniser, RecognizedWord, RecordingStatus, SpeechRecognizer,
+    },
     spells::{
         spawn_spell, spawn_spell_indicator, spawn_trajectory_indicator, SpellIndicator, SpellObj,
         TrajectoryIndicator,
@@ -21,6 +23,7 @@ pub enum Spell {
     // don't use 0! it's used to represent no spell in the player inputs
     Fireball = 1,
     Lightning = 2,
+    Bomb = 4,
 }
 
 #[derive(Debug)]
@@ -31,6 +34,7 @@ impl TryFrom<u32> for Spell {
         match value {
             1 => Ok(Spell::Fireball),
             2 => Ok(Spell::Lightning),
+            4 => Ok(Spell::Bomb),
             _ => Err(SpellConvError),
         }
     }
@@ -53,7 +57,7 @@ pub struct SelectedSpell(pub Option<Spell>);
 #[derive(Resource, Clone)]
 pub struct QueuedSpell(pub Option<Spell>);
 
-const SPELL_GRAMMAR: [&str; 2] = ["fireball", "lightning"];
+const SPELL_GRAMMAR: [&str; 3] = ["fireball", "lightning", "fire"];
 
 impl Plugin for SpellControlPlugin {
     fn build(&self, app: &mut App) {
@@ -170,6 +174,7 @@ fn select_spell(
     let (next_s, s_spell) = match &word.0[..] {
         "fireball" => (SpellStatus::Armed, Some(Spell::Fireball)),
         "lightning" => (SpellStatus::Armed, Some(Spell::Lightning)),
+        "fire" => (SpellStatus::Armed, Some(Spell::Bomb)),
         _ => (SpellStatus::None, None),
     };
     next_spell_state.set(next_s);

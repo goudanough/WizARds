@@ -49,6 +49,7 @@ pub struct PlayerInput {
 enum PhysLayer {
     Player,
     PlayerProjectile,
+    Bomb,
     Boss,
     BossProjectile,
     Terrain,
