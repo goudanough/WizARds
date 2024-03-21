@@ -16,7 +16,7 @@ path = "src/main.rs"
 ash = "0.37.3"
 bevy = "0.13"
 bevy_xpbd_3d = "0.4.2"
-bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "942e9f85a91d7ec7796661dfb62dcad6baa2753b", default-features = false }
+bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "5e2e99a84ef30c6a39923a1348dcb3d897c41417", default-features = false }
 bevy_ggrs = "0.15.0"
 bytemuck = { version = "1.14.1", features = ["derive"] }
 

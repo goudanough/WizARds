@@ -180,7 +180,7 @@ pub(super) fn host_wait_share_anchor(
             oxr!((instance.fp().locate_space)(
                 anchors.position,
                 input.stage.as_raw(),
-                xr_frame_state.lock().unwrap().predicted_display_time,
+                xr_frame_state.predicted_display_time,
                 &mut space_location,
             ));
             let translation = space_location.pose.position;

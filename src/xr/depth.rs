@@ -266,7 +266,7 @@ fn acquire_depth_image(
         ty: StructureType::ENVIRONMENT_DEPTH_IMAGE_ACQUIRE_INFO_META,
         next: null(),
         space: xr_input.head.as_raw(),
-        display_time: frame_state.lock().unwrap().predicted_display_time,
+        display_time: frame_state.predicted_display_time,
     };
     let mut image = EnvironmentDepthImageMETA {
         ty: StructureType::ENVIRONMENT_DEPTH_IMAGE_META,

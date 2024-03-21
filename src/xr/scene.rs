@@ -1,7 +1,7 @@
 use std::ptr::{null, null_mut};
 
 use super::{SceneState, SpatialAnchors};
-use crate::{oxr, PhysLayer};
+use crate::{network::reset_origin, oxr, PhysLayer};
 use bevy::{
     prelude::*,
     render::{mesh, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
@@ -15,9 +15,10 @@ use bevy_oxr::{
             SpaceComponentStatusSetInfoFB, SpaceLocation, SpaceQueryInfoFB, SpaceQueryResultFB,
             SpaceQueryResultsFB, SpaceSaveInfoFB, SpatialAnchorCreateInfoFB, UUID_SIZE_EXT,
         },
-        AsyncRequestIdFB, Duration, Event, InstanceExtensions, Offset2Df, Posef, Rect2Df,
-        SpaceComponentTypeFB, SpaceLocationFlags, SpacePersistenceModeFB, SpaceQueryActionFB,
-        SpaceQueryResultsAvailableFB, SpaceStorageLocationFB, StructureType, UuidEXT, Vector3f,
+        AsyncRequestIdFB, Duration, Event, InstanceExtensions, Offset2Df, Posef, Quaternionf,
+        Rect2Df, SpaceComponentTypeFB, SpaceLocationFlags, SpacePersistenceModeFB,
+        SpaceQueryActionFB, SpaceQueryResultsAvailableFB, SpaceStorageLocationFB, StructureType,
+        UuidEXT, Vector3f,
     },
     XrEvents,
 };
@@ -47,6 +48,13 @@ impl Plugin for QuestScene {
                 Update,
                 wait_sharable_anchor.run_if(in_state(SceneState::Locating)),
             )
+            // .add_systems(
+            //     OnTransition {
+            //         from: SceneState::Locating,
+            //         to: SceneState::EnableStoreShare,
+            //     },
+            //     reset_origin,
+            // )
             .add_systems(
                 OnEnter(SceneState::EnableStoreShare),
                 enable_anchor_components,
@@ -372,31 +380,22 @@ fn wait_query_complete(
 fn create_sharable_anchor(
     instance: Res<XrInstance>,
     session: Res<XrSession>,
-    input: Res<XrInput>,
     anchors: Res<SpatialAnchors>,
     xr_frame_state: Res<XrFrameState>,
 ) {
     let vtable = instance.exts().fb_spatial_entity.unwrap();
 
-    let mut location = SpaceLocation {
-        ty: SpaceLocation::TYPE,
-        next: null_mut(),
-        location_flags: SpaceLocationFlags::EMPTY,
-        pose: Posef::IDENTITY,
-    };
-    oxr!((instance.fp().locate_space)(
-        anchors.floor,
-        input.stage.as_raw(),
-        xr_frame_state.lock().unwrap().predicted_display_time,
-        &mut location,
-    ));
+    let [x, y, z, w] = Quat::from_rotation_x(-90_f32.to_radians()).to_array();
 
     let info = SpatialAnchorCreateInfoFB {
         ty: SpatialAnchorCreateInfoFB::TYPE,
         next: null(),
         space: anchors.floor,
-        pose_in_space: location.pose,
-        time: xr_frame_state.lock().unwrap().predicted_display_time,
+        pose_in_space: Posef {
+            orientation: Quaternionf { x, y, z, w: -w },
+            position: Vector3f::default(),
+        },
+        time: xr_frame_state.predicted_display_time,
     };
     oxr!((vtable.create_spatial_anchor)(
         session.as_raw(),
@@ -575,7 +574,7 @@ fn init_world_mesh(
     oxr!((instance.fp().locate_space)(
         room_layout.mesh,
         input.stage.as_raw(),
-        xr_frame_state.lock().unwrap().predicted_display_time,
+        xr_frame_state.predicted_display_time,
         &mut location,
     ));
     let translation = location.pose.position;
@@ -639,7 +638,7 @@ fn init_room_layout(
         oxr!((instance.fp().locate_space)(
             space,
             input.stage.as_raw(),
-            xr_frame_state.lock().unwrap().predicted_display_time,
+            xr_frame_state.predicted_display_time,
             &mut location,
         ));
         let translation = location.pose.position;

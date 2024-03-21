@@ -14,17 +14,24 @@ use crate::{
     player,
     speech::{RecognizedWord, RecordingStatus},
     spell_control::QueuedSpell,
-    xr::SceneState,
+    xr::{SceneState, SpatialAnchors},
     PhysLayer, PlayerInput, WizGgrsConfig, FPS,
 };
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
-use bevy_oxr::xr_input::{
-    hands::{common::HandsResource, HandBone},
-    trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
+use bevy_oxr::{
+    input::XrInput,
+    resources::XrSession,
+    xr_input::{
+        hands::{common::HandsResource, HandBone},
+        trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
+    },
 };
 use bevy_xpbd_3d::prelude::*;
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 
 mod client_init;
 mod host_init;
@@ -106,6 +113,10 @@ impl Plugin for NetworkPlugin {
                 })
                 .run_if(in_state(NetworkingState::HostAssertSceneAvailable)),
             )
+            .add_systems(
+                OnExit(NetworkingState::HostAssertSceneAvailable),
+                reset_origin,
+            )
             // We tell the host to share the anchor with the clients
             .add_systems(OnEnter(NetworkingState::HostSendData), host_share_anchor)
             // We wait until the host has finished sharing the anchor with the clients
@@ -144,7 +155,8 @@ impl Plugin for NetworkPlugin {
             // Do stuff with the anchor
             .add_systems(
                 OnExit(NetworkingState::ClientSynchronizeAnchor),
-                client_use_anchor,
+                // client_use_anchor,
+                reset_origin,
             )
             // All setup is done. Initialize the GGRS session
             .add_systems(OnEnter(NetworkingState::InitGgrs), init_ggrs)
@@ -178,6 +190,16 @@ fn menu_select(word: Res<RecognizedWord>, mut state: ResMut<NextState<Networking
         }
         _ => {}
     };
+}
+
+pub fn reset_origin(
+    session: Res<XrSession>,
+    mut input: ResMut<XrInput>,
+    anchors: Res<SpatialAnchors>,
+) {
+    let origin =
+        unsafe { bevy_oxr::xr::Space::reference_from_raw(session.0.clone(), anchors.position) };
+    input.stage = Arc::new(origin);
 }
 
 fn init_ggrs(

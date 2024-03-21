@@ -98,8 +98,9 @@ pub fn main() {
                     name: "wizARds".to_string(),
                 },
             }
-            .build()
-            .add_after::<OpenXrPlugin, _>(xr::depth::EnvDepthPlugin)),
+            // .build()
+            // .add_after::<OpenXrPlugin, _>(xr::depth::EnvDepthPlugin)
+        ),
         )
         .add_plugins(OpenXrHandInput)
         .add_plugins(OpenXrDebugRenderer)
