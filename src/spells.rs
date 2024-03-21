@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use ::bevy::prelude::*;
-use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule, Rollback};
+use bevy::math::primitives;
+use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule, PlayerInputs, Rollback};
 use bevy_hanabi::{ParticleEffect, ParticleEffectBundle};
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
 use bevy_xpbd_3d::prelude::*;
@@ -13,7 +14,7 @@ use crate::projectile::{
     ProjectileHitEffect, ProjectileType,
 };
 use crate::spell_control::{SelectedSpell, Spell, SpellSpawnLocation};
-use crate::{PhysLayer, PlayerInput};
+use crate::{PhysLayer, PlayerInput, WizGgrsConfig};
 pub struct SpellsPlugin;
 
 #[derive(Component)]
@@ -66,6 +67,16 @@ pub struct BombTimer(Timer);
 #[derive(Component)]
 pub struct DespawnTimer(Timer);
 
+#[derive(Component)]
+pub struct WallSpell;
+
+// Component for handling the lifetime of a wall.
+#[derive(Component)]
+struct Wall {
+    previous_point: Vec3,
+    building: bool,
+    timer: Timer,
+}
 impl Plugin for SpellsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
@@ -73,6 +84,8 @@ impl Plugin for SpellsPlugin {
             (
                 handle_lightning,
                 handle_fireballs,
+                init_walls,
+                handle_walls,
                 handle_parry,
                 parry_check,
                 handle_bomb,
@@ -148,6 +161,9 @@ pub fn spawn_spell(
                     ..Default::default()
                 },
             ))
+            .add_rollback(),
+        Spell::Wall => commands
+            .spawn((SpellObj, WallSpell, PlayerID { handle: p_id }))
             .add_rollback(),
     };
 }
@@ -501,6 +517,100 @@ fn parry_check(
     }
 }
 
+// Respond to wall spell cast by creating a wall entity.
+fn init_walls(
+    mut commands: Commands,
+    spell_objs: Query<(Entity, &PlayerID), With<WallSpell>>,
+    inputs: Res<PlayerInputs<WizGgrsConfig>>,
+) {
+    for (e, p_id) in spell_objs.iter() {
+        let input = inputs[p_id.handle];
+        let head_pos = input.0.head_pos;
+        commands.spawn((
+            SpatialBundle {
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+                ..Default::default()
+            },
+            Wall {
+                // Initialise the wall at the players head position.
+                previous_point: Vec3::new(head_pos.x, head_pos.y / 2.0, head_pos.z),
+                building: true,
+                // Initial timer, for wall creation.
+                timer: Timer::from_seconds(3.0, TimerMode::Once),
+            },
+            // PlayerID so we know who's wall it is.
+            PlayerID {
+                handle: p_id.handle,
+            },
+        ));
+        // Despawn SpellObj,
+        commands.entity(e).despawn();
+    }
+}
+
+// Handle wall creation, and eventual despawning.
+fn handle_walls(
+    mut commands: Commands,
+    mut walls: Query<(&mut Wall, &PlayerID, Entity)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    inputs: Res<PlayerInputs<WizGgrsConfig>>,
+    time: Res<Time>,
+) {
+    for (mut wall, p_id, e) in walls.iter_mut() {
+        wall.timer.tick(time.delta());
+        // If timer has just finished and we're building, then building is over.
+        // Indicate building is over, and start a new timer.
+        if wall.timer.just_finished() && wall.building {
+            wall.building = false;
+            wall.timer = Timer::from_seconds(10.0, TimerMode::Once);
+        }
+        // If we're building, check if we've moved far enough to spawn a new segment, if we have then spawn a new segment, and update previous position.
+        if wall.building {
+            let head_pos = inputs[p_id.handle].0.head_pos;
+            let head_pos_flat = Vec3::new(head_pos.x, head_pos.y / 2.0, head_pos.z);
+            if (head_pos_flat - wall.previous_point).length() >= 0.2 {
+                let id = commands
+                    .spawn((
+                        PbrBundle {
+                            mesh: meshes.add(Mesh::from(primitives::Cuboid::new(
+                                (head_pos_flat - wall.previous_point).length(),
+                                head_pos.y,
+                                0.1,
+                            ))),
+                            material: materials.add(Color::WHITE),
+                            // Aim is that the translation is the centre of the wall, and it's faced perpendicular to the "line" of the wall.
+                            transform: Transform::from_translation(
+                                (head_pos_flat + wall.previous_point) / 2.0,
+                            )
+                            .looking_to(
+                                (head_pos_flat - wall.previous_point).cross(Vec3::Y),
+                                Vec3::Y,
+                            ),
+                            ..default()
+                        },
+                        CollisionLayers::new(
+                            PhysLayer::Terrain,
+                            (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::Terrain,
+                        ),
+                        Collider::cuboid(
+                            (head_pos_flat - wall.previous_point).length(),
+                            head_pos.y,
+                            0.1,
+                        ),
+                    ))
+                    .add_rollback()
+                    .id();
+                commands.entity(e).add_child(id);
+                wall.previous_point = head_pos_flat;
+            }
+        // If we're not building, and the timer has finished, then despawn the wall.
+        } else if wall.timer.just_finished() {
+            commands.entity(e).despawn_recursive();
+        }
+    }
+}
+
 pub fn spawn_spell_indicator(
     mut commands: Commands,
     asset_handles: Res<AssetHandles>,
@@ -548,6 +658,16 @@ pub fn spawn_spell_indicator(
                 ..Default::default()
             },
         )),
+        Spell::Wall => commands.spawn((
+            SpellIndicator,
+            PbrBundle {
+                mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                material: asset_handles.mats[MatName::Blue as usize].clone(),
+                transform: Transform::from_translation(palm_mid_point.0)
+                    .with_scale(0.2 * Vec3::ONE),
+                ..Default::default()
+            },
+        )),
     };
 }
 
@@ -580,6 +700,7 @@ pub fn spawn_trajectory_indicator(
         }
         Spell::Parry => {}
         Spell::Bomb => {}
+        Spell::Wall => {}
     }
 }
 
