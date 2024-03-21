@@ -51,7 +51,7 @@ impl DamageMask {
     pub const FIRE: Self = DamageMask(1 << 0);
     pub const LIGHTNING: Self = DamageMask(1 << 1);
 
-    fn intersect(&self, other: &Self) -> bool {
+    pub fn intersect(&self, other: &Self) -> bool {
         self.0 & other.0 > 0
     }
 }
