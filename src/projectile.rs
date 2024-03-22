@@ -19,15 +19,15 @@ pub enum ProjectileType {
 struct ProjectileHit(Entity);
 
 #[derive(Component, Debug, Clone)]
-struct DamageHit(DamageMask, f32);
+pub struct DamageHit(pub DamageMask, pub f32);
 
 #[derive(Component, Debug, Clone)]
-struct ResetPhaseHit;
+pub struct ResetPhaseHit;
 #[derive(Debug, Default, Component)]
 pub struct LinearMovement(f32);
 
 #[derive(Debug, Component, Clone)]
-enum ProjectileHitEffect {
+pub enum ProjectileHitEffect {
     Damage(DamageHit),
     ResetPhase(ResetPhaseHit),
 }
@@ -51,7 +51,7 @@ impl DamageMask {
     pub const FIRE: Self = DamageMask(1 << 0);
     pub const LIGHTNING: Self = DamageMask(1 << 1);
 
-    fn intersect(&self, other: &Self) -> bool {
+    pub fn intersect(&self, other: &Self) -> bool {
         self.0 & other.0 > 0
     }
 }
@@ -96,6 +96,7 @@ fn detect_projectile_collisions(
     mut collisions: EventReader<CollisionStarted>,
     projectiles: Query<(&ProjectileHitEffect, &Transform)>,
 ) {
+    let mut entities_to_despawn: Vec<Entity> = Vec::new();
     for CollisionStarted(e1, e2) in collisions.read() {
         if let Ok((p, t)) = projectiles.get(*e1) {
             match p {
@@ -110,8 +111,7 @@ fn detect_projectile_collisions(
                         .add_rollback();
                 }
             }
-
-            commands.entity(*e1).despawn();
+            entities_to_despawn.push(*e1);
         }
         if let Ok((p, t)) = projectiles.get(*e2) {
             match p {
@@ -126,7 +126,13 @@ fn detect_projectile_collisions(
                         .add_rollback();
                 }
             }
-            commands.entity(*e2).despawn();
+            entities_to_despawn.push(*e2);
+        }
+    }
+
+    for entity in entities_to_despawn {
+        if commands.get_entity(entity).is_some() {
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -186,7 +192,8 @@ pub fn spawn_projectile(
                 ProjectileHitEffect::Damage(DamageHit(DamageMask::FIRE, 25.0)),
                 CollisionLayers::new(
                     PhysLayer::PlayerProjectile,
-                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
+                    ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
+                        ^ PhysLayer::ParryObject,
                 ),
                 Collider::sphere(0.1),
                 RigidBody::Kinematic,
@@ -205,7 +212,8 @@ pub fn spawn_projectile(
                 ProjectileHitEffect::Damage(DamageHit(DamageMask::LIGHTNING, 25.0)),
                 CollisionLayers::new(
                     PhysLayer::PlayerProjectile,
-                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile,
+                    ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
+                        ^ PhysLayer::ParryObject,
                 ),
                 Collider::sphere(0.1),
                 RigidBody::Kinematic,

@@ -10,10 +10,13 @@ pub enum MatName {
     Red = 0,
     Blue,
     Purple,
+    Green,
 }
 
 pub enum EffectName {
     BombExplosion = 0,
+    //ParryHandEffect,
+    //BombHandEffect,
 }
 
 #[derive(Resource, Default)]
@@ -53,11 +56,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         MatName::Purple as usize,
         asset_server.add::<StandardMaterial>(Color::PURPLE.into()),
     );
+    asset_handles.mats.insert(
+        MatName::Green as usize,
+        asset_server.add::<StandardMaterial>(Color::GREEN.into()),
+    );
 
     asset_handles.effects.insert(
         EffectName::BombExplosion as usize,
         asset_server.add::<EffectAsset>(setup_bomb_explosion()),
     );
+
+    // asset_handles.effects.insert(
+    //     EffectName::ParryHandEffect as usize,
+    //     asset_server.add::<EffectAsset>(setup_parry_hand_effect()),
+    // );
+
+    // asset_handles.effects.insert(
+    //     EffectName::BombHandEffect as usize,
+    //     asset_server.add::<EffectAsset>(setup_bomb_hand_effect()),
+    // );
 
     commands.insert_resource(asset_handles);
 }
@@ -119,3 +136,7 @@ fn setup_bomb_explosion() -> EffectAsset {
             })
             .render(OrientModifier { mode: OrientMode::ParallelCameraDepthPlane,..Default::default() })
 }
+
+//fn setup_parry_hand_effect() -> EffectAsset {}
+
+//fn setup_bomb_hand_effect() -> EffectAsset {}
