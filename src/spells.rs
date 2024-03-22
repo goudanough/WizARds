@@ -474,57 +474,60 @@ fn handle_parry(
 fn parry_check(
     mut commands: Commands,
     time: Res<Time>,
-    mut parry_objs_query: Query<(Entity, &GlobalTransform, &mut ParryTimer), With<ParryObj>>,
+    mut parry_objs_query: Query<
+        (Entity, &GlobalTransform, &mut ParryTimer, &PlayerID),
+        With<ParryObj>,
+    >,
     projectiles: Query<(&Transform, &Handle<StandardMaterial>, &Handle<Mesh>), With<Projectile>>,
     mut collision_event_reader: EventReader<Collision>,
 ) {
     let collision_events: Vec<Collision> = collision_event_reader.read().cloned().collect();
-    for (parry_obj, _, mut parry_timer) in parry_objs_query.iter_mut() {
+    let mut has_parried: [bool; 2] = [false, false];
+
+    for (parry_obj, parry_transform, mut parry_timer, p_id) in parry_objs_query.iter_mut() {
         if parry_timer.0.tick(time.delta()).finished() {
             commands.entity(parry_obj).despawn();
         }
-    }
+        if !has_parried[p_id.handle] {
+            for Collision(contacts) in &collision_events {
+                let proj = match parry_obj {
+                    c if c == contacts.entity1 => contacts.entity2,
+                    c if c == contacts.entity2 => contacts.entity1,
+                    _ => continue,
+                };
 
-    for (parry_obj, parry_transform, _) in parry_objs_query.iter_mut() {
-        for Collision(contacts) in &collision_events {
-            let proj = match parry_obj {
-                c if c == contacts.entity1 => contacts.entity2,
-                c if c == contacts.entity2 => contacts.entity1,
-                _ => continue,
-            };
+                let Ok((proj_trans, material, mesh)) = projectiles.get(proj) else {
+                    continue;
+                };
 
-            let Ok((proj_trans, material, mesh)) = projectiles.get(proj) else {
-                continue;
-            };
+                commands.entity(proj).despawn();
 
-            commands.entity(proj).despawn();
+                let parry_proj_direction =
+                    (proj_trans.translation - parry_transform.translation()).normalize();
 
-            let parry_proj_direction =
-                (proj_trans.translation - parry_transform.translation()).normalize();
+                commands
+                    .spawn((
+                        ParriedProjectile,
+                        ExternalForce::new(parry_proj_direction * 2.0).with_persistence(false),
+                        PbrBundle {
+                            mesh: mesh.clone(),
+                            material: material.clone(),
+                            transform: *proj_trans,
+                            ..Default::default()
+                        },
+                        CollisionLayers::new(
+                            PhysLayer::PlayerProjectile,
+                            ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
+                                ^ PhysLayer::ParryObject,
+                        ),
+                        Collider::sphere(0.1),
+                        DespawnTimer(Timer::from_seconds(5.0, TimerMode::Once)),
+                        RigidBody::Dynamic,
+                    ))
+                    .add_rollback();
 
-            commands
-                .spawn((
-                    ParriedProjectile,
-                    ExternalForce::new(parry_proj_direction * 2.0).with_persistence(false),
-                    PbrBundle {
-                        mesh: mesh.clone(),
-                        material: material.clone(),
-                        transform: *proj_trans,
-                        ..Default::default()
-                    },
-                    CollisionLayers::new(
-                        PhysLayer::PlayerProjectile,
-                        ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
-                            ^ PhysLayer::ParryObject,
-                    ),
-                    Collider::sphere(0.1),
-                    DespawnTimer(Timer::from_seconds(5.0, TimerMode::Once)),
-                    RigidBody::Dynamic,
-                ))
-                .add_rollback();
-            // only parry one thing per frame - quick n dirty way to not spawn two parried guys
-            // if we hit one normal projectile with two hands
-            return;
+                has_parried[p_id.handle] = true;
+            }
         }
     }
 }
