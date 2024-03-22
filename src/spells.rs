@@ -635,23 +635,14 @@ fn handle_missiles(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
     mut boss_health: Query<&mut BossHealth>,
-    left_eye: Query<&Transform, (With<OpenXRLeftEye>, Without<StraightLaserTrajInd>)>,
-    right_eye: Query<&Transform, (With<OpenXRRightEye>, Without<StraightLaserTrajInd>)>,
     spatial_query: SpatialQuery,
 ) {
-    let left_eye = left_eye.get_single().unwrap();
-    let right_eye = right_eye.get_single().unwrap();
-
-    let head_transform =
-        Transform::from_translation(left_eye.translation.lerp(right_eye.translation, 0.5))
-            .with_rotation(left_eye.rotation);
-
     for (t, e) in spell_objs.iter() {
         // Spell is hitscan, so raycast to find what the spell hits.
         let mut beam_length = 50.0;
         if let Some(target) = spatial_query.cast_ray(
             t.translation,
-            head_transform.forward(),
+            t.forward(),
             beam_length,
             true,
             SpatialQueryFilter::from_mask([PhysLayer::Terrain, PhysLayer::Boss]),
