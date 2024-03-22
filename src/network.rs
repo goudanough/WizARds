@@ -1,4 +1,3 @@
-use crate::assets::AssetHandles;
 use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
@@ -179,7 +178,6 @@ pub fn read_local_inputs(
 fn spawn_networked_player_objs(
     mut commands: Commands,
     args: Res<ConnectionArgs>,
-    asset_handles: Res<AssetHandles>,
 ) {
     // Add one cube on each player's head
     for i in 0..args.players.len() {
