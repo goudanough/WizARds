@@ -15,7 +15,8 @@ pub enum MatName {
 
 pub enum EffectName {
     BombExplosion = 0,
-    // BombHandEffect,
+    //ParryHandEffect,
+    //BombHandEffect,
 }
 
 #[derive(Resource, Default)]
@@ -64,6 +65,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         EffectName::BombExplosion as usize,
         asset_server.add::<EffectAsset>(setup_bomb_explosion()),
     );
+
+    // asset_handles.effects.insert(
+    //     EffectName::ParryHandEffect as usize,
+    //     asset_server.add::<EffectAsset>(setup_parry_hand_effect()),
+    // );
 
     // asset_handles.effects.insert(
     //     EffectName::BombHandEffect as usize,
@@ -145,4 +151,6 @@ fn setup_bomb_explosion() -> EffectAsset {
     })
 }
 
-//fn setup_bomb_explosion() -> EffectAsset {}
+//fn setup_parry_hand_effect() -> EffectAsset {}
+
+//fn setup_bomb_hand_effect() -> EffectAsset {}
