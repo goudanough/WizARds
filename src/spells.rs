@@ -113,8 +113,7 @@ pub fn spawn_spell(
     commands: &mut Commands,
     input: PlayerInput,
     p_id: usize,
-    palm_mid_point: Vec3,
-    head_transform: Transform,
+    spell_transform: Transform,
 ) {
     let spell = input.spell.try_into().unwrap();
 
@@ -125,9 +124,8 @@ pub fn spawn_spell(
                 FireSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
@@ -137,9 +135,8 @@ pub fn spawn_spell(
                 LightningSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
@@ -149,9 +146,8 @@ pub fn spawn_spell(
                 ParrySpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation),
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
@@ -161,9 +157,8 @@ pub fn spawn_spell(
                 BombSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
@@ -176,9 +171,8 @@ pub fn spawn_spell(
                 MissileSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
