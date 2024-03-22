@@ -234,22 +234,32 @@ fn handle_bomb(
     >,
 ) {
     for (t, e, id) in spell_objs.iter() {
-        commands
-            .spawn((
-                PbrBundle {
-                    mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
-                    material: asset_handles.mats[MatName::Green as usize].clone(),
-                    transform: Transform::from_translation(t.translation)
-                        .with_scale(0.5 * Vec3::ONE),
+        let mut bomb = commands.spawn((
+            PbrBundle {
+                mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                material: asset_handles.mats[MatName::Green as usize].clone(),
+                transform: Transform::from_translation(t.translation).with_scale(0.5 * Vec3::ONE),
+                ..Default::default()
+            },
+            BombObj,
+            PlayerID { handle: id.handle },
+            CollisionLayers::new(PhysLayer::Bomb, LayerMask::ALL ^ PhysLayer::BossProjectile),
+            BombTimer(Timer::new(Duration::from_secs(5), TimerMode::Once)),
+            Collider::sphere(0.1),
+        ));
+        bomb.add_rollback();
+
+        bomb.with_children(|node| {
+            node.spawn((
+                Name::new("sparkle"),
+                ParticleEffectBundle {
+                    effect: ParticleEffect::new(
+                        asset_handles.effects[EffectName::BombSparkle as usize].clone(),
+                    ),
                     ..Default::default()
                 },
-                BombObj,
-                PlayerID { handle: id.handle },
-                CollisionLayers::new(PhysLayer::Bomb, LayerMask::ALL ^ PhysLayer::BossProjectile),
-                BombTimer(Timer::new(Duration::from_secs(5), TimerMode::Once)),
-                Collider::sphere(0.1),
-            ))
-            .add_rollback();
+            ));
+        });
 
         // To Do: add effects and uncomment this code
         let left_hand_effect = commands
@@ -362,7 +372,7 @@ fn handle_bomb_explode(
 ) {
     for (bomb_e, bomb_trans, mut bomb_timer, id) in bomb_objs_query.iter_mut() {
         if bomb_timer.0.tick(time.delta()).finished() {
-            commands.entity(bomb_e).despawn();
+            commands.entity(bomb_e).despawn_recursive();
             commands
                 .spawn((
                     Projectile,
@@ -409,7 +419,7 @@ fn handle_parry(
     left_palms: Query<(Entity, &PlayerID), With<PlayerLeftPalm>>,
     right_palms: Query<(Entity, &PlayerID), With<PlayerRightPalm>>,
     spell_objs: Query<(Entity, &PlayerID), With<ParrySpell>>,
-    //asset_handles: Res<AssetHandles>,
+    // asset_handles: Res<AssetHandles>,
 ) {
     for (e, p) in spell_objs.iter() {
         let parry_left = commands
@@ -420,7 +430,7 @@ fn handle_parry(
                     ..Default::default()
                 },
                 // ParticleEffectBundle {
-                //     effect: ParticleEffect::new(asset_handles.effects[EffectName::BombExplosion as usize].clone()),
+                //     effect: ParticleEffect::new(asset_handles.effects[EffectName::BombSparkle as usize].clone()),
                 //     ..default()
                 // },
                 CollisionLayers::new(
