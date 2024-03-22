@@ -113,8 +113,7 @@ pub fn spawn_spell(
     commands: &mut Commands,
     input: PlayerInput,
     p_id: usize,
-    palm_mid_point: Vec3,
-    head_transform: Transform,
+    spell_transform: Transform,
 ) {
     let spell = input.spell.try_into().unwrap();
 
@@ -125,9 +124,8 @@ pub fn spawn_spell(
                 FireSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
@@ -137,9 +135,8 @@ pub fn spawn_spell(
                 LightningSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
@@ -149,9 +146,8 @@ pub fn spawn_spell(
                 ParrySpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation),
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
@@ -161,9 +157,8 @@ pub fn spawn_spell(
                 BombSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
@@ -176,9 +171,8 @@ pub fn spawn_spell(
                 MissileSpell,
                 PlayerID { handle: p_id },
                 SpatialBundle {
-                    transform: Transform::from_translation(palm_mid_point)
-                        .with_rotation(head_transform.rotation), // TODO currently incorrect direction, needs integrating with a proper aiming system
-                    ..Default::default()
+                    transform: spell_transform,
+                    ..default()
                 },
             ))
             .add_rollback(),
@@ -311,7 +305,7 @@ fn handle_bomb(
 fn hand_bomb_collision(
     mut commands: Commands,
     collisions: ResMut<Collisions>,
-    mut bomb: Query<(Entity, &Transform), With<BombObj>>,
+    mut bomb: Query<(Entity, &Transform, &PlayerID), With<BombObj>>,
     hands_effect: Query<(Entity, &PlayerID), (With<HandObj>, Without<BombObj>)>,
     player_left_palms: Query<
         (Entity, &Transform, &PlayerID),
@@ -330,11 +324,12 @@ fn hand_bomb_collision(
         ),
     >,
 ) {
-    for (bomb_entity, bomb_trans) in bomb.iter_mut() {
-        for (hand_entity, hand_transform, id) in
+    for (bomb_entity, bomb_trans, bomb_p_id) in bomb.iter_mut() {
+        for (hand_entity, hand_transform, hand_p_id) in
             player_left_palms.iter().chain(player_right_palms.iter())
         {
-            if collisions.contains(bomb_entity, hand_entity) {
+            if bomb_p_id.handle == hand_p_id.handle && collisions.contains(bomb_entity, hand_entity)
+            {
                 let hand_bomb_direction =
                     (bomb_trans.translation - hand_transform.translation).normalize();
 
@@ -344,7 +339,7 @@ fn hand_bomb_collision(
                     .insert(ExternalForce::new(hand_bomb_direction / 10.0).with_persistence(false));
 
                 for (hand_effect, effect_id) in hands_effect.iter() {
-                    if effect_id.handle == id.handle {
+                    if effect_id.handle == hand_p_id.handle {
                         commands.entity(hand_effect).despawn();
                     }
                 }
@@ -479,57 +474,60 @@ fn handle_parry(
 fn parry_check(
     mut commands: Commands,
     time: Res<Time>,
-    mut parry_objs_query: Query<(Entity, &GlobalTransform, &mut ParryTimer), With<ParryObj>>,
+    mut parry_objs_query: Query<
+        (Entity, &GlobalTransform, &mut ParryTimer, &PlayerID),
+        With<ParryObj>,
+    >,
     projectiles: Query<(&Transform, &Handle<StandardMaterial>, &Handle<Mesh>), With<Projectile>>,
     mut collision_event_reader: EventReader<Collision>,
 ) {
     let collision_events: Vec<Collision> = collision_event_reader.read().cloned().collect();
-    for (parry_obj, _, mut parry_timer) in parry_objs_query.iter_mut() {
+    let mut has_parried: [bool; 2] = [false, false];
+
+    for (parry_obj, parry_transform, mut parry_timer, p_id) in parry_objs_query.iter_mut() {
         if parry_timer.0.tick(time.delta()).finished() {
             commands.entity(parry_obj).despawn();
         }
-    }
+        if !has_parried[p_id.handle] {
+            for Collision(contacts) in &collision_events {
+                let proj = match parry_obj {
+                    c if c == contacts.entity1 => contacts.entity2,
+                    c if c == contacts.entity2 => contacts.entity1,
+                    _ => continue,
+                };
 
-    for (parry_obj, parry_transform, _) in parry_objs_query.iter_mut() {
-        for Collision(contacts) in &collision_events {
-            let proj = match parry_obj {
-                c if c == contacts.entity1 => contacts.entity2,
-                c if c == contacts.entity2 => contacts.entity1,
-                _ => continue,
-            };
+                let Ok((proj_trans, material, mesh)) = projectiles.get(proj) else {
+                    continue;
+                };
 
-            let Ok((proj_trans, material, mesh)) = projectiles.get(proj) else {
-                continue;
-            };
+                commands.entity(proj).despawn();
 
-            commands.entity(proj).despawn();
+                let parry_proj_direction =
+                    (proj_trans.translation - parry_transform.translation()).normalize();
 
-            let parry_proj_direction =
-                (proj_trans.translation - parry_transform.translation()).normalize();
+                commands
+                    .spawn((
+                        ParriedProjectile,
+                        ExternalForce::new(parry_proj_direction * 2.0).with_persistence(false),
+                        PbrBundle {
+                            mesh: mesh.clone(),
+                            material: material.clone(),
+                            transform: *proj_trans,
+                            ..Default::default()
+                        },
+                        CollisionLayers::new(
+                            PhysLayer::PlayerProjectile,
+                            ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
+                                ^ PhysLayer::ParryObject,
+                        ),
+                        Collider::sphere(0.1),
+                        DespawnTimer(Timer::from_seconds(5.0, TimerMode::Once)),
+                        RigidBody::Dynamic,
+                    ))
+                    .add_rollback();
 
-            commands
-                .spawn((
-                    ParriedProjectile,
-                    ExternalForce::new(parry_proj_direction * 2.0).with_persistence(false),
-                    PbrBundle {
-                        mesh: mesh.clone(),
-                        material: material.clone(),
-                        transform: *proj_trans,
-                        ..Default::default()
-                    },
-                    CollisionLayers::new(
-                        PhysLayer::PlayerProjectile,
-                        ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
-                            ^ PhysLayer::ParryObject,
-                    ),
-                    Collider::sphere(0.1),
-                    DespawnTimer(Timer::from_seconds(5.0, TimerMode::Once)),
-                    RigidBody::Dynamic,
-                ))
-                .add_rollback();
-            // only parry one thing per frame - quick n dirty way to not spawn two parried guys
-            // if we hit one normal projectile with two hands
-            return;
+                has_parried[p_id.handle] = true;
+            }
         }
     }
 }

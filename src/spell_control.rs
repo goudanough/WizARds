@@ -152,22 +152,16 @@ fn spawn_new_spell_entities(
     inputs: Res<PlayerInputs<WizGgrsConfig>>,
     mut commands: Commands,
     player_objs: Query<&PlayerID, With<PlayerHead>>,
-    spawn_location: Res<SpellSpawnLocation>,
 ) {
     for p in player_objs.iter() {
         let input = inputs[p.handle].0;
 
-        let head_transform = Transform::from_translation(input.head_pos.lerp(input.head_pos, 0.5))
-            .with_rotation(input.head_rot);
+        let spell_transform =
+            Transform::from_translation(input.left_hand_pos.lerp(input.right_hand_pos, 0.5))
+                .with_rotation(input.head_rot);
 
         if input.spell != 0 {
-            spawn_spell(
-                &mut commands,
-                input,
-                p.handle,
-                spawn_location.0,
-                head_transform,
-            );
+            spawn_spell(&mut commands, input, p.handle, spell_transform);
         }
     }
 }
