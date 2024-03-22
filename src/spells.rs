@@ -402,7 +402,7 @@ fn handle_parry(
     left_palms: Query<(Entity, &PlayerID), With<PlayerLeftPalm>>,
     right_palms: Query<(Entity, &PlayerID), With<PlayerRightPalm>>,
     spell_objs: Query<(Entity, &PlayerID), With<ParrySpell>>,
-    asset_handles: Res<AssetHandles>,
+    // asset_handles: Res<AssetHandles>,
 ) {
     for (e, p) in spell_objs.iter() {
         let parry_left = commands
