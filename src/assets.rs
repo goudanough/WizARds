@@ -105,36 +105,40 @@ fn setup_bomb_explosion() -> EffectAsset {
     let accel1 = writer1.lit(Vec3::Y * -3.).expr();
     let update_accel1 = AccelModifier::new(accel1);
 
-    let init_pos1=SetPositionSphereModifier{
+    let init_pos1 = SetPositionSphereModifier {
         center: writer1.lit(Vec3::ZERO).expr(),
         radius: writer1.lit(0.5).expr(),
         dimension: ShapeDimension::Volume,
     };
-    
 
     let init_vel1 = SetVelocitySphereModifier {
         center: writer1.lit(Vec3::ZERO).expr(),
         speed: writer1.lit(1.).expr(),
     };
-        EffectAsset::new(32768, 
-            // Spawner::once(6000.0.into(),true), 
-            Spawner::new(6000.0.into(), 6.0.into(), 5.0.into()),
-            writer1.finish())
-            .with_name("bomb_explosion")
-            .init(init_pos1)
-            // Make spawned particles move away from the emitter origin
-            .init(init_vel1)
-            .init(init_age1)
-            .init(init_lifetime1)
-            .update(update_accel1)
-            .render(ColorOverLifetimeModifier {
-                gradient: color_gradient1,
-            })
-            .render(SizeOverLifetimeModifier {
-                gradient: size_gradient1,
-                screen_space_size: false,
-            })
-            .render(OrientModifier { mode: OrientMode::ParallelCameraDepthPlane,..Default::default() })
+    EffectAsset::new(
+        32768,
+        // Spawner::once(6000.0.into(),true),
+        Spawner::new(6000.0.into(), 6.0.into(), 5.0.into()),
+        writer1.finish(),
+    )
+    .with_name("bomb_explosion")
+    .init(init_pos1)
+    // Make spawned particles move away from the emitter origin
+    .init(init_vel1)
+    .init(init_age1)
+    .init(init_lifetime1)
+    .update(update_accel1)
+    .render(ColorOverLifetimeModifier {
+        gradient: color_gradient1,
+    })
+    .render(SizeOverLifetimeModifier {
+        gradient: size_gradient1,
+        screen_space_size: false,
+    })
+    .render(OrientModifier {
+        mode: OrientMode::ParallelCameraDepthPlane,
+        ..Default::default()
+    })
 }
 
 //fn setup_parry_hand_effect() -> EffectAsset {}
