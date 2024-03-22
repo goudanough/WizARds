@@ -217,36 +217,32 @@ fn handle_bomb(
     >,
 ) {
     for (t, e, id) in spell_objs.iter() {
-        let mut bomb = 
-       commands
-            .spawn((
-                PbrBundle {
-                    mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
-                    material: asset_handles.mats[MatName::Green as usize].clone(),
-                    transform: Transform::from_translation(t.translation)
-                        .with_scale(0.5 * Vec3::ONE),
-                    ..Default::default()
-                },
-                BombObj,
-                PlayerID { handle: id.handle },
-                CollisionLayers::new(PhysLayer::Bomb, LayerMask::ALL ^ PhysLayer::BossProjectile),
-                BombTimer(Timer::new(Duration::from_secs(5), TimerMode::Once)),
-                Collider::sphere(0.1),
-            ));
-            bomb.add_rollback();
-
-        bomb.with_children(|node|{
-            node.spawn((
-                Name::new("sparkle"),
-            ParticleEffectBundle {
-                effect: ParticleEffect::new(
-                    asset_handles.effects[EffectName::BombSparkle as usize].clone(),
-                ),
+        let mut bomb = commands.spawn((
+            PbrBundle {
+                mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+                material: asset_handles.mats[MatName::Green as usize].clone(),
+                transform: Transform::from_translation(t.translation).with_scale(0.5 * Vec3::ONE),
                 ..Default::default()
             },
-             ) );
-        });
+            BombObj,
+            PlayerID { handle: id.handle },
+            CollisionLayers::new(PhysLayer::Bomb, LayerMask::ALL ^ PhysLayer::BossProjectile),
+            BombTimer(Timer::new(Duration::from_secs(5), TimerMode::Once)),
+            Collider::sphere(0.1),
+        ));
+        bomb.add_rollback();
 
+        bomb.with_children(|node| {
+            node.spawn((
+                Name::new("sparkle"),
+                ParticleEffectBundle {
+                    effect: ParticleEffect::new(
+                        asset_handles.effects[EffectName::BombSparkle as usize].clone(),
+                    ),
+                    ..Default::default()
+                },
+            ));
+        });
 
         // To Do: add effects and uncomment this code
         let left_hand_effect = commands

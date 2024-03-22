@@ -145,9 +145,11 @@ fn setup_bomb_explosion() -> EffectAsset {
         gradient: size_gradient1,
         screen_space_size: false,
     })
-    .render(OrientModifier { mode: OrientMode::ParallelCameraDepthPlane,..Default::default() })
+    .render(OrientModifier {
+        mode: OrientMode::ParallelCameraDepthPlane,
+        ..Default::default()
+    })
 }
-
 
 fn setup_bomb_sparkle_explosion() -> EffectAsset {
     let mut color_gradient1 = Gradient::new();
@@ -177,13 +179,13 @@ fn setup_bomb_sparkle_explosion() -> EffectAsset {
     let update_drag = LinearDragModifier::new(drag);
 
     let init_pos = SetPositionSphereModifier {
-    center: writer.lit(Vec3::new(0.,0.05,0.)).expr(),
-    radius: writer.lit(0.).uniform(writer.lit(0.00005)).expr(),
-    dimension: ShapeDimension::Surface,
+        center: writer.lit(Vec3::new(0., 0.05, 0.)).expr(),
+        radius: writer.lit(0.).uniform(writer.lit(0.00005)).expr(),
+        dimension: ShapeDimension::Surface,
     };
 
     let init_size = SetSizeModifier {
-        size: bevy_hanabi::CpuValue::Single(Vec2 { x: 0.001, y: 0.001}),
+        size: bevy_hanabi::CpuValue::Single(Vec2 { x: 0.001, y: 0.001 }),
         screen_space_size: false,
     };
 
@@ -197,7 +199,10 @@ fn setup_bomb_sparkle_explosion() -> EffectAsset {
     .init(init_age)
     .init(init_lifetime)
     .render(init_size)
-    .render(OrientModifier { mode: OrientMode::ParallelCameraDepthPlane,..Default::default() })
+    .render(OrientModifier {
+        mode: OrientMode::ParallelCameraDepthPlane,
+        ..Default::default()
+    })
     .update(update_drag)
     .render(ColorOverLifetimeModifier {
         gradient: color_gradient1,

@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{ggrs::UdpNonBlockingSocket, prelude::*, LocalInputs, LocalPlayers};
 use bevy_oxr::xr_input::{
@@ -7,9 +8,6 @@ use bevy_oxr::xr_input::{
     trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
 use bevy_xpbd_3d::prelude::*;
-use bevy_hanabi::prelude::*;
-use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
-use crate::assets::{AssetHandles, EffectName, MatName, MeshName};
 
 #[derive(States, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkingState {
@@ -179,7 +177,7 @@ pub fn read_local_inputs(
     queued_spell.0 = None;
 }
 
-fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>,mut effects: ResMut<Assets<EffectAsset>>,asset_handles: Res<AssetHandles>,) {
+fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>) {
     // Add one cube on each player's head
     for i in 0..args.players.len() {
         commands
@@ -210,7 +208,6 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
             ))
             .add_rollback();
 
-        
         commands
             .spawn((
                 RigidBody::Kinematic,
@@ -224,7 +221,6 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
                 PlayerRightPalm,
             ))
             .add_rollback();
-
     }
 }
 
