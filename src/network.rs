@@ -219,16 +219,9 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
                     PhysLayer::Player,
                     LayerMask::ALL ^ PhysLayer::PlayerProjectile,
                 ),
-                // TransformBundle { ..default() },
+                TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerRightPalm,
-                // Name::new("sparkle"),
-        ParticleEffectBundle {
-            effect: ParticleEffect::new(
-                        asset_handles.effects[EffectName::BombSparkle as usize].clone(),
-                    ),
-            ..Default::default()
-        },
             ))
             .add_rollback();
 
