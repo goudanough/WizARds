@@ -1,0 +1,43 @@
+name: cool checking
+on:
+  pull_request:
+
+jobs:
+  check:
+    name: cargo check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: llvm
+          version: 1
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          wget --no-verbose https://github.com/rust-mobile/xbuild/releases/download/v0.2.0/Android.ndk.tar.zst
+          tar xf Android.ndk.tar.zst
+
+          export RUSTFLAGS=-Dwarnings
+
+          # android build options - lovingly ganked by tricking xbuild into
+          # thinking it's running cargo when really cargo is printenv && echo $@
+          # `export` doesn't like dashes in var names -_-
+          env CC_aarch64-linux-android=clang \
+              CFLAGS_aarch64-linux-android=--sysroot=$PWD/Android.ndk \
+              CXX_aarch64-linux-android=clang++ \
+              CXXFLAGS_aarch64-linux-android="--sysroot=$PWD/Android.ndk -stdlib=libc++" \
+              AR_aarch64-linux-android=llvm-ar \
+              CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-Clink-arg=--sysroot=$PWD/Android.ndk -Clink-arg=-fuse-ld=lld -Clink-arg=--target=aarch64-linux-android -Clink-arg=-B$PWD/Android.ndk/usr/lib/aarch64-linux-android/32 -Clink-arg=-L$PWD/Android.ndk/usr/lib/aarch64-linux-android/32 -Clink-arg=-L$PWD/Android.ndk/usr/lib/aarch64-linux-android" \
+          cargo check --target aarch64-linux-android
+  fmt:
+    name: format code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
