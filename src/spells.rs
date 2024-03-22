@@ -305,7 +305,7 @@ fn handle_bomb(
 fn hand_bomb_collision(
     mut commands: Commands,
     collisions: ResMut<Collisions>,
-    mut bomb: Query<(Entity, &Transform), With<BombObj>>,
+    mut bomb: Query<(Entity, &Transform, &PlayerID), With<BombObj>>,
     hands_effect: Query<(Entity, &PlayerID), (With<HandObj>, Without<BombObj>)>,
     player_left_palms: Query<
         (Entity, &Transform, &PlayerID),
@@ -324,11 +324,12 @@ fn hand_bomb_collision(
         ),
     >,
 ) {
-    for (bomb_entity, bomb_trans) in bomb.iter_mut() {
-        for (hand_entity, hand_transform, id) in
+    for (bomb_entity, bomb_trans, bomb_p_id) in bomb.iter_mut() {
+        for (hand_entity, hand_transform, hand_p_id) in
             player_left_palms.iter().chain(player_right_palms.iter())
         {
-            if collisions.contains(bomb_entity, hand_entity) {
+            if bomb_p_id.handle == hand_p_id.handle && collisions.contains(bomb_entity, hand_entity)
+            {
                 let hand_bomb_direction =
                     (bomb_trans.translation - hand_transform.translation).normalize();
 
@@ -338,7 +339,7 @@ fn hand_bomb_collision(
                     .insert(ExternalForce::new(hand_bomb_direction / 10.0).with_persistence(false));
 
                 for (hand_effect, effect_id) in hands_effect.iter() {
-                    if effect_id.handle == id.handle {
+                    if effect_id.handle == hand_p_id.handle {
                         commands.entity(hand_effect).despawn();
                     }
                 }
