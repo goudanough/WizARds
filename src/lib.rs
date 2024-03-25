@@ -20,9 +20,13 @@ use bevy_hanabi::HanabiPlugin;
 #[cfg(target_os = "android")]
 use bevy_oxr::graphics::{extensions::XrExtensions, XrAppInfo, XrPreferdBlendMode};
 #[cfg(target_os = "android")]
+use bevy_oxr::xr_init::XrPostSetup;
+#[cfg(target_os = "android")]
 use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
 #[cfg(target_os = "android")]
 use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
+#[cfg(target_os = "android")]
+use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
 #[cfg(target_os = "android")]
 use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
 use bevy_xpbd_3d::prelude::*;
@@ -106,7 +110,8 @@ pub fn main() {
         .add_plugins(OpenXrDebugRenderer)
         //.add_plugins(HandInputDebugRenderer)
         .add_plugins(xr::scene::QuestScene)
-        .add_plugins(HanabiPlugin);
+        .add_plugins(HanabiPlugin)
+        .add_systems(XrPostSetup, setup_audio);
     }
 
     #[cfg(not(target_os = "android"))]
@@ -126,6 +131,42 @@ pub fn main() {
     }
 
     app.run();
+}
+
+#[cfg(target_os = "android")]
+fn setup_audio(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    left_eye: Query<&Transform, With<OpenXRLeftEye>>,
+    right_eye: Query<&Transform, (With<OpenXRRightEye>, Without<OpenXRLeftEye>)>,
+) {
+    let listener = SpatialListener::new(0.1);
+
+    let left_eye = left_eye.get_single().unwrap();
+    let right_eye = right_eye.get_single().unwrap();
+
+    let head_transform =
+        Transform::from_translation(left_eye.translation.lerp(right_eye.translation, 0.5))
+            .with_rotation(left_eye.rotation);
+
+    commands
+        .spawn((
+            SpatialBundle {
+                transform: head_transform,
+                ..Default::default()
+            },
+            listener.clone(),
+        ))
+        .with_children(|parent| {
+            parent.spawn(SpatialBundle {
+                transform: Transform::from_translation(listener.left_ear_offset),
+                ..Default::default()
+            });
+            parent.spawn(SpatialBundle {
+                transform: Transform::from_translation(listener.right_ear_offset),
+                ..Default::default()
+            });
+        });
 }
 
 #[derive(Component)]
