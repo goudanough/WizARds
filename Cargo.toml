@@ -25,6 +25,7 @@ crossbeam = "0.8.4"
 vosk = "0.2.0"
 wgpu = "0.19.1"
 zip = "0.6.6"
+rand = "0.8"
 
 [patch.crates-io]
 ggrs = { git = "https://github.com/goudanough/ggrs", rev = "78b59934ac964c4fad47908e922f520b4a3228bf" }

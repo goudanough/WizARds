@@ -1,12 +1,5 @@
 use std::time::Duration;
 
-use ::bevy::prelude::*;
-use bevy::math::primitives;
-use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule, PlayerInputs, Rollback};
-use bevy_hanabi::{ParticleEffect, ParticleEffectBundle};
-use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
-use bevy_xpbd_3d::prelude::*;
-
 use crate::assets::{AssetHandles, EffectName, MatName, MeshName};
 use crate::boss::BossHealth;
 use crate::network::{move_networked_player_objs, PlayerID, PlayerLeftPalm, PlayerRightPalm};
@@ -16,6 +9,12 @@ use crate::projectile::{
 };
 use crate::spell_control::{SelectedSpell, Spell, SpellSpawnLocation};
 use crate::{PhysLayer, PlayerInput, WizGgrsConfig};
+use ::bevy::prelude::*;
+use bevy::math::primitives;
+use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule, PlayerInputs, Rollback};
+use bevy_hanabi::{ParticleEffect, ParticleEffectBundle};
+use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
+use bevy_xpbd_3d::prelude::*;
 pub struct SpellsPlugin;
 
 #[derive(Component)]
@@ -394,6 +393,34 @@ fn handle_bomb_explode(
                 },
                 DespawnTimer(Timer::from_seconds(2.0, TimerMode::Once)),
             ));
+
+            let center = bomb_trans.translation;
+
+            // Spawn five entities randomly within the circle
+            for _ in 0..5 {
+                let radius = rand::random::<f32>();
+                // Generate a random angle
+                let angle = rand::random::<f32>() * std::f32::consts::PI * 2.0;
+                // Calculate random position within the circle
+                let x = center.x + radius * angle.cos();
+                let y = 0.;
+
+                // Generate random height
+                let z = center.z + radius * angle.sin(); // Adjust as needed
+
+                //Spawn entity at the random position
+                commands.spawn((
+                    ParticleEffectBundle {
+                        effect: ParticleEffect::new(
+                            asset_handles.effects[EffectName::BombFlame as usize].clone(),
+                        ),
+                        transform: Transform::from_translation(Vec3::new(x, y, z))
+                            .with_rotation(bomb_trans.rotation),
+                        ..default()
+                    },
+                    DespawnTimer(Timer::from_seconds(4.0, TimerMode::Once)),
+                ));
+            }
 
             for (hand_effect, effect_id) in hands_effect.iter() {
                 if effect_id.handle == id.handle {
