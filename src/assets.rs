@@ -152,7 +152,7 @@ fn setup_bomb_explosion() -> EffectAsset {
 
 //fn setup_bomb_hand_effect() -> EffectAsset {}
 
-fn setup_bomb_flame() -> EffectAsset{
+fn setup_bomb_flame() -> EffectAsset {
     let mut color_gradient1 = Gradient::new();
     color_gradient1.add_key(0.0, Vec4::new(4.0, 4.0, 4.0, 1.0));
     color_gradient1.add_key(0.1, Vec4::new(4.0, 4.0, 0.0, 1.0));
@@ -189,24 +189,27 @@ fn setup_bomb_flame() -> EffectAsset{
         screen_space_size: false,
     };
 
-    
-        EffectAsset::new(32768, Spawner::new(3000.0.into(),4.0.into(),2.0.into()), writer1.finish())
-            .with_name("emit:rate")
-            .init(init_pos1)
-            // Make spawned particles move away from the emitter origin
-            .init(init_vel1)
-            .init(init_age1)
-            .init(init_lifetime1)
-            .render(init_size)
-            .render(ColorOverLifetimeModifier {
-                gradient: color_gradient1,
-            })
-            .render(SizeOverLifetimeModifier {
-                gradient: size_gradient1,
-                screen_space_size: false,
-            })
-            .render(OrientModifier {
-                mode: OrientMode::ParallelCameraDepthPlane,
-                ..Default::default()
-            })
+    EffectAsset::new(
+        32768,
+        Spawner::new(3000.0.into(), 4.0.into(), 2.0.into()),
+        writer1.finish(),
+    )
+    .with_name("emit:rate")
+    .init(init_pos1)
+    // Make spawned particles move away from the emitter origin
+    .init(init_vel1)
+    .init(init_age1)
+    .init(init_lifetime1)
+    .render(init_size)
+    .render(ColorOverLifetimeModifier {
+        gradient: color_gradient1,
+    })
+    .render(SizeOverLifetimeModifier {
+        gradient: size_gradient1,
+        screen_space_size: false,
+    })
+    .render(OrientModifier {
+        mode: OrientMode::ParallelCameraDepthPlane,
+        ..Default::default()
+    })
 }
