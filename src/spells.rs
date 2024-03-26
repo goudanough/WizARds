@@ -396,7 +396,7 @@ fn handle_bomb_explode(
             ));
 
             let center = bomb_trans.translation;
-            let radius = 0.1;
+            let radius = 1.1;
 
             // Spawn five entities randomly within the circle
         for _ in 0..5 {
