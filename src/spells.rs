@@ -395,8 +395,8 @@ fn handle_bomb_explode(
                 DespawnTimer(Timer::from_seconds(2.0, TimerMode::Once)),
             ));
 
-            let center = Vec3::new(bomb_trans.translation.x,0. ,bomb_trans.translation.z);
-            let radius = 0.01;
+            let center = bomb_trans.translation;
+            let radius = 0.1;
 
             // Spawn five entities randomly within the circle
         for _ in 0..5 {
@@ -407,9 +407,9 @@ fn handle_bomb_explode(
         let y = 0.;
 
         // Generate random height
-        let z = rand::random::<f32>() * 20.0; // Adjust as needed
+        let z = center.z + radius * angle.sin(); // Adjust as needed
 
-        // Spawn entity at the random position
+        //Spawn entity at the random position
         commands.spawn((
             ParticleEffectBundle {
                 effect: ParticleEffect::new(
@@ -419,7 +419,7 @@ fn handle_bomb_explode(
                     .with_rotation(bomb_trans.rotation),
                 ..default()
             },
-            DespawnTimer(Timer::from_seconds(2.0, TimerMode::Once)),
+            DespawnTimer(Timer::from_seconds(4.0, TimerMode::Once)),
         ));
     
     }

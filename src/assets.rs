@@ -15,9 +15,8 @@ pub enum MatName {
 
 pub enum EffectName {
     BombExplosion = 0,
-    
-    
-    BombFlame = 3,
+
+    BombFlame = 1,
     //ParryHandEffect,
     //BombHandEffect,
 }
@@ -173,10 +172,6 @@ fn setup_bomb_flame() -> EffectAsset{
     let lifetime1 = writer1.lit(0.).uniform(writer1.lit(0.3)).expr();
     let init_lifetime1 = SetAttributeModifier::new(Attribute::LIFETIME, lifetime1);
 
-    // Add constant downward acceleration to simulate gravity
-    let accel1 = writer1.lit(Vec3::Y * -30.).expr();
-    let update_accel1 = AccelModifier::new(accel1);
-
     let init_pos1 = SetPositionCone3dModifier {
         base_radius: writer1.lit(0.01).expr(),
         top_radius: writer1.lit(0.0001).expr(),
@@ -184,15 +179,9 @@ fn setup_bomb_flame() -> EffectAsset{
         dimension: ShapeDimension::Volume,
     };
 
-    // let init_pos1=SetPositionSphereModifier{
-    //     center: writer1.lit(Vec3::ZERO).expr(),
-    //     radius: writer1.lit(2.).expr(),
-    //     dimension: ShapeDimension::Volume,
-    // };
-
     let init_vel1 = SetVelocitySphereModifier {
         center: writer1.lit(Vec3::ZERO).expr(),
-        speed: writer1.lit(0.5).expr(),
+        speed: writer1.lit(1.).expr(),
     };
 
     let init_size = SetSizeModifier {
@@ -209,12 +198,15 @@ fn setup_bomb_flame() -> EffectAsset{
             .init(init_age1)
             .init(init_lifetime1)
             .render(init_size)
-            // .update(update_accel1)
             .render(ColorOverLifetimeModifier {
                 gradient: color_gradient1,
             })
             .render(SizeOverLifetimeModifier {
                 gradient: size_gradient1,
                 screen_space_size: false,
+            })
+            .render(OrientModifier {
+                mode: OrientMode::ParallelCameraDepthPlane,
+                ..Default::default()
             })
 }
