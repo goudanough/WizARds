@@ -4,7 +4,7 @@ use bevy_xpbd_3d::prelude::*;
 
 use crate::{
     assets::{AssetHandles, MatName, MeshName},
-    boss::{BossHealth, BossPhase},
+    boss::{BossHealth, BossPhase, Pylon},
     network::{move_networked_player_objs, PlayerID},
     PhysLayer,
 };
@@ -50,6 +50,7 @@ pub struct DamageMask(pub u8);
 impl DamageMask {
     pub const FIRE: Self = DamageMask(1 << 0);
     pub const LIGHTNING: Self = DamageMask(1 << 1);
+    pub const IMMUNE: Self = DamageMask(1 << 1);
 
     pub fn intersect(&self, other: &Self) -> bool {
         self.0 & other.0 > 0
@@ -141,6 +142,7 @@ fn detect_projectile_collisions(
 fn handle_damage_hits(
     mut commands: Commands,
     hits: Query<(&Transform, &ProjectileHit, Entity, &DamageHit)>,
+    mut pylons: Query<(Entity, &mut Visibility, &mut Pylon)>,
     mut boss_health: Query<&mut BossHealth>,
 ) {
     for (_transform, p_hit, e, d) in hits.iter() {
@@ -149,6 +151,15 @@ fn handle_damage_hits(
             // If the damage masks intersect, then the boss doesn't resist the attack.
             if h.damage_mask.intersect(&d.0) {
                 h.current -= d.1;
+            }
+        }
+        for (pylon_entity, mut pylon_visibility, mut pylon_status) in pylons.iter_mut() {
+            if pylon_entity == p_hit.0
+                && pylon_status.damage_mask.intersect(&d.0)
+                && !pylon_status.destroyed
+            {
+                pylon_status.destroyed = true;
+                *pylon_visibility = Visibility::Hidden;
             }
         }
         commands.entity(e).despawn();
