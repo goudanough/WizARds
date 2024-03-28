@@ -91,14 +91,14 @@ impl Plugin for BossPlugin {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let model = asset_server.load("white bear.glb#Scene0");
+    let model = asset_server.load("boss.glb#Scene0");
 
     let initial_mask: DamageMask = DamageMask(DamageMask::FIRE.0 | DamageMask::LIGHTNING.0);
 
     commands.spawn((
         SceneBundle {
             scene: model,
-            transform: Transform::from_xyz(0.0, 0.4, 0.0).with_scale(Vec3::new(1.0, 2.5, 1.0)),
+            transform: Transform::from_xyz(0.0, 0.1, -1.5).with_scale(Vec3::new(0.1, 0.1, 0.1)),
             ..default()
         },
         RigidBody::Kinematic,
@@ -111,6 +111,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             damage_mask: initial_mask,
         },
     ));
+    // ambient light
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 1000.00,
+    });
+
 }
 
 // boss look at player
@@ -129,9 +135,7 @@ fn update_boss(
         if direction != Vec3::ZERO {
             let look_rotation = Quat::from_rotation_y(direction.x.atan2(direction.z));
 
-            let left_rotation = Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2);
-
-            boss_transform.rotation = look_rotation * left_rotation;
+            boss_transform.rotation = look_rotation;
         }
     }
 }
