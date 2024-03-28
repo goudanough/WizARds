@@ -17,6 +17,7 @@ pub enum EffectName {
     BombExplosion = 0,
     //ParryHandEffect,
     //BombHandEffect,
+    CooldownFizzle,
 }
 
 #[derive(Resource, Default)]
@@ -74,6 +75,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // asset_handles.effects.insert(
     //     EffectName::BombHandEffect as usize,
     //     asset_server.add::<EffectAsset>(setup_bomb_hand_effect()),
+    // );
+
+    // asset_handles.effects.insert(
+    //     EffectName::CooldownFizzle as usize,
+    //     asset_server.add::<EffectAsset>(setup_cooldown_fizzle()),
     // );
 
     commands.insert_resource(asset_handles);
@@ -154,3 +160,5 @@ fn setup_bomb_explosion() -> EffectAsset {
 //fn setup_parry_hand_effect() -> EffectAsset {}
 
 //fn setup_bomb_hand_effect() -> EffectAsset {}
+
+//fn setup_cooldown_fizzle() -> EffectAsset {}

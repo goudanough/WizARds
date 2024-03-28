@@ -1,10 +1,14 @@
 use bevy::prelude::*;
 use bevy_ggrs::{GgrsSchedule, PlayerInputs};
-use bevy_oxr::xr_input::hands::common::HandsResource;
+use bevy_hanabi::{ParticleEffect, ParticleEffectBundle};
 use bevy_oxr::xr_input::hands::HandBone;
-use bevy_oxr::xr_input::trackers::OpenXRTracker;
+use bevy_oxr::xr_input::trackers::{OpenXRRightEye, OpenXRTracker};
+use bevy_oxr::xr_input::{hands::common::HandsResource, trackers::OpenXRLeftEye};
 
+use crate::assets::EffectName;
+use crate::spells::DespawnTimer;
 use crate::{
+    assets::{AssetHandles, MatName, MeshName},
     network::{LocalPlayerID, PlayerHead, PlayerID},
     speech::{
         check_fingers_close, fetch_recogniser, RecognizedWord, RecordingStatus, SpeechRecognizer,
@@ -50,9 +54,12 @@ impl TryFrom<u32> for Spell {
 pub enum SpellStatus {
     #[default]
     None,
+    OnCooldown,
     Armed,
     Fire,
 }
+#[derive(Component)]
+pub struct CooldownIndicator;
 
 #[derive(Resource)]
 pub struct SpellSpawnLocation(pub Vec3);
@@ -63,6 +70,9 @@ pub struct SelectedSpell(pub Option<Spell>);
 #[derive(Resource, Clone)]
 pub struct QueuedSpell(pub Option<Spell>);
 
+#[derive(Resource)]
+pub struct SpellCooldown(Timer);
+
 const SPELL_GRAMMAR: [&str; 6] = ["fireball", "lightning", "wind", "fire", "earth", "ice"];
 
 impl Plugin for SpellControlPlugin {
@@ -71,7 +81,17 @@ impl Plugin for SpellControlPlugin {
             .insert_resource(SpeechRecognizer(fetch_recogniser(&SPELL_GRAMMAR)))
             .insert_resource(SelectedSpell(None))
             .insert_resource(QueuedSpell(None))
-            .add_systems(OnEnter(RecordingStatus::Success), select_spell)
+            .insert_resource(SpellCooldown(Timer::from_seconds(
+                5.0,
+                TimerMode::Repeating,
+            )))
+            .add_systems(
+                OnEnter(RecordingStatus::Success),
+                (
+                    select_spell.run_if(in_state(SpellStatus::None)),
+                    attempted_spell_on_cooldown.run_if(in_state(SpellStatus::Armed)),
+                ),
+            )
             .insert_resource(SpellSpawnLocation(Vec3 {
                 x: 0.0,
                 y: 0.0,
@@ -90,12 +110,18 @@ impl Plugin for SpellControlPlugin {
                 Update,
                 check_if_done_firing.run_if(in_state(SpellStatus::Fire)),
             )
+            .add_systems(
+                Update,
+                (handle_cooldown_timer, track_cooldown_indicator)
+                    .run_if(in_state(SpellStatus::OnCooldown)),
+            )
             .add_systems(OnEnter(SpellStatus::Armed), spawn_spell_indicator)
             .add_systems(OnEnter(SpellStatus::Armed), spawn_trajectory_indicator)
             .add_systems(OnExit(SpellStatus::Armed), despawn_spell_indicator)
             .add_systems(OnExit(SpellStatus::Armed), despawn_trajectory_indictaor)
             .add_systems(OnEnter(SpellStatus::Fire), queue_new_spell)
             .add_systems(OnExit(SpellStatus::Fire), despawn_trajectory_indictaor)
+            .add_systems(OnEnter(SpellStatus::OnCooldown), spawn_cooldown_indicator)
             .add_systems(GgrsSchedule, spawn_new_spell_entities);
     }
 }
@@ -144,7 +170,7 @@ fn check_if_done_firing(
         .count()
         == 0
     {
-        next_spell_state.set(SpellStatus::None);
+        next_spell_state.set(SpellStatus::OnCooldown);
     }
 }
 
@@ -186,6 +212,7 @@ fn select_spell(
         "ice" => (SpellStatus::Armed, Some(Spell::MagicMissile)),
         _ => (SpellStatus::None, None),
     };
+
     next_spell_state.set(next_s);
     selected_spell.0 = s_spell;
 }
@@ -206,4 +233,73 @@ fn palm_mid_point_track(
         .translation;
 
     palms_mid_point_res.0 = left_palm.lerp(right_palm, 0.5);
+}
+
+fn spawn_cooldown_indicator(mut commands: Commands, asset_handles: Res<AssetHandles>) {
+    commands.spawn((
+        PbrBundle {
+            mesh: asset_handles.meshes[MeshName::Sphere as usize].clone(),
+            material: asset_handles.mats[MatName::Red as usize].clone(),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0))
+                .with_scale(0.2 * Vec3::ONE),
+            ..Default::default()
+        },
+        CooldownIndicator,
+    ));
+}
+
+fn track_cooldown_indicator(
+    left_eye: Query<&Transform, (With<OpenXRLeftEye>,)>,
+    right_eye: Query<&Transform, (With<OpenXRRightEye>,)>,
+    mut cooldown_indicator: Query<&mut Transform, With<CooldownIndicator>>,
+) {
+    let left_eye = left_eye.get_single().unwrap();
+    let right_eye = right_eye.get_single().unwrap();
+
+    let head_pos = left_eye.translation.lerp(right_eye.translation, 0.5);
+    let head_rot = left_eye.rotation;
+
+    for mut cooldown_transform in cooldown_indicator.iter_mut() {
+        let yaw = head_rot.to_euler(EulerRot::XYZ).2;
+        cooldown_transform.translation = Transform::from_xyz(
+            head_pos.x - yaw.sin() * 0.5,
+            head_pos.y / 2.0,
+            head_pos.z - yaw.cos() * 0.5,
+        )
+        .translation;
+
+        cooldown_transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, yaw, 0.0);
+    }
+}
+
+fn handle_cooldown_timer(
+    mut commands: Commands,
+    time: Res<Time>,
+    cooldown_indicator: Query<Entity, With<CooldownIndicator>>,
+    mut next_spell_state: ResMut<NextState<SpellStatus>>,
+    mut cooldown: ResMut<SpellCooldown>,
+) {
+    if cooldown.0.tick(time.delta()).just_finished() {
+        for e in cooldown_indicator.iter() {
+            commands.entity(e).despawn();
+        }
+        next_spell_state.set(SpellStatus::None);
+    }
+}
+
+fn attempted_spell_on_cooldown(
+    mut commands: Commands,
+    //spawn_location: Res<SpellSpawnLocation>,
+    //asset_handles: Res<AssetHandles>,
+) {
+    commands.spawn((
+        // ParticleEffectBundle {
+        //     effect: ParticleEffect::new(
+        //         asset_handles.effects[EffectName::CooldownFizzle as usize].clone(),
+        //     ),
+        //     transform: Transform::from_translation(spawn_location.0),
+        //     ..default()
+        // },
+        DespawnTimer(Timer::from_seconds(2.0, TimerMode::Once)),
+    ));
 }

@@ -69,7 +69,7 @@ pub struct HandObj;
 pub struct BombTimer(Timer);
 
 #[derive(Component)]
-pub struct DespawnTimer(Timer);
+pub struct DespawnTimer(pub Timer);
 
 #[derive(Component)]
 pub struct WallSpell;
