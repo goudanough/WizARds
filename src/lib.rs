@@ -25,7 +25,7 @@ use bevy_oxr::xr_input::debug_gizmos::OpenXrDebugRenderer;
 use bevy_oxr::xr_input::hands::common::OpenXrHandInput;
 #[cfg(target_os = "android")]
 use bevy_oxr::{DefaultXrPlugins, OpenXrPlugin};
-use bevy_xpbd_3d::prelude::*;
+use bevy_rapier3d::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
 const FPS: usize = 72;
@@ -46,15 +46,21 @@ pub struct PlayerInput {
     right_hand_rot: Quat,
 }
 
-#[derive(PhysicsLayer)]
+#[repr(u32)]
 enum PhysLayer {
-    Player,
-    PlayerProjectile,
-    ParryObject,
-    Bomb,
-    Boss,
-    BossProjectile,
-    Terrain,
+    Player = 1 << 1,
+    PlayerProjectile = 1 << 2,
+    ParryObject = 1 << 3,
+    Bomb = 1 << 4,
+    Boss = 1 << 5,
+    BossProjectile = 1 << 6,
+    Terrain = 1 << 7,
+}
+
+impl Into<Group> for PhysLayer {
+    fn into(self) -> Group {
+        Group::from_bits(self as u32).unwrap()
+    }
 }
 
 #[bevy_main]
@@ -63,7 +69,7 @@ pub fn main() {
     app.add_systems(Startup, setup)
         .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_plugins(PhysicsPlugins::default())
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(assets::AssetHandlesPlugin)
         .add_plugins(boss::BossPlugin)
         .add_plugins(network::NetworkPlugin)

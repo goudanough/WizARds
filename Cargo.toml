@@ -15,7 +15,10 @@ path = "src/main.rs"
 [dependencies]
 ash = "0.37.3"
 bevy = "0.13"
-bevy_xpbd_3d = "0.4.2"
+bevy_rapier3d = { git = "https://github.com/goudanough/bevy_rapier", features = [
+    "enhanced-determinism",
+    "serde-serialize",
+] } 
 bevy_oxr = { git = "https://github.com/goudanough/bevy_oxr", rev = "942e9f85a91d7ec7796661dfb62dcad6baa2753b", default-features = false }
 bevy_ggrs = "0.15.0"
 bytemuck = { version = "1.14.1", features = ["derive"] }

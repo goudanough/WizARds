@@ -36,13 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut asset_handles = AssetHandles::default();
     asset_handles.meshes.insert(
         MeshName::Sphere as usize,
-        asset_server.add::<Mesh>(
-            primitives::Sphere {
-                radius: 0.1,
-                ..default()
-            }
-            .into(),
-        ),
+        asset_server.add::<Mesh>(primitives::Sphere { radius: 0.1 }.into()),
     );
     asset_handles.mats.insert(
         MatName::Red as usize,

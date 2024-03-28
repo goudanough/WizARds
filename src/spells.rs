@@ -5,7 +5,7 @@ use bevy::math::primitives;
 use bevy_ggrs::{AddRollbackCommandExtension, GgrsSchedule, PlayerInputs, Rollback};
 use bevy_hanabi::{ParticleEffect, ParticleEffectBundle};
 use bevy_oxr::xr_input::trackers::{OpenXRLeftEye, OpenXRRightEye};
-use bevy_xpbd_3d::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 use crate::assets::{AssetHandles, EffectName, MatName, MeshName};
 use crate::boss::BossHealth;
@@ -245,9 +245,14 @@ fn handle_bomb(
                 },
                 BombObj,
                 PlayerID { handle: id.handle },
-                CollisionLayers::new(PhysLayer::Bomb, LayerMask::ALL ^ PhysLayer::BossProjectile),
+                CollisionGroups {
+                    memberships: PhysLayer::Bomb.into(),
+                    filters: Group::all().difference(PhysLayer::BossProjectile.into()),
+                },
                 BombTimer(Timer::new(Duration::from_secs(5), TimerMode::Once)),
-                Collider::sphere(0.1),
+                Collider::ball(0.1),
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::STATIC_STATIC,
             ))
             .add_rollback();
 
@@ -310,8 +315,7 @@ fn handle_bomb(
 
 fn hand_bomb_collision(
     mut commands: Commands,
-    collisions: ResMut<Collisions>,
-    mut bomb: Query<(Entity, &Transform), With<BombObj>>,
+    mut bomb: Query<(Entity, &Transform, &CollidingEntities), With<BombObj>>,
     hands_effect: Query<(Entity, &PlayerID), (With<HandObj>, Without<BombObj>)>,
     player_left_palms: Query<
         (Entity, &Transform, &PlayerID),
@@ -330,18 +334,20 @@ fn hand_bomb_collision(
         ),
     >,
 ) {
-    for (bomb_entity, bomb_trans) in bomb.iter_mut() {
+    for (bomb_entity, bomb_trans, collisions) in bomb.iter_mut() {
         for (hand_entity, hand_transform, id) in
             player_left_palms.iter().chain(player_right_palms.iter())
         {
-            if collisions.contains(bomb_entity, hand_entity) {
+            if collisions.contains(hand_entity) {
                 let hand_bomb_direction =
                     (bomb_trans.translation - hand_transform.translation).normalize();
 
                 commands.entity(bomb_entity).insert(RigidBody::Dynamic);
-                commands
-                    .entity(bomb_entity)
-                    .insert(ExternalForce::new(hand_bomb_direction / 10.0).with_persistence(false));
+                commands.entity(bomb_entity).insert(ExternalForce::at_point(
+                    hand_bomb_direction / 10.0,
+                    hand_transform.translation,
+                    bomb_trans.translation,
+                ));
 
                 for (hand_effect, effect_id) in hands_effect.iter() {
                     if effect_id.handle == id.handle {
@@ -372,13 +378,16 @@ fn handle_bomb_explode(
                             .with_rotation(bomb_trans.rotation),
                         ..default()
                     },
-                    Collider::sphere(1.0),
-                    CollisionLayers::new(
-                        PhysLayer::PlayerProjectile,
-                        (((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
-                            ^ PhysLayer::Terrain)
-                            ^ PhysLayer::PlayerProjectile,
-                    ),
+                    Collider::ball(1.0),
+                    CollisionGroups {
+                        memberships: PhysLayer::PlayerProjectile.into(),
+                        filters: Group::all()
+                            .difference(PhysLayer::Player.into())
+                            .difference(PhysLayer::BossProjectile.into())
+                            .difference(PhysLayer::Terrain.into())
+                            .difference(PhysLayer::PlayerProjectile.into()),
+                    },
+                    ActiveCollisionTypes::STATIC_STATIC,
                     DespawnTimer(Timer::from_seconds(2.0, TimerMode::Once)),
                 ))
                 .add_rollback();
@@ -423,12 +432,16 @@ fn handle_parry(
                 //     effect: ParticleEffect::new(asset_handles.effects[EffectName::BombExplosion as usize].clone()),
                 //     ..default()
                 // },
-                CollisionLayers::new(
-                    PhysLayer::ParryObject,
-                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::PlayerProjectile,
-                ),
-                Collider::sphere(0.12),
+                CollisionGroups {
+                    memberships: PhysLayer::ParryObject.into(),
+                    filters: Group::all()
+                        .difference(PhysLayer::Player.into())
+                        .difference(PhysLayer::PlayerProjectile.into()),
+                },
+                Collider::ball(0.12),
                 ParryTimer(Timer::from_seconds(5.0, TimerMode::Once)),
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::STATIC_STATIC,
             ))
             .add_rollback()
             .id();
@@ -444,12 +457,16 @@ fn handle_parry(
                 //     effect: ParticleEffect::new(asset_handles.effects[EffectName::BombExplosion as usize].clone()),
                 //     ..default()
                 // },
-                CollisionLayers::new(
-                    PhysLayer::ParryObject,
-                    (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::PlayerProjectile,
-                ),
-                Collider::sphere(0.12),
+                CollisionGroups {
+                    memberships: PhysLayer::ParryObject.into(),
+                    filters: Group::all()
+                        .difference(PhysLayer::Player.into())
+                        .difference(PhysLayer::PlayerProjectile.into()),
+                },
+                Collider::ball(0.12),
                 ParryTimer(Timer::from_seconds(5.0, TimerMode::Once)),
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::STATIC_STATIC,
             ))
             .add_rollback()
             .id();
@@ -479,30 +496,30 @@ fn handle_parry(
 fn parry_check(
     mut commands: Commands,
     time: Res<Time>,
-    mut parry_objs_query: Query<(Entity, &GlobalTransform, &mut ParryTimer), With<ParryObj>>,
+    mut parry_objs_query: Query<
+        (
+            Entity,
+            &GlobalTransform,
+            &mut ParryTimer,
+            &CollidingEntities,
+        ),
+        With<ParryObj>,
+    >,
     projectiles: Query<(&Transform, &Handle<StandardMaterial>, &Handle<Mesh>), With<Projectile>>,
-    mut collision_event_reader: EventReader<Collision>,
 ) {
-    let collision_events: Vec<Collision> = collision_event_reader.read().cloned().collect();
-    for (parry_obj, _, mut parry_timer) in parry_objs_query.iter_mut() {
+    for (parry_obj, _, mut parry_timer, _) in parry_objs_query.iter_mut() {
         if parry_timer.0.tick(time.delta()).finished() {
             commands.entity(parry_obj).despawn();
         }
     }
 
-    for (parry_obj, parry_transform, _) in parry_objs_query.iter_mut() {
-        for Collision(contacts) in &collision_events {
-            let proj = match parry_obj {
-                c if c == contacts.entity1 => contacts.entity2,
-                c if c == contacts.entity2 => contacts.entity1,
-                _ => continue,
-            };
-
-            let Ok((proj_trans, material, mesh)) = projectiles.get(proj) else {
+    for (_, parry_transform, _, collisions) in parry_objs_query.iter_mut() {
+        for contact in collisions.iter() {
+            let Ok((proj_trans, material, mesh)) = projectiles.get(contact) else {
                 continue;
             };
 
-            commands.entity(proj).despawn();
+            commands.entity(contact).despawn();
 
             let parry_proj_direction =
                 (proj_trans.translation - parry_transform.translation()).normalize();
@@ -510,19 +527,25 @@ fn parry_check(
             commands
                 .spawn((
                     ParriedProjectile,
-                    ExternalForce::new(parry_proj_direction * 2.0).with_persistence(false),
+                    ExternalForce::at_point(
+                        parry_proj_direction * 2.0,
+                        parry_transform.translation(),
+                        proj_trans.translation,
+                    ),
                     PbrBundle {
                         mesh: mesh.clone(),
                         material: material.clone(),
                         transform: *proj_trans,
                         ..Default::default()
                     },
-                    CollisionLayers::new(
-                        PhysLayer::PlayerProjectile,
-                        ((LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::BossProjectile)
-                            ^ PhysLayer::ParryObject,
-                    ),
-                    Collider::sphere(0.1),
+                    CollisionGroups {
+                        memberships: PhysLayer::PlayerProjectile.into(),
+                        filters: Group::all()
+                            .difference(PhysLayer::Player.into())
+                            .difference(PhysLayer::BossProjectile.into())
+                            .difference(PhysLayer::ParryObject.into()),
+                    },
+                    Collider::ball(0.1),
                     DespawnTimer(Timer::from_seconds(5.0, TimerMode::Once)),
                     RigidBody::Dynamic,
                 ))
@@ -606,14 +629,18 @@ fn handle_walls(
                             ),
                             ..default()
                         },
-                        CollisionLayers::new(
-                            PhysLayer::Terrain,
-                            (LayerMask::ALL ^ PhysLayer::Player) ^ PhysLayer::Terrain,
-                        ),
+                        CollisionGroups {
+                            memberships: PhysLayer::Terrain.into(),
+                            filters: Group::all()
+                                .difference(PhysLayer::Player.into())
+                                .difference(PhysLayer::Terrain.into()),
+                        },
+                        ActiveEvents::COLLISION_EVENTS,
+                        ActiveCollisionTypes::STATIC_STATIC,
                         Collider::cuboid(
-                            (head_pos_flat - wall.previous_point).length(),
-                            head_pos.y,
-                            0.1,
+                            (head_pos_flat - wall.previous_point).length() / 2.0,
+                            head_pos.y / 2.0,
+                            0.1 / 2.0,
                         ),
                     ))
                     .add_rollback()
@@ -635,26 +662,32 @@ fn handle_missiles(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
     mut boss_health: Query<&mut BossHealth>,
-    spatial_query: SpatialQuery,
+    spatial_query: Res<RapierContext>,
 ) {
     for (t, e) in spell_objs.iter() {
         // Spell is hitscan, so raycast to find what the spell hits.
         let mut beam_length = 50.0;
-        if let Some(target) = spatial_query.cast_ray(
+
+        if let Some((target, toi)) = spatial_query.cast_ray(
             t.translation,
-            t.forward(),
+            t.forward().into(),
             beam_length,
             true,
-            SpatialQueryFilter::from_mask([PhysLayer::Terrain, PhysLayer::Boss]),
+            QueryFilter::new().groups(CollisionGroups {
+                memberships: PhysLayer::PlayerProjectile.into(),
+                filters: Group::NONE
+                    .union(PhysLayer::Boss.into())
+                    .union(PhysLayer::Terrain.into()),
+            }),
         ) {
             // If we've hit the boss, damage it.
-            if let Ok(mut health) = boss_health.get_mut(target.entity) {
+            if let Ok(mut health) = boss_health.get_mut(target) {
                 // TODO change this to use the damage type we actually want to use for this.
                 if health.damage_mask.intersect(&DamageMask::FIRE) {
                     health.current -= 25.0;
                 }
             }
-            beam_length = target.time_of_impact;
+            beam_length = toi;
         };
         // Despawn SpellObj, since the spell has been handled now.
         commands.entity(e).despawn();
@@ -798,7 +831,7 @@ pub fn spawn_trajectory_indicator(
 
 fn handle_straight_laser_traj_ind(
     mut traj_ind: Query<&mut Transform, With<StraightLaserTrajInd>>,
-    spatial_query: SpatialQuery,
+    spatial_query: Res<RapierContext>,
     mut gizmos: Gizmos,
     left_eye: Query<&Transform, (With<OpenXRLeftEye>, Without<StraightLaserTrajInd>)>,
     right_eye: Query<&Transform, (With<OpenXRRightEye>, Without<StraightLaserTrajInd>)>,
@@ -822,12 +855,17 @@ fn handle_straight_laser_traj_ind(
 
     let ray_travel = match spatial_query.cast_ray(
         t.translation,
-        head_transform.forward(),
+        t.forward().into(),
         max_travel,
         true,
-        SpatialQueryFilter::from_mask([PhysLayer::Terrain, PhysLayer::Boss]),
+        QueryFilter::new().groups(CollisionGroups {
+            memberships: PhysLayer::PlayerProjectile.into(),
+            filters: Group::NONE
+                .union(PhysLayer::Boss.into())
+                .union(PhysLayer::Terrain.into()),
+        }),
     ) {
-        Some(ray_hit) => ray_hit.time_of_impact,
+        Some((_, toi)) => toi,
         None => max_travel,
     };
     gizmos.line(

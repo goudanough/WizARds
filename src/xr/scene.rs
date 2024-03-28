@@ -18,7 +18,7 @@ use bevy_oxr::{
     },
     XrEvents,
 };
-use bevy_xpbd_3d::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 use crate::{oxr, PhysLayer};
 
@@ -378,7 +378,7 @@ fn init_world_mesh(
 
         // Here we spawn our mesh that represents the room
         commands.spawn((
-            AsyncCollider(ComputedCollider::TriMesh),
+            AsyncCollider(ComputedColliderShape::TriMesh),
             PbrBundle {
                 mesh: meshes.add(bevy_mesh),
                 material: materials.add(Color::rgba(0.0, 0.0, 0.0, 0.0)),
@@ -398,8 +398,13 @@ fn init_world_mesh(
                 },
                 ..default()
             },
-            CollisionLayers::new(PhysLayer::Terrain, LayerMask::ALL),
-            RigidBody::Static,
+            RigidBody::Fixed,
+            ActiveEvents::COLLISION_EVENTS,
+            ActiveCollisionTypes::STATIC_STATIC,
+            CollisionGroups {
+                memberships: PhysLayer::Terrain.into(),
+                filters: Group::all(),
+            },
         ));
     } else {
         todo!("Fall back to regular scene API when XR_META_spatial_entity_mesh not available")

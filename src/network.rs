@@ -6,7 +6,7 @@ use bevy_oxr::xr_input::{
     hands::{common::HandsResource, HandBone},
     trackers::{OpenXRLeftEye, OpenXRRightEye, OpenXRTracker},
 };
-use bevy_xpbd_3d::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 use crate::{player, spell_control::QueuedSpell, PhysLayer, PlayerInput, WizGgrsConfig, FPS};
 
@@ -180,12 +180,14 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
     for i in 0..args.players.len() {
         commands
             .spawn((
-                RigidBody::Kinematic,
-                Collider::sphere(0.1),
-                CollisionLayers::new(
-                    PhysLayer::Player,
-                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
-                ),
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::STATIC_STATIC,
+                Collider::ball(0.1),
+                CollisionGroups {
+                    memberships: PhysLayer::Player.into(),
+                    filters: Group::all().difference(PhysLayer::PlayerProjectile.into()),
+                },
                 TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerHead,
@@ -194,12 +196,14 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
             .add_rollback();
         commands
             .spawn((
-                RigidBody::Kinematic,
-                Collider::sphere(0.1),
-                CollisionLayers::new(
-                    PhysLayer::Player,
-                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
-                ),
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::STATIC_STATIC,
+                Collider::ball(0.1),
+                CollisionGroups {
+                    memberships: PhysLayer::Player.into(),
+                    filters: Group::all().difference(PhysLayer::PlayerProjectile.into()),
+                },
                 TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerLeftPalm,
@@ -207,12 +211,14 @@ fn spawn_networked_player_objs(mut commands: Commands, args: Res<ConnectionArgs>
             .add_rollback();
         commands
             .spawn((
-                RigidBody::Kinematic,
-                Collider::sphere(0.1),
-                CollisionLayers::new(
-                    PhysLayer::Player,
-                    LayerMask::ALL ^ PhysLayer::PlayerProjectile,
-                ),
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveCollisionTypes::STATIC_STATIC,
+                Collider::ball(0.1),
+                CollisionGroups {
+                    memberships: PhysLayer::Player.into(),
+                    filters: Group::all().difference(PhysLayer::PlayerProjectile.into()),
+                },
                 TransformBundle { ..default() },
                 PlayerID { handle: i },
                 PlayerRightPalm,
